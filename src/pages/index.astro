@@ -1,5 +1,10 @@
 ---
+const netlifyContext = Astro.locals.netlify.context;
+const geo = netlifyContext.geo;
 
+const person = Astro.locals.person;
+
+Astro.response.headers.set("Content-Type", "text/html");
 ---
 
 <html lang="en">
@@ -11,5 +16,7 @@
   </head>
   <body>
     <h1>Antlur</h1>
+    <p>Geo: ${JSON.stringify(geo)}</p>
+    <p>Person: ${JSON.stringify(person)}</p>
   </body>
 </html>
