@@ -21,7 +21,7 @@ export default defineConfig({
   ],
   output: "server",
   adapter: netlify({
-    edgeMiddleware: true,
+    // edgeMiddleware: true,
   }),
   image: {
     domains: ["media.bckstg.app"],
