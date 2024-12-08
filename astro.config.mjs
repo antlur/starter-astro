@@ -26,4 +26,7 @@ export default defineConfig({
   image: {
     domains: ["media.bckstg.app"],
   },
+  experimental: {
+    svg: true,
+  },
 });
