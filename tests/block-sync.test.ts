@@ -61,3 +61,65 @@ test("refuses to overwrite an unregistered block with a matching slug", async ()
   );
   assert.equal(updated, false);
 });
+
+test("adopts only an explicitly selected unregistered block", async () => {
+  const calls: Array<{ id: string; payload: Record<string, unknown> }> = [];
+  const client = {
+    blocks: {
+      async list() {
+        return [{ id: "old-hero", slug: "hero", registry_identity: null }];
+      },
+      async create() {
+        throw new Error("create should not run when the slug is already taken");
+      },
+      async update(id: string, payload: Record<string, unknown>) {
+        calls.push({ id, payload });
+        return { id, ...payload };
+      },
+    },
+  };
+
+  assert.deepEqual(
+    await syncBlockManifests(client as unknown as BlockSyncClient, [manifest], {
+      adoptUnregisteredSlugs: ["hero"],
+    }),
+    { created: 0, updated: 1 },
+  );
+  assert.equal(calls[0].id, "old-hero");
+  assert.equal(calls[0].payload.registry_identity, manifest.registry_identity);
+  assert.deepEqual(calls[0].payload.schema, manifest.schema);
+});
+
+test("does not adopt a block registered to a different identity", async () => {
+  const client = {
+    blocks: {
+      async list() {
+        return [{ id: "owned-hero", slug: "hero", registry_identity: "another-project:hero@1" }];
+      },
+      async create() {
+        throw new Error("create should not run when the slug is already taken");
+      },
+      async update() {
+        throw new Error("a registered block owned by another project must not be updated");
+      },
+    },
+  };
+
+  await assert.rejects(
+    () => syncBlockManifests(client as unknown as BlockSyncClient, [manifest], {
+      adoptUnregisteredSlugs: ["hero"],
+    }),
+    /already owned by another-project:hero@1/,
+  );
+});
+
+test("rejects adoption slugs without a local manifest", async () => {
+  const client = { blocks: { async list() { return []; } } };
+
+  await assert.rejects(
+    () => syncBlockManifests(client as unknown as BlockSyncClient, [manifest], {
+      adoptUnregisteredSlugs: ["not-in-starter"],
+    }),
+    /no matching block manifest/,
+  );
+});

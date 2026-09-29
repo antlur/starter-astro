@@ -1,4 +1,7 @@
 import { BackstageClient } from "@antlur/backstage";
+import contactFormManifest from "../../../blocks/contact-form/manifest.json";
+import heroManifest from "../../../blocks/hero/manifest.json";
+import richTextManifest from "../../../blocks/rich-text/manifest.json";
 import { attachBackstageForms } from "./forms";
 
 export interface HeadlessBlock {
@@ -62,6 +65,68 @@ export interface SiteContent {
   site: HeadlessWebsite;
   pages: HeadlessPage[];
 }
+
+export interface EditableBlockDefinition {
+  slug: string;
+  registry_identity?: string | null;
+  schema?: { fields?: Array<{ slug: string }> };
+}
+
+const starterBlockManifests = [contactFormManifest, heroManifest, richTextManifest];
+
+export const assertPageBlockDefinitions = (
+  pages: HeadlessPage[],
+  customBlocksEnabled: boolean,
+  definitions: EditableBlockDefinition[],
+): void => {
+  const blockTypes = [...new Set(pages.flatMap((page) => page.blocks.map((block) => block.type)))];
+
+  if (blockTypes.length === 0) return;
+
+  if (!customBlocksEnabled) {
+    throw new Error(
+      "This Headless site has page blocks, but CMS Custom Blocks is disabled for the Backstage account. " +
+      "Enable that module before building so the blocks remain editable in Backstage.",
+    );
+  }
+
+  const missingTypes = blockTypes.filter((type) => !definitions.some((definition) => definition.slug === type));
+
+  if (missingTypes.length > 0) {
+    throw new Error(
+      "Backstage has no synced Custom Block definition for: " + missingTypes.join(", ") + ". " +
+      "Run npm run sync:blocks for this account, then build again.",
+    );
+  }
+
+  for (const type of blockTypes) {
+    const manifest = starterBlockManifests.find((candidate) => candidate.slug === type);
+    const definition = definitions.find((candidate) => candidate.slug === type);
+
+    if (!manifest || !definition) {
+      throw new Error(`Block type "${type}" has no matching local starter manifest.`);
+    }
+
+    if (definition.registry_identity !== manifest.registry_identity) {
+      throw new Error(
+        `Backstage block "${type}" is not registered to ${manifest.registry_identity}. ` +
+        "Resolve the existing definition before syncing so the starter does not overwrite an unrelated block.",
+      );
+    }
+
+    const availableFields = new Set(definition.schema?.fields?.map((field) => field.slug) ?? []);
+    const missingFields = manifest.schema.fields
+      .map((field) => field.slug)
+      .filter((field) => !availableFields.has(field));
+
+    if (missingFields.length > 0) {
+      throw new Error(
+        `Backstage block "${type}" is missing fields from its starter manifest: ${missingFields.join(", ")}. ` +
+        "Reconcile its definition before building.",
+      );
+    }
+  }
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -199,6 +264,35 @@ const loadSiteContent = async (): Promise<SiteContent> => {
   }
 
   const normalizedPages = pages.map(normalizePage);
+
+  if (normalizedPages.some((page) => page.blocks.length > 0)) {
+    let customBlocksEnabled: boolean;
+
+    try {
+      customBlocksEnabled = await client.modules.isEnabled("cms.custom_blocks");
+    } catch (error) {
+      throw new Error(
+        "Could not verify CMS Custom Blocks in Backstage. Check that the API token can read account modules.",
+        { cause: error },
+      );
+    }
+
+    let definitions: EditableBlockDefinition[] = [];
+
+    if (customBlocksEnabled) {
+      try {
+        // The API returns registry_identity; the published SDK type has not caught up yet.
+        definitions = await client.blocks.list() as EditableBlockDefinition[];
+      } catch (error) {
+        throw new Error(
+          "Could not read Custom Block definitions from Backstage. Check that the API token can read account blocks.",
+          { cause: error },
+        );
+      }
+    }
+
+    assertPageBlockDefinitions(normalizedPages, customBlocksEnabled, definitions);
+  }
 
   return {
     site: normalizeWebsite(websites[0]),

@@ -28,6 +28,10 @@ type SyncPayload = {
 
 export type BlockSyncClient = Pick<BackstageClient, "blocks">;
 
+export interface BlockSyncOptions {
+  adoptUnregisteredSlugs?: string[];
+}
+
 const identityPattern = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*@[1-9][0-9]*$/;
 
 function statusOf(error: unknown): number | undefined {
@@ -63,8 +67,21 @@ function validateManifests(manifests: BlockManifest[]): void {
   }
 }
 
-export async function syncBlockManifests(client: BlockSyncClient, manifests: BlockManifest[]) {
+export async function syncBlockManifests(
+  client: BlockSyncClient,
+  manifests: BlockManifest[],
+  options: BlockSyncOptions = {},
+) {
   validateManifests(manifests);
+  const adoptUnregisteredSlugs = new Set(options.adoptUnregisteredSlugs ?? []);
+  const manifestSlugs = new Set(manifests.map((manifest) => manifest.slug));
+
+  for (const slug of adoptUnregisteredSlugs) {
+    if (!manifestSlugs.has(slug)) {
+      throw new Error(`Cannot adopt "${slug}" because this starter has no matching block manifest.`);
+    }
+  }
+
   let blocks = await client.blocks.list() as RegisteredBlock[];
 
   const findExisting = (manifest: BlockManifest): RegisteredBlock | undefined => {
@@ -75,15 +92,20 @@ export async function syncBlockManifests(client: BlockSyncClient, manifests: Blo
     }
 
     const existing = matches[0];
-    const slugOwner = blocks.find((block) => block.slug === manifest.slug && block.id !== existing?.id);
-
-    if (slugOwner) {
-      const owner = slugOwner.registry_identity ?? `unregistered block ${slugOwner.id}`;
-      throw new Error(`Slug "${manifest.slug}" is already owned by ${owner}. Refusing to overwrite it.`);
-    }
 
     if (existing && existing.slug !== manifest.slug) {
       throw new Error(`Cannot rename "${manifest.registry_identity}" from "${existing.slug}"; authored pages may reference its slug.`);
+    }
+
+    const slugOwner = blocks.find((block) => block.slug === manifest.slug && block.id !== existing?.id);
+
+    if (slugOwner) {
+      if (!slugOwner.registry_identity && adoptUnregisteredSlugs.has(manifest.slug)) {
+        return slugOwner;
+      }
+
+      const owner = slugOwner.registry_identity ?? `unregistered block ${slugOwner.id}`;
+      throw new Error(`Slug "${manifest.slug}" is already owned by ${owner}. Refusing to overwrite it.`);
     }
 
     return existing;

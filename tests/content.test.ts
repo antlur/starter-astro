@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { getPageBySlug, normalizePage, normalizeWebsite } from "../src/lib/backstage/content";
+import {
+  assertPageBlockDefinitions,
+  getPageBySlug,
+  normalizePage,
+  normalizeWebsite,
+} from "../src/lib/backstage/content";
 import { attachBackstageForms, normalizeFormDefinition } from "../src/lib/backstage/forms";
 import { sanitizeRichText } from "../src/lib/sanitize-rich-text";
 
@@ -97,6 +102,81 @@ test("normalizes empty PHP-serialized Headless fields to an object", () => {
   });
 
   assert.deepEqual(page.blocks[0].fields, {});
+});
+
+test("requires Custom Blocks to be enabled before building pages with blocks", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
+  });
+
+  assert.throws(
+    () => assertPageBlockDefinitions([page], false, []),
+    /CMS Custom Blocks is disabled.*remain editable in Backstage/,
+  );
+});
+
+test("requires a synced account definition for every Headless page block", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
+  });
+
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, [{ slug: "rich-text" }]),
+    /no synced Custom Block definition for: hero.*npm run sync:blocks/,
+  );
+});
+
+test("requires a matching registry identity for the starter block", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
+  });
+
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, [{ slug: "hero", registry_identity: null }]),
+    /not registered to starter-astro:hero@1/,
+  );
+});
+
+test("requires the account block schema to include every starter manifest field", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
+  });
+
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, [{
+      slug: "hero",
+      registry_identity: "starter-astro:hero@1",
+      schema: { fields: [{ slug: "heading" }] },
+    }]),
+    /missing fields from its starter manifest: variant, eyebrow, body, image, imageAlt, actions/,
+  );
+});
+
+test("accepts pages when every used block has a synced account definition", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
+  });
+
+  assert.doesNotThrow(() => assertPageBlockDefinitions([page], true, [{
+    slug: "hero",
+    registry_identity: heroManifest.registry_identity,
+    schema: { fields: heroManifest.schema.fields.map(({ slug }: { slug: string }) => ({ slug })) },
+  }]));
 });
 
 test("normalizes the generic Backstage website response", () => {

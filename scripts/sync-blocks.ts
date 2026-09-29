@@ -33,5 +33,27 @@ const manifests = await Promise.all(
   manifestPaths.map(async (path) => JSON.parse(await readFile(path, "utf8")) as BlockManifest),
 );
 
-const result = await syncBlockManifests(new BackstageClient(), manifests);
+const client = new BackstageClient();
+
+if (!(await client.modules.isEnabled("cms.custom_blocks"))) {
+  throw new Error("Enable the CMS Custom Blocks module for BACKSTAGE_ACCOUNT_ID before syncing block manifests.");
+}
+
+const adoptUnregisteredSlugs = process.argv.slice(2).flatMap((argument) => {
+  const prefix = "--adopt-unregistered=";
+
+  if (!argument.startsWith(prefix)) {
+    throw new Error(`Unknown block sync argument: ${argument}`);
+  }
+
+  const slug = argument.slice(prefix.length).trim();
+
+  if (!slug) {
+    throw new Error("Provide a block slug with --adopt-unregistered=<slug>.");
+  }
+
+  return [slug];
+});
+
+const result = await syncBlockManifests(client, manifests, { adoptUnregisteredSlugs });
 console.log(`Block sync complete: ${result.created} created, ${result.updated} updated.`);
