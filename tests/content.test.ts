@@ -5,6 +5,7 @@ import { getPageBySlug, normalizePage, normalizeWebsite } from "../src/lib/backs
 import { sanitizeRichText } from "../src/lib/sanitize-rich-text";
 
 const heroManifest = JSON.parse(readFileSync(new URL("../blocks/hero/manifest.json", import.meta.url), "utf8"));
+const richTextManifest = JSON.parse(readFileSync(new URL("../blocks/rich-text/manifest.json", import.meta.url), "utf8"));
 
 test("Hero manifest exposes the fields used by its Astro renderer", () => {
   const fields = heroManifest.schema.fields;
@@ -23,6 +24,14 @@ test("Hero manifest exposes the fields used by its Astro renderer", () => {
   assert.equal(fieldBySlug.variant.placeholder, "Default (automatic)");
   assert.deepEqual(fieldBySlug.actions.fields.map((field: { slug: string }) => field.slug), ["label", "href"]);
   assert.equal(heroManifest.derived_from, "backstage:hero@1");
+});
+
+test("Rich Text manifest exposes the fields used by its Astro renderer", () => {
+  const fields = richTextManifest.schema.fields;
+
+  assert.equal(richTextManifest.registry_identity, "starter-astro:rich-text@1");
+  assert.deepEqual(fields.map((field: { slug: string }) => field.slug), ["eyebrow", "heading", "body"]);
+  assert.equal(fields.find((field: { slug: string }) => field.slug === "body").type, "rich_text");
 });
 
 test("accepts the Backstage Headless page and block response shape", () => {

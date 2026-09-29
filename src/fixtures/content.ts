@@ -72,6 +72,15 @@ export const fixtureContent: SiteContent = {
             actions: [{ label: "Back home", href: "/" }],
           },
         },
+        {
+          id: "fixture-about-content",
+          type: "rich-text",
+          fields: {
+            eyebrow: "Our approach",
+            heading: "Good coffee starts with good choices.",
+            body: "<p>We work with growers and makers who care about the details, then bring those details to the neighborhood.</p>",
+          },
+        },
       ],
     },
   ],

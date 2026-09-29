@@ -8,7 +8,7 @@ interface Props {
 
 const { page } = Astro.props;
 const primaryHeadingIndex = page.blocks.findIndex(
-  (block) => block.type === "hero" && typeof block.fields.heading === "string" && block.fields.heading.trim() !== "",
+  (block) => typeof block.fields.heading === "string" && block.fields.heading.trim() !== "",
 );
 ---
 

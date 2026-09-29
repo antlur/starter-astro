@@ -1,5 +1,6 @@
 ---
 import Hero from "../blocks/Hero.astro";
+import RichText from "../blocks/RichText.astro";
 import type { HeadlessBlock } from "../lib/backstage/content";
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 const { block, isPrimary = false } = Astro.props;
 const registry = {
   hero: Hero,
+  "rich-text": RichText,
 } as const;
 
 const Component = registry[block.type as keyof typeof registry];
