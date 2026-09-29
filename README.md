@@ -22,7 +22,7 @@ Set BACKSTAGE_SOURCE=api, BACKSTAGE_API_KEY, BACKSTAGE_ACCOUNT_ID, and optionall
 
 The starter reads the generic Websites and Pages endpoints through @antlur/backstage. It does not use Frontstage endpoints. For now, an account must have exactly one website because the SDK Pages method does not yet filter pages by website. Page blocks must use the Headless shape with id, type, optional variant, and fields. A mismatch stops the build with an actionable error rather than silently dropping content.
 
-The CMS is not the route registry. Add each public path and its Backstage page slug to src/site/routes.ts. Only those routes are generated; this keeps application-owned routing explicit and prevents unreviewed CMS pages from becoming public automatically. Add matching links in src/site/navigation.ts.
+The CMS is not the route registry. Add each public path, Backstage page slug, and optional navigation label to src/site/routes.ts. Only those routes are generated; this keeps application-owned routing explicit and prevents unreviewed CMS pages from becoming public automatically. Navigation is derived from this route manifest.
 
 ## Blocks and layouts
 
@@ -33,6 +33,8 @@ The Hero block is a working example with default and full-bleed-image variants. 
 ## Search indexing
 
 The default build is noindex and robots.txt disallows crawling. This is suitable for local previews and unpublished environments.
+
+Netlify Deploy Previews and branch deploys use fixture content and stay noindex. Before enabling production deploys, configure BACKSTAGE_SOURCE=api, BACKSTAGE_API_KEY, BACKSTAGE_ACCOUNT_ID, SITE_URL, and SITE_INDEXABLE=true in the production build environment. Keep secrets in Netlify's environment settings, not netlify.toml.
 
 For a production build, set SITE_URL to the final HTTPS origin and SITE_INDEXABLE=true. This enables canonical and Open Graph URLs, an XML sitemap, and crawlable robots.txt. The build fails if indexing is enabled without an HTTPS URL. Do not enable indexing for preview deployments.
 
