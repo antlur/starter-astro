@@ -1,5 +1,6 @@
 ---
 import Hero from "../blocks/Hero.astro";
+import ContactForm from "../blocks/ContactForm.astro";
 import RichText from "../blocks/RichText.astro";
 import type { HeadlessBlock } from "../lib/backstage/content";
 
@@ -11,6 +12,7 @@ interface Props {
 const { block, isPrimary = false } = Astro.props;
 const registry = {
   hero: Hero,
+  "contact-form": ContactForm,
   "rich-text": RichText,
 } as const;
 

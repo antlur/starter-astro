@@ -28,11 +28,13 @@ The CMS is not the route registry. Add each public path, Backstage page slug, an
 
 There is one Astro component per block in src/blocks and one shared site layout in src/layouts/SiteLayout.astro. Register each block in src/components/BlockRenderer.astro. An unregistered block or unsupported variant fails the build until its renderer is implemented.
 
-Hero and Rich Text are working block examples. Hero supports default and full-bleed-image variants. Both blocks sanitize rich-text fields before rendering; do not pass CMS HTML directly to set:html.
+Hero, Rich Text, and Contact Form are working block examples. Hero supports default and full-bleed-image variants. The Contact Form block selects an existing Backstage form, reads its configured fields during the static build, and submits to Backstage's existing public form endpoint. It supports configured field types, file uploads, inline success/error messages, and reCAPTCHA v3 when the form definition includes a site key. Editorial blocks sanitize rich-text fields before rendering; do not pass CMS HTML directly to set:html.
 
 Block schemas for Backstage's headless editor live in blocks/<slug>/manifest.json. After enabling the CMS Custom Blocks module for the account, run npm run sync:blocks using an account token that can manage blocks. Keep this write-capable token separate from the read-only token used by API builds. The sync script uses the SDK client and account-scoped block list to create or update the matching block safely. npm test checks that block manifests stay aligned with the starter's renderers. For local Backstage certificates, use NODE_TLS_REJECT_UNAUTHORIZED=1 NODE_OPTIONS=--use-system-ca npm run sync:blocks; do not disable TLS verification.
 
 For a new account, first enable Headless rendering and CMS Custom Blocks, then sync the manifests. A page can render in Astro even when its block definition has not been synced, but Backstage will show that block as unknown until the definition is available to the account.
+
+To use a Contact Form block, create and configure its fields in Backstage, sync the block manifest, then select the existing form in the block editor. Older forms without configured fields need field definitions before they can be rendered. The public reCAPTCHA site key is read from Backstage; register each production hostname with the matching reCAPTCHA configuration. The secret API token is only used during the build and is never sent to site visitors.
 
 ## Search indexing
 

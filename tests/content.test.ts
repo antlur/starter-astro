@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { getPageBySlug, normalizePage, normalizeWebsite } from "../src/lib/backstage/content";
+import { attachBackstageForms, normalizeFormDefinition } from "../src/lib/backstage/forms";
 import { sanitizeRichText } from "../src/lib/sanitize-rich-text";
 
 const heroManifest = JSON.parse(readFileSync(new URL("../blocks/hero/manifest.json", import.meta.url), "utf8"));
 const richTextManifest = JSON.parse(readFileSync(new URL("../blocks/rich-text/manifest.json", import.meta.url), "utf8"));
+const contactFormManifest = JSON.parse(readFileSync(new URL("../blocks/contact-form/manifest.json", import.meta.url), "utf8"));
+const blockRendererSource = readFileSync(new URL("../src/components/BlockRenderer.astro", import.meta.url), "utf8");
 
 test("Hero manifest exposes the fields used by its Astro renderer", () => {
   const fields = heroManifest.schema.fields;
@@ -32,6 +35,25 @@ test("Rich Text manifest exposes the fields used by its Astro renderer", () => {
   assert.equal(richTextManifest.registry_identity, "starter-astro:rich-text@1");
   assert.deepEqual(fields.map((field: { slug: string }) => field.slug), ["eyebrow", "heading", "body"]);
   assert.equal(fields.find((field: { slug: string }) => field.slug === "body").type, "rich_text");
+});
+
+test("Contact Form manifest selects an existing Backstage form instead of defining fields", () => {
+  const fields = contactFormManifest.schema.fields;
+  const formField = fields.find((field: { slug: string }) => field.slug === "form_id");
+
+  assert.equal(contactFormManifest.registry_identity, "starter-astro:contact-form@1");
+  assert.equal(formField.type, "form_select");
+  assert.equal(fields.some((field: { slug: string }) => field.slug === "fields"), false);
+});
+
+test("every block manifest has a registered Astro renderer", () => {
+  const rendererKeys = new Set(
+    Array.from(blockRendererSource.matchAll(/^\s*["']?([\w-]+)["']?\s*:/gm), (match) => match[1]),
+  );
+
+  for (const manifest of [heroManifest, richTextManifest, contactFormManifest]) {
+    assert.ok(rendererKeys.has(manifest.slug), `Missing renderer for ${manifest.slug}`);
+  }
 });
 
 test("accepts the Backstage Headless page and block response shape", () => {
@@ -79,6 +101,105 @@ test("normalizes the generic Backstage website response", () => {
   assert.equal(site.name, "Fieldwork Coffee");
   assert.equal(site.openGraph?.image, "https://example.test/og.jpg");
   assert.equal(site.logo?.width, 180);
+});
+
+test("normalizes Backstage form fields and compatible phone fields", () => {
+  const form = normalizeFormDefinition({
+    data: {
+      id: "form-1",
+      title: "Contact",
+      action: "https://backstage.example.test/api/wa/forms/form-1",
+      recaptcha_site_key: "public-site-key",
+      fields: [
+        { id: "field-1", name: null, label: "Email Address", type: "email", required: true, options: [] },
+        { id: "field-2", name: "phone_number", label: "Phone", type: "phone", required: false, options: [] },
+        { id: "field-3", name: "interest", label: "Interest", type: "select", required: true, options: ["General", { label: "Catering", value: "catering" }] },
+      ],
+    },
+  }, "form-1");
+
+  assert.equal(form.title, "Contact");
+  assert.equal(form.recaptchaSiteKey, "public-site-key");
+  assert.equal(form.fields[0].name, "email_address");
+  assert.equal(form.fields[1].type, "tel");
+  assert.deepEqual(form.fields[2].options, [
+    { label: "General", value: "General" },
+    { label: "Catering", value: "catering" },
+  ]);
+});
+
+test("resolves each referenced Backstage form once and attaches it to contact blocks", async () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Contact",
+    slug: "contact",
+    blocks: [
+      { id: "block-1", type: "contact-form", fields: { form_id: "form/one" } },
+      { id: "block-2", type: "contact-form", fields: { form_id: "form/one" } },
+    ],
+  });
+  const requests: string[] = [];
+  const reader = {
+    async get<T>(url: string): Promise<T> {
+      requests.push(url);
+      return {
+        data: {
+          id: "form/one",
+          title: "Contact",
+          action: "https://backstage.example.test/api/wa/forms/form-one",
+          fields: [{ id: "name", label: "Name", type: "text", required: true, options: [] }],
+        },
+      } as T;
+    },
+  };
+
+  const pages = await attachBackstageForms([page], reader);
+
+  assert.deepEqual(requests, ["/forms/form%2Fone"]);
+  assert.equal(pages[0].blocks[0].form?.title, "Contact");
+  assert.equal(pages[0].blocks[1].form?.fields[0].name, "name");
+});
+
+test("fails clearly when a selected Backstage form has no configured fields", () => {
+  assert.throws(
+    () => normalizeFormDefinition({
+      data: {
+        id: "form-empty",
+        title: "Legacy form",
+        action: "https://backstage.example.test/api/wa/forms/form-empty",
+        fields: [],
+      },
+    }, "form-empty"),
+    /has no configured fields/,
+  );
+});
+
+test("rejects a non-web form submission URL", () => {
+  assert.throws(
+    () => normalizeFormDefinition({
+      data: {
+        id: "form-unsafe",
+        title: "Unsafe form",
+        action: "javascript:alert(1)",
+        fields: [{ id: "field-1", label: "Name", type: "text", required: false, options: [] }],
+      },
+    }, "form-unsafe"),
+    /invalid submission URL/,
+  );
+});
+
+test("requires Contact Form blocks to select an existing Backstage form", async () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Contact",
+    slug: "contact",
+    blocks: [{ id: "block-1", type: "contact-form", fields: {} }],
+  });
+
+  await assert.rejects(
+    () => attachBackstageForms([page], { async get<T>() { return null as T; } }),
+    /must select an existing Backstage form/,
+  );
 });
 
 test("fails when a route slug maps to more than one page", () => {

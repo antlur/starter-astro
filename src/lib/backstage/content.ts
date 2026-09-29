@@ -1,10 +1,29 @@
 import { BackstageClient } from "@antlur/backstage";
+import { attachBackstageForms } from "./forms";
 
 export interface HeadlessBlock {
   id: string;
   type: string;
   variant?: string | null;
   fields: Record<string, unknown>;
+  form?: BackstageFormDefinition;
+}
+
+export interface BackstageFormDefinition {
+  id: string;
+  title: string;
+  action: string;
+  recaptchaSiteKey: string | null;
+  fields: BackstageFormField[];
+}
+
+export interface BackstageFormField {
+  id: string;
+  name: string;
+  label: string;
+  type: "text" | "email" | "tel" | "textarea" | "date" | "number" | "select" | "checkbox" | "radio" | "file" | "url";
+  required: boolean;
+  options: Array<{ label: string; value: string }>;
 }
 
 export interface HeadlessPage {
@@ -173,9 +192,11 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     throw new Error("Backstage did not return a pages collection.");
   }
 
+  const normalizedPages = pages.map(normalizePage);
+
   return {
     site: normalizeWebsite(websites[0]),
-    pages: pages.map(normalizePage),
+    pages: await attachBackstageForms(normalizedPages, client),
   };
 };
 
