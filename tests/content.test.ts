@@ -88,6 +88,17 @@ test("rejects legacy rendered blocks with a rendering-mode hint", () => {
   );
 });
 
+test("normalizes empty PHP-serialized Headless fields to an object", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    blocks: [{ id: "block-1", type: "decorative-rule", variant: null, fields: [] }],
+  });
+
+  assert.deepEqual(page.blocks[0].fields, {});
+});
+
 test("normalizes the generic Backstage website response", () => {
   const site = normalizeWebsite({
     app_name: "Fieldwork",

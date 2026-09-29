@@ -79,7 +79,13 @@ export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
   }
 
   const blocks = value.blocks.map((candidate, blockIndex): HeadlessBlock => {
-    if (!isRecord(candidate) || typeof candidate.id !== "string" || typeof candidate.type !== "string" || !isRecord(candidate.fields)) {
+    const fields = isRecord(candidate?.fields)
+      ? candidate.fields
+      : Array.isArray(candidate?.fields) && candidate.fields.length === 0
+        ? {}
+        : null;
+
+    if (!isRecord(candidate) || typeof candidate.id !== "string" || typeof candidate.type !== "string" || !fields) {
       throw new Error(
         "Page " + value.slug + " block " + blockIndex + " is not in the Headless block shape. " +
         "Set the account rendering mode to Headless and use account blocks with a fields object."
@@ -90,7 +96,7 @@ export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
       id: candidate.id,
       type: candidate.type,
       variant: optionalString(candidate.variant),
-      fields: candidate.fields,
+      fields,
     };
   });
 
