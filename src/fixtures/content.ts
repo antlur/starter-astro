@@ -24,6 +24,7 @@ export const fixtureContent: SiteContent = {
       id: "fixture-home",
       title: "Coffee for the everyday",
       slug: "/",
+      pathname: "/",
       is_home: true,
       meta: {
         title: "Coffee for the everyday",
@@ -51,6 +52,7 @@ export const fixtureContent: SiteContent = {
       id: "fixture-about",
       title: "A little more about us",
       slug: "about",
+      pathname: "/about",
       is_home: false,
       meta: {
         title: "About Fieldwork Coffee",
@@ -83,5 +85,10 @@ export const fixtureContent: SiteContent = {
         },
       ],
     },
+  ],
+  routePaths: ["/", "/about"],
+  navigation: [
+    { id: "fixture-home-link", text: "Home", url: "/", newWindow: false, children: [] },
+    { id: "fixture-about-link", text: "About", url: "/about/", newWindow: false, children: [] },
   ],
 };

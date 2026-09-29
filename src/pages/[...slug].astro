@@ -2,26 +2,29 @@
 import PageContent from "../components/PageContent.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { getSiteContent } from "../lib/backstage/content";
-import { getPageForRoute, siteRoutes } from "../site/routes";
+import { applicationRoutePaths, buildSiteRoutePlan, reportUnhandledRoutes } from "../site/routes";
 
 export const getStaticPaths = async () => {
   const content = await getSiteContent();
+  const routePlan = buildSiteRoutePlan(content, applicationRoutePaths);
+  reportUnhandledRoutes(routePlan.unhandledPaths, import.meta.env.SITE_INDEXABLE === "true");
 
-  return siteRoutes
-    .filter((route) => route.path !== "/")
-    .map((route) => ({
-      params: { slug: route.path.replace(/^\/|\/$/g, "") },
+  return routePlan.cmsPages
+    .filter(({ path }) => path !== "/")
+    .map(({ path, page }) => ({
+      params: { slug: path.replace(/^\/|\/$/g, "") },
       props: {
-        page: getPageForRoute(content, route),
+        page,
         site: content.site,
-        pathname: route.path,
+        pathname: path,
+        navigation: routePlan.navigation,
       },
     }));
 };
 
-const { page, site, pathname } = Astro.props;
+const { page, site, pathname, navigation } = Astro.props;
 ---
 
-<SiteLayout page={page} site={site} pathname={pathname}>
+<SiteLayout page={page} site={site} pathname={pathname} navigation={navigation}>
   <PageContent page={page} />
 </SiteLayout>

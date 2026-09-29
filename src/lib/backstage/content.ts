@@ -33,12 +33,21 @@ export interface HeadlessPage {
   id: string;
   title: string;
   slug: string;
+  pathname: string;
   is_home: boolean;
   meta?: {
     title?: string | null;
     description?: string | null;
   } | null;
   blocks: HeadlessBlock[];
+}
+
+export interface SiteNavigationItem {
+  id: string;
+  text: string;
+  url: string;
+  newWindow: boolean;
+  children: SiteNavigationItem[];
 }
 
 export interface HeadlessWebsite {
@@ -64,6 +73,8 @@ export interface HeadlessWebsite {
 export interface SiteContent {
   site: HeadlessWebsite;
   pages: HeadlessPage[];
+  routePaths: string[];
+  navigation: SiteNavigationItem[];
 }
 
 export interface EditableBlockDefinition {
@@ -135,7 +146,13 @@ const optionalString = (value: unknown): string | null =>
   typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 
 export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
-  if (!isRecord(value) || typeof value.id !== "string" || typeof value.title !== "string" || typeof value.slug !== "string") {
+  if (
+    !isRecord(value)
+    || typeof value.id !== "string"
+    || typeof value.title !== "string"
+    || typeof value.slug !== "string"
+    || typeof value.pathname !== "string"
+  ) {
     throw new Error("Backstage returned an invalid page at index " + index + ".");
   }
 
@@ -171,6 +188,7 @@ export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
     id: value.id,
     title: value.title,
     slug: value.slug,
+    pathname: value.pathname,
     is_home: value.is_home === true,
     meta: meta
       ? {
@@ -180,6 +198,59 @@ export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
       : null,
     blocks,
   };
+};
+
+const normalizeNavigationUrl = (value: unknown): string => {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error("Backstage navigation contains an item without a URL.");
+  }
+
+  const url = value.trim();
+
+  if (url.startsWith("#")) return url;
+
+  if (url.startsWith("/") && !url.startsWith("//")) {
+    const parsed = new URL(url, "https://backstage.invalid");
+    const path = parsed.pathname === "/" ? "/" : `/${parsed.pathname.split("/").filter(Boolean).join("/")}/`;
+
+    return path + parsed.search + parsed.hash;
+  }
+
+  try {
+    const parsed = new URL(url);
+
+    if (["http:", "https:", "mailto:", "tel:"].includes(parsed.protocol)) return url;
+  } catch {
+    // Invalid URL values are rejected by the common error below.
+  }
+
+  throw new Error("Backstage navigation contains an unsupported URL: " + url);
+};
+
+const normalizeNavigationItem = (value: unknown): SiteNavigationItem => {
+  if (!isRecord(value) || typeof value.id !== "string" || typeof value.text !== "string") {
+    throw new Error("Backstage returned an invalid navigation item.");
+  }
+
+  if (value.children !== undefined && !Array.isArray(value.children)) {
+    throw new Error("Backstage navigation item " + value.id + " has an invalid children list.");
+  }
+
+  return {
+    id: value.id,
+    text: value.text,
+    url: normalizeNavigationUrl(value.url),
+    newWindow: value.new_window === true,
+    children: (value.children ?? []).map(normalizeNavigationItem),
+  };
+};
+
+export const normalizeNavigation = (value: unknown): SiteNavigationItem[] => {
+  if (!isRecord(value) || !Array.isArray(value.items)) {
+    throw new Error("Backstage returned an invalid navigation definition.");
+  }
+
+  return value.items.map(normalizeNavigationItem);
 };
 
 export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
@@ -251,7 +322,12 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     accountId,
   });
 
-  const [websites, pages] = await Promise.all([client.website.getWebsites(), client.pages.getPages()]);
+  const [websites, pages, routePaths, navigations] = await Promise.all([
+    client.website.getWebsites(),
+    client.pages.getPages(),
+    client.website.routes(),
+    client.navigation.list(),
+  ]);
 
   if (!Array.isArray(websites) || websites.length !== 1) {
     throw new Error(
@@ -264,6 +340,23 @@ const loadSiteContent = async (): Promise<SiteContent> => {
   }
 
   const normalizedPages = pages.map(normalizePage);
+
+  const requestedNavigationId = import.meta.env.BACKSTAGE_NAVIGATION_ID?.trim();
+  let navigation: SiteNavigationItem[];
+
+  if (requestedNavigationId) {
+    if (!navigations.some((candidate) => candidate.id === requestedNavigationId)) {
+      throw new Error("BACKSTAGE_NAVIGATION_ID does not match a navigation in this account.");
+    }
+
+    navigation = normalizeNavigation(await client.navigation.getNavigation(requestedNavigationId));
+  } else if (navigations.length > 1) {
+    throw new Error("This account has multiple navigations. Set BACKSTAGE_NAVIGATION_ID to choose one.");
+  } else if (navigations.length === 1) {
+    navigation = normalizeNavigation(await client.navigation.getNavigation(navigations[0].id));
+  } else {
+    navigation = [];
+  }
 
   if (normalizedPages.some((page) => page.blocks.length > 0)) {
     let customBlocksEnabled: boolean;
@@ -297,6 +390,16 @@ const loadSiteContent = async (): Promise<SiteContent> => {
   return {
     site: normalizeWebsite(websites[0]),
     pages: await attachBackstageForms(normalizedPages, client),
+    routePaths,
+    navigation: navigation.length > 0
+      ? navigation
+      : normalizedPages.map((page) => ({
+          id: page.id,
+          text: page.title,
+          url: normalizeNavigationUrl(page.pathname),
+          newWindow: false,
+          children: [],
+        })),
   };
 };
 

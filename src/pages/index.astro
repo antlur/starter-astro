@@ -2,11 +2,13 @@
 import PageContent from "../components/PageContent.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { getHomePage, getSiteContent } from "../lib/backstage/content";
+import { applicationRoutePaths, buildSiteRoutePlan } from "../site/routes";
 
 const content = await getSiteContent();
+const routePlan = buildSiteRoutePlan(content, applicationRoutePaths);
 const page = getHomePage(content.pages);
 ---
 
-<SiteLayout page={page} site={content.site} pathname="/">
+<SiteLayout page={page} site={content.site} pathname="/" navigation={routePlan.navigation}>
   <PageContent page={page} />
 </SiteLayout>

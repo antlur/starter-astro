@@ -1,15 +1,15 @@
 ---
 import "../styles/globals.css";
-import { siteNavigation } from "../site/routes";
-import type { HeadlessPage, HeadlessWebsite } from "../lib/backstage/content";
+import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
 
 interface Props {
   page: HeadlessPage;
   site: HeadlessWebsite;
   pathname: string;
+  navigation: SiteNavigationItem[];
 }
 
-const { page, site, pathname } = Astro.props;
+const { page, site, pathname, navigation } = Astro.props;
 const siteTitle = site.meta?.title || site.name;
 const pageTitle = page.meta?.title || page.title;
 const title = pageTitle === siteTitle ? pageTitle : pageTitle + " | " + siteTitle;
@@ -58,9 +58,30 @@ const jsonLd = JSON.stringify(organization).replace(/</g, "\\u003c");
           : <span>{site.name}</span>}
       </a>
       <nav aria-label="Primary navigation">
-        <ul>
-          {siteNavigation.map((item) => (
-            <li><a href={item.href} aria-current={pathname === item.href ? "page" : undefined}>{item.label}</a></li>
+        <ul class="site-nav">
+          {navigation.map((item) => (
+            <li>
+              <a
+                href={item.url}
+                target={item.newWindow ? "_blank" : undefined}
+                rel={item.newWindow ? "noopener noreferrer" : undefined}
+                aria-current={pathname === item.url ? "page" : undefined}
+              >{item.text}</a>
+              {item.children.length > 0 && (
+                <ul class="site-nav-children" aria-label={item.text + " links"}>
+                  {item.children.map((child) => (
+                    <li>
+                      <a
+                        href={child.url}
+                        target={child.newWindow ? "_blank" : undefined}
+                        rel={child.newWindow ? "noopener noreferrer" : undefined}
+                        aria-current={pathname === child.url ? "page" : undefined}
+                      >{child.text}</a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
           ))}
         </ul>
       </nav>

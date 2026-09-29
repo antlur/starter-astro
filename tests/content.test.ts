@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   assertPageBlockDefinitions,
   getPageBySlug,
+  normalizeNavigation,
   normalizePage,
   normalizeWebsite,
 } from "../src/lib/backstage/content";
@@ -66,6 +67,7 @@ test("accepts the Backstage Headless page and block response shape", () => {
     id: "page-1",
     title: "Home",
     slug: "/",
+    pathname: "/",
     is_home: true,
     meta: { title: "Home title", description: "Page description" },
     blocks: [{ id: "block-1", type: "hero", variant: "default", fields: { heading: "Welcome" } }],
@@ -87,6 +89,7 @@ test("rejects legacy rendered blocks with a rendering-mode hint", () => {
       id: "page-1",
       title: "Home",
       slug: "/",
+      pathname: "/",
       blocks: [{ id: "block-1", block: "hero", data: {} }],
     }),
     /Set the account rendering mode to Headless/,
@@ -98,6 +101,7 @@ test("normalizes empty PHP-serialized Headless fields to an object", () => {
     id: "page-1",
     title: "Home",
     slug: "/",
+    pathname: "/",
     blocks: [{ id: "block-1", type: "decorative-rule", variant: null, fields: [] }],
   });
 
@@ -109,6 +113,7 @@ test("requires Custom Blocks to be enabled before building pages with blocks", (
     id: "page-1",
     title: "Home",
     slug: "/",
+    pathname: "/",
     blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
   });
 
@@ -123,6 +128,7 @@ test("requires a synced account definition for every Headless page block", () =>
     id: "page-1",
     title: "Home",
     slug: "/",
+    pathname: "/",
     blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
   });
 
@@ -137,6 +143,7 @@ test("requires a matching registry identity for the starter block", () => {
     id: "page-1",
     title: "Home",
     slug: "/",
+    pathname: "/",
     blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
   });
 
@@ -151,6 +158,7 @@ test("requires the account block schema to include every starter manifest field"
     id: "page-1",
     title: "Home",
     slug: "/",
+    pathname: "/",
     blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
   });
 
@@ -169,6 +177,7 @@ test("accepts pages when every used block has a synced account definition", () =
     id: "page-1",
     title: "Home",
     slug: "/",
+    pathname: "/",
     blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
   });
 
@@ -224,6 +233,7 @@ test("resolves each referenced Backstage form once and attaches it to contact bl
     id: "page-1",
     title: "Contact",
     slug: "contact",
+    pathname: "/contact",
     blocks: [
       { id: "block-1", type: "contact-form", fields: { form_id: "form/one" } },
       { id: "block-2", type: "contact-form", fields: { form_id: "form/one" } },
@@ -284,6 +294,7 @@ test("requires Contact Form blocks to select an existing Backstage form", async 
     id: "page-1",
     title: "Contact",
     slug: "contact",
+    pathname: "/contact",
     blocks: [{ id: "block-1", type: "contact-form", fields: {} }],
   });
 
@@ -294,9 +305,34 @@ test("requires Contact Form blocks to select an existing Backstage form", async 
 });
 
 test("fails when a route slug maps to more than one page", () => {
-  const page = normalizePage({ id: "one", title: "Page", slug: "about", blocks: [] });
+  const page = normalizePage({ id: "one", title: "Page", slug: "about", pathname: "/about", blocks: [] });
 
   assert.throws(() => getPageBySlug([page, { ...page, id: "two" }], "about"), /found 2/);
+});
+
+test("normalizes Backstage navigation and rejects unsafe link schemes", () => {
+  const navigation = normalizeNavigation({
+    items: [{
+      id: "menu-1",
+      text: "Menus",
+      url: "/menus",
+      new_window: false,
+      children: [{ id: "menu-2", text: "Dinner", url: "/menus/dinner", new_window: true }],
+    }],
+  });
+
+  assert.deepEqual(navigation, [{
+    id: "menu-1",
+    text: "Menus",
+    url: "/menus/",
+    newWindow: false,
+    children: [{ id: "menu-2", text: "Dinner", url: "/menus/dinner/", newWindow: true, children: [] }],
+  }]);
+
+  assert.throws(
+    () => normalizeNavigation({ items: [{ id: "unsafe", text: "Unsafe", url: "javascript:alert(1)" }] }),
+    /unsupported URL/,
+  );
 });
 
 test("sanitizes rich text tags and unsafe link schemes", () => {

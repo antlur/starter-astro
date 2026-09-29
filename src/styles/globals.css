@@ -87,12 +87,21 @@ button:focus-visible,
   object-fit: contain;
 }
 
-.site-header nav ul {
+.site-header nav ul.site-nav {
   display: flex;
   flex-wrap: wrap;
   gap: clamp(1rem, 3vw, 2.25rem);
   padding: 0;
   margin: 0;
+  list-style: none;
+}
+
+.site-header nav ul.site-nav-children {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.55rem 0 0;
+  padding: 0 0 0 0.85rem;
+  border-left: 1px solid var(--color-line);
   list-style: none;
 }
 
@@ -106,6 +115,11 @@ button:focus-visible,
 .site-header nav a:hover,
 .site-header nav a[aria-current="page"] {
   color: var(--color-ink);
+}
+
+.site-header nav .site-nav-children a {
+  font-size: 0.82rem;
+  font-weight: 550;
 }
 
 .site-footer {
@@ -143,7 +157,7 @@ button:focus-visible,
     width: 100%;
   }
 
-  .site-header nav ul {
+  .site-header nav ul.site-nav {
     gap: 1.25rem;
   }
 
