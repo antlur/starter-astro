@@ -241,22 +241,25 @@ test("resolves each referenced Backstage form once and attaches it to contact bl
   });
   const requests: string[] = [];
   const reader = {
-    async get<T>(url: string): Promise<T> {
-      requests.push(url);
-      return {
-        data: {
+    forms: {
+      async getFormDefinition(formId: string) {
+        requests.push(formId);
+        return {
           id: "form/one",
           title: "Contact",
+          type: "contact",
           action: "https://backstage.example.test/api/wa/forms/form-one",
-          fields: [{ id: "name", label: "Name", type: "text", required: true, options: [] }],
-        },
-      } as T;
+          redirect_url: null,
+          recaptcha_site_key: null,
+          fields: [{ id: "name", name: null, label: "Name", type: "text", required: true, options: [], order: 0 }],
+        };
+      },
     },
   };
 
   const pages = await attachBackstageForms([page], reader);
 
-  assert.deepEqual(requests, ["/forms/form%2Fone"]);
+  assert.deepEqual(requests, ["form/one"]);
   assert.equal(pages[0].blocks[0].form?.title, "Contact");
   assert.equal(pages[0].blocks[1].form?.fields[0].name, "name");
 });
@@ -299,7 +302,7 @@ test("requires Contact Form blocks to select an existing Backstage form", async 
   });
 
   await assert.rejects(
-    () => attachBackstageForms([page], { async get<T>() { return null as T; } }),
+    () => attachBackstageForms([page], { forms: { async getFormDefinition() { throw new Error("Unexpected form read"); } } }),
     /must select an existing Backstage form/,
   );
 });

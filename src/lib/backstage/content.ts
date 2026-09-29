@@ -1,4 +1,5 @@
 import { BackstageClient } from "@antlur/backstage";
+import type { AccountBlock } from "@antlur/backstage";
 import contactFormManifest from "../../../blocks/contact-form/manifest.json";
 import heroManifest from "../../../blocks/hero/manifest.json";
 import richTextManifest from "../../../blocks/rich-text/manifest.json";
@@ -77,11 +78,9 @@ export interface SiteContent {
   navigation: SiteNavigationItem[];
 }
 
-export interface EditableBlockDefinition {
-  slug: string;
-  registry_identity?: string | null;
-  schema?: { fields?: Array<{ slug: string }> };
-}
+export type EditableBlockDefinition = Pick<AccountBlock, "slug" | "registry_identity"> & {
+  schema?: { fields?: readonly { slug: string }[] };
+};
 
 const starterBlockManifests = [contactFormManifest, heroManifest, richTextManifest];
 
@@ -324,7 +323,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
 
   const [websites, pages, routePaths, navigations] = await Promise.all([
     client.website.getWebsites(),
-    client.pages.getPages(),
+    client.pages.getHeadlessPages(),
     client.website.routes(),
     client.navigation.list(),
   ]);
@@ -374,8 +373,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
 
     if (customBlocksEnabled) {
       try {
-        // The API returns registry_identity; the published SDK type has not caught up yet.
-        definitions = await client.blocks.list() as EditableBlockDefinition[];
+        definitions = await client.blocks.list();
       } catch (error) {
         throw new Error(
           "Could not read Custom Block definitions from Backstage. Check that the API token can read account blocks.",

@@ -1,7 +1,10 @@
+import type { FormDefinition } from "@antlur/backstage";
 import type { BackstageFormDefinition, BackstageFormField, HeadlessPage } from "./content";
 
 interface FormDefinitionReader {
-  get<T = unknown>(url: string, options?: RequestInit): Promise<T>;
+  forms: {
+    getFormDefinition(formId: string, options?: RequestInit): Promise<FormDefinition>;
+  };
 }
 
 const supportedFieldTypes = new Set<BackstageFormField["type"]>([
@@ -155,7 +158,7 @@ export const attachBackstageForms = async <T extends FormDefinitionReader>(
 
   await Promise.all(
     [...formIds].map(async (formId) => {
-      const response = await client.get(`/forms/${encodeURIComponent(formId)}`);
+      const response = await client.forms.getFormDefinition(formId);
       definitions.set(formId, normalizeFormDefinition(response, formId));
     }),
   );
