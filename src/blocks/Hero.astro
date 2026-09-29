@@ -9,7 +9,7 @@ interface Props {
 
 const { block, isPrimary } = Astro.props;
 const fields = block.fields;
-const variant = block.variant || "default";
+const variant = (typeof fields.variant === "string" && fields.variant) || block.variant || "default";
 
 if (!["default", "full-bleed-image"].includes(variant)) {
   throw new Error("Hero block variant is not implemented by this starter: " + variant);

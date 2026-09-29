@@ -1,7 +1,29 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { getPageBySlug, normalizePage, normalizeWebsite } from "../src/lib/backstage/content";
 import { sanitizeRichText } from "../src/lib/sanitize-rich-text";
+
+const heroManifest = JSON.parse(readFileSync(new URL("../blocks/hero/manifest.json", import.meta.url), "utf8"));
+
+test("Hero manifest exposes the fields used by its Astro renderer", () => {
+  const fields = heroManifest.schema.fields;
+  const fieldBySlug = Object.fromEntries(fields.map((field: { slug: string }) => [field.slug, field]));
+
+  assert.deepEqual(Object.keys(fieldBySlug).sort(), [
+    "actions",
+    "body",
+    "eyebrow",
+    "heading",
+    "image",
+    "imageAlt",
+    "variant",
+  ]);
+  assert.deepEqual(fieldBySlug.variant.options.map((option: { value: string }) => option.value), ["default", "full-bleed-image"]);
+  assert.equal(fieldBySlug.variant.placeholder, "Default (automatic)");
+  assert.deepEqual(fieldBySlug.actions.fields.map((field: { slug: string }) => field.slug), ["label", "href"]);
+  assert.equal(heroManifest.derived_from, "backstage:hero@1");
+});
 
 test("accepts the Backstage Headless page and block response shape", () => {
   const page = normalizePage({
