@@ -1,0 +1,22 @@
+---
+import Hero from "../blocks/Hero.astro";
+import type { HeadlessBlock } from "../lib/backstage/content";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary?: boolean;
+}
+
+const { block, isPrimary = false } = Astro.props;
+const registry = {
+  hero: Hero,
+} as const;
+
+const Component = registry[block.type as keyof typeof registry];
+
+if (!Component) {
+  throw new Error("No local block renderer is registered for Backstage block type: " + block.type);
+}
+---
+
+<Component block={block} isPrimary={isPrimary} />

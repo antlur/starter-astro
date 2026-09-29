@@ -1,0 +1,229 @@
+---
+import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import type { HeadlessBlock } from "../lib/backstage/content";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const fields = block.fields;
+const variant = block.variant || "default";
+
+if (!["default", "full-bleed-image"].includes(variant)) {
+  throw new Error("Hero block variant is not implemented by this starter: " + variant);
+}
+
+const text = (key: string): string =>
+  typeof fields[key] === "string" ? (fields[key] as string).trim() : "";
+const heading = text("heading");
+const eyebrow = text("eyebrow");
+const body = text("body") ? sanitizeRichText(text("body")) : "";
+const media = typeof fields.image === "object" && fields.image !== null ? fields.image as Record<string, unknown> : null;
+const imageUrl = typeof media?.url === "string" ? media.url : typeof fields.image === "string" ? fields.image : "";
+const imageAlt = text("imageAlt") || (typeof media?.alt === "string" ? media.alt : heading);
+const isSafeUrl = (value: string, schemes: string[]): boolean => {
+  if (value.startsWith("/") || value.startsWith("#")) {
+    return !value.startsWith("//");
+  }
+
+  try {
+    return schemes.includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+};
+const imageIsSafe = isSafeUrl(imageUrl, ["https:", "http:"]);
+const imageSrc = imageUrl && imageIsSafe ? imageUrl : "";
+const actions = Array.isArray(fields.actions)
+  ? fields.actions.filter((action): action is Record<string, unknown> =>
+      typeof action === "object" && action !== null && !Array.isArray(action)
+    )
+  : [];
+const safeActions = actions.flatMap((action) => {
+  const label = typeof action.label === "string" ? action.label.trim() : "";
+  const href = typeof action.href === "string" ? action.href.trim() : "";
+  const isSafe = isSafeUrl(href, ["http:", "https:", "mailto:", "tel:"]);
+
+  return label && href && isSafe ? [{ label, href }] : [];
+});
+const HeadingTag = isPrimary ? "h1" : "h2";
+---
+
+<section class:list={["hero", variant === "full-bleed-image" && "hero--full-bleed"]}>
+  <div class="hero__copy">
+    {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+    {heading && <HeadingTag>{heading}</HeadingTag>}
+    {body && <div class="hero__body" set:html={body} />}
+    {safeActions.length > 0 && (
+      <div class="hero__actions">
+        {safeActions.map((action) => <a class="button" href={action.href}>{action.label}</a>)}
+      </div>
+    )}
+  </div>
+  {imageSrc && (
+    <figure class="hero__media">
+      <img src={imageSrc} alt={imageAlt} width="1200" height="900" fetchpriority={isPrimary ? "high" : "auto"} />
+    </figure>
+  )}
+</section>
+
+<style>
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(18rem, 1.15fr);
+    align-items: center;
+    gap: clamp(2rem, 6vw, 6rem);
+    min-height: 31rem;
+    padding: clamp(3.5rem, 8vw, 7.5rem) max(1.5rem, calc((100vw - 74rem) / 2));
+    overflow: hidden;
+  }
+
+  .hero__copy {
+    position: relative;
+    z-index: 1;
+    max-width: 36rem;
+  }
+
+  .eyebrow {
+    margin: 0 0 1.25rem;
+    color: var(--color-accent-strong);
+    font-size: 0.78rem;
+    font-weight: 750;
+    text-transform: uppercase;
+  }
+
+  h1,
+  h2 {
+    max-width: 12ch;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 4.75rem;
+    font-weight: 560;
+    line-height: 0.98;
+    text-wrap: balance;
+  }
+
+  .hero__body {
+    max-width: 37rem;
+    margin-top: 1.5rem;
+    color: var(--color-muted);
+    font-size: 1.125rem;
+    line-height: 1.7;
+  }
+
+  .hero__body :global(p) {
+    margin: 0;
+  }
+
+  .hero__body :global(p + p) {
+    margin-top: 1rem;
+  }
+
+  .hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+
+  .button {
+    display: inline-flex;
+    min-height: 3rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.25rem;
+    border-radius: 999px;
+    background: var(--color-accent-strong);
+    color: white;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .button:hover {
+    background: var(--color-ink);
+  }
+
+  .hero__media {
+    position: relative;
+    min-height: 24rem;
+    margin: 0;
+    overflow: hidden;
+    border-radius: 1.25rem;
+    background: #dfe5de;
+  }
+
+  .hero__media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 24rem;
+    object-fit: cover;
+  }
+
+  .hero--full-bleed {
+    position: relative;
+    min-height: min(48rem, 78vh);
+    grid-template-columns: 1fr;
+    align-items: end;
+    padding-top: clamp(5rem, 14vw, 12rem);
+    color: white;
+    background: var(--color-ink);
+  }
+
+  .hero--full-bleed .hero__copy {
+    max-width: 54rem;
+  }
+
+  .hero--full-bleed .eyebrow {
+    color: #d8f28f;
+  }
+
+  .hero--full-bleed .hero__body {
+    color: rgb(255 255 255 / 0.86);
+  }
+
+  .hero--full-bleed .hero__media {
+    position: absolute;
+    inset: 0;
+    min-height: 0;
+    border-radius: 0;
+    opacity: 0.55;
+  }
+
+  .hero--full-bleed .hero__media::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, rgb(16 28 22 / 0.86), rgb(16 28 22 / 0.12));
+    content: "";
+  }
+
+  .hero--full-bleed .hero__media img {
+    min-height: 100%;
+  }
+
+  @media (max-width: 760px) {
+    h1,
+    h2 {
+      font-size: 3rem;
+    }
+
+    .hero {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      min-height: 0;
+      padding: 4rem 1.25rem;
+    }
+
+    .hero__media,
+    .hero__media img {
+      min-height: 18rem;
+    }
+
+    .hero--full-bleed {
+      min-height: 35rem;
+      align-content: end;
+    }
+  }
+</style>

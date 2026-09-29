@@ -1,15 +1,12 @@
 ---
+import PageContent from "../components/PageContent.astro";
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { getHomePage, getSiteContent } from "../lib/backstage/content";
 
+const content = await getSiteContent();
+const page = getHomePage(content.pages);
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Antlur</title>
-  </head>
-  <body>
-    <h1>Antlur</h1>
-  </body>
-</html>
+<SiteLayout page={page} site={content.site} pathname="/">
+  <PageContent page={page} />
+</SiteLayout>

@@ -1,0 +1,28 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build preview-safe site
+        run: npm run build
+        env:
+          BACKSTAGE_SOURCE: fixture
+          SITE_INDEXABLE: "false"
+      - name: Build indexable site and sitemap
+        run: npm run build
+        env:
+          BACKSTAGE_SOURCE: fixture
+          SITE_URL: https://starter.example
+          SITE_INDEXABLE: "true"
