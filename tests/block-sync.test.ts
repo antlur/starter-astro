@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { syncBlockManifests, type BlockManifest, type BlockSyncClient } from "../src/lib/backstage/sync-blocks";
+import { syncBlockManifests, validateBlockManifests, type BlockManifest, type BlockSyncClient } from "../src/lib/backstage/sync-blocks";
 
 const manifest = JSON.parse(
   readFileSync(new URL("../blocks/hero/manifest.json", import.meta.url), "utf8"),
@@ -122,4 +122,31 @@ test("rejects adoption slugs without a local manifest", async () => {
     }),
     /no matching block manifest/,
   );
+});
+
+test("rejects malformed and duplicate semantic field definitions", () => {
+  assert.throws(
+    () => validateBlockManifests([{ ...manifest, schema: { fields: [{ name: "Heading", type: "text" }] } }]),
+    /invalid schema.fields\[0\].*name, slug, and type/,
+  );
+
+  assert.throws(
+    () => validateBlockManifests([{ ...manifest, schema: { fields: [
+      { name: "Heading", slug: "heading", type: "text" },
+      { name: "Second heading", slug: "heading", type: "text" },
+    ] } }]),
+    /duplicate field slug "heading"/,
+  );
+
+  assert.throws(
+    () => validateBlockManifests([manifest, { ...manifest, slug: "hero-copy" }]),
+    /unique identities and slugs/,
+  );
+
+  assert.throws(
+    () => validateBlockManifests([manifest, { ...manifest, registry_identity: "fieldwork:hero-copy@1" }]),
+    /unique identities and slugs/,
+  );
+
+  assert.throws(() => validateBlockManifests([null]), /missing valid identity, name, slug, or schema/);
 });

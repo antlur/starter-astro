@@ -1,10 +1,9 @@
 import { BackstageClient } from "@antlur/backstage";
 import type { AccountBlock } from "@antlur/backstage";
-import contactFormManifest from "../../../blocks/contact-form/manifest.json";
-import heroManifest from "../../../blocks/hero/manifest.json";
-import richTextManifest from "../../../blocks/rich-text/manifest.json";
 import { pageLayoutDefinitions } from "../../site/page-layout-definitions";
+import { loadBlockManifests } from "./block-manifests";
 import { attachBackstageForms } from "./forms";
+import { validateBlockManifests, type BlockManifest } from "./sync-blocks";
 
 export interface HeadlessBlock {
   id: string;
@@ -93,16 +92,18 @@ export type EditableBlockDefinition = Pick<AccountBlock, "slug" | "registry_iden
   schema?: { fields?: readonly { slug: string }[] };
 };
 
-const starterBlockManifests = [contactFormManifest, heroManifest, richTextManifest];
-
 export const assertPageBlockDefinitions = (
   pages: HeadlessPage[],
   customBlocksEnabled: boolean,
   definitions: EditableBlockDefinition[],
+  localManifests?: BlockManifest[],
 ): void => {
   const blockTypes = [...new Set(pages.flatMap((page) => page.blocks.map((block) => block.type)))];
 
   if (blockTypes.length === 0) return;
+
+  const manifests = localManifests ?? loadBlockManifests();
+  validateBlockManifests(manifests);
 
   if (!customBlocksEnabled) {
     throw new Error(
@@ -121,17 +122,17 @@ export const assertPageBlockDefinitions = (
   }
 
   for (const type of blockTypes) {
-    const manifest = starterBlockManifests.find((candidate) => candidate.slug === type);
+    const manifest = manifests.find((candidate) => candidate.slug === type);
     const definition = definitions.find((candidate) => candidate.slug === type);
 
     if (!manifest || !definition) {
-      throw new Error(`Block type "${type}" has no matching local starter manifest.`);
+      throw new Error(`Block type "${type}" has no matching local application manifest.`);
     }
 
     if (definition.registry_identity !== manifest.registry_identity) {
       throw new Error(
         `Backstage block "${type}" is not registered to ${manifest.registry_identity}. ` +
-        "Resolve the existing definition before syncing so the starter does not overwrite an unrelated block.",
+        "Resolve the existing definition before syncing so the local project does not overwrite an unrelated block.",
       );
     }
 
@@ -142,7 +143,7 @@ export const assertPageBlockDefinitions = (
 
     if (missingFields.length > 0) {
       throw new Error(
-        `Backstage block "${type}" is missing fields from its starter manifest: ${missingFields.join(", ")}. ` +
+        `Backstage block "${type}" is missing fields from its local manifest: ${missingFields.join(", ")}. ` +
         "Reconcile its definition before building.",
       );
     }
