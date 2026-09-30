@@ -131,6 +131,8 @@ const inputType = (type: BackstageFormField["type"]): "text" | "email" | "tel" |
 </section>
 
 <script>
+import { submitBackstageForm } from "../lib/backstage/form-submission";
+
 interface RecaptchaV3 {
   ready(callback: () => void): void;
   execute(siteKey: string, options: { action: string }): Promise<string>;
@@ -174,26 +176,6 @@ const recaptchaToken = async (siteKey: string): Promise<string> => {
       window.grecaptcha?.execute(siteKey, { action: "submit" }).then(resolve, reject);
     });
   });
-};
-
-const errorMessage = (payload: unknown): string | null => {
-  if (typeof payload !== "object" || payload === null || !("errors" in payload)) {
-    return null;
-  }
-
-  const errors = (payload as { errors?: unknown }).errors;
-
-  if (typeof errors !== "object" || errors === null) {
-    return null;
-  }
-
-  for (const messages of Object.values(errors)) {
-    if (Array.isArray(messages) && typeof messages[0] === "string") {
-      return messages[0];
-    }
-  }
-
-  return null;
 };
 
 document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach((form) => {
@@ -240,16 +222,7 @@ document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach(
         tokenField.value = await recaptchaToken(siteKey);
       }
 
-      const response = await fetch(form.action, {
-        method: "POST",
-        body: new FormData(form),
-        headers: { "X-API-REQUEST": "true" },
-      });
-
-      if (!response.ok) {
-        const payload: unknown = await response.json().catch(() => null);
-        throw new Error(errorMessage(payload) || "Your message could not be sent. Please try again.");
-      }
+      await submitBackstageForm(form.action, new FormData(form));
 
       form.reset();
 
