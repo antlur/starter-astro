@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   assertPageBlockDefinitions,
+  assertPageLayoutDefinitions,
   getPageBySlug,
   normalizeNavigation,
   normalizePage,
@@ -10,11 +11,22 @@ import {
 } from "../src/lib/backstage/content";
 import { attachBackstageForms, normalizeFormDefinition } from "../src/lib/backstage/forms";
 import { sanitizeRichText } from "../src/lib/sanitize-rich-text";
+import {
+  defaultPageLayoutSlug,
+  pageLayoutDefinitions,
+  resolvePageLayoutSlug,
+} from "../src/site/page-layout-definitions";
 
 const heroManifest = JSON.parse(readFileSync(new URL("../blocks/hero/manifest.json", import.meta.url), "utf8"));
 const richTextManifest = JSON.parse(readFileSync(new URL("../blocks/rich-text/manifest.json", import.meta.url), "utf8"));
 const contactFormManifest = JSON.parse(readFileSync(new URL("../blocks/contact-form/manifest.json", import.meta.url), "utf8"));
 const blockRendererSource = readFileSync(new URL("../src/components/BlockRenderer.astro", import.meta.url), "utf8");
+const pageLayoutRendererSource = readFileSync(new URL("../src/components/PageLayoutRenderer.astro", import.meta.url), "utf8");
+const localLayoutFields = () => pageLayoutDefinitions[0].schema.fields.map(({ slug, type, options }) => ({
+  slug,
+  type,
+  options,
+}));
 
 test("Hero manifest exposes the fields used by its Astro renderer", () => {
   const fields = heroManifest.schema.fields;
@@ -62,6 +74,28 @@ test("every block manifest has a registered Astro renderer", () => {
   }
 });
 
+test("every configured Backstage page layout has an Astro renderer", () => {
+  const rendererSlugs = Array.from(
+    pageLayoutRendererSource.matchAll(/^\s*["']?([\w-]+)["']?\s*:\s*\w+,$/gm),
+    (match) => match[1],
+  );
+
+  assert.deepEqual(rendererSlugs.sort(), pageLayoutDefinitions.map(({ slug }) => slug).sort());
+  assert.equal(defaultPageLayoutSlug, "starter-astro-standard-page");
+  assert.deepEqual(pageLayoutDefinitions[0].schema.fields.map(({ slug }) => slug), [
+    "content_width",
+    "section_spacing",
+  ]);
+});
+
+test("uses the default page layout when none is assigned and rejects unknown layouts", () => {
+  assert.equal(resolvePageLayoutSlug(null, [defaultPageLayoutSlug]), defaultPageLayoutSlug);
+  assert.throws(
+    () => resolvePageLayoutSlug("unregistered-layout", [defaultPageLayoutSlug]),
+    /has no Astro renderer/,
+  );
+});
+
 test("accepts the Backstage Headless page and block response shape", () => {
   const page = normalizePage({
     id: "page-1",
@@ -81,6 +115,191 @@ test("accepts the Backstage Headless page and block response shape", () => {
     variant: "default",
     fields: { heading: "Welcome" },
   });
+});
+
+test("preserves page settings and assigned layout data from Backstage", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "About",
+    slug: "about",
+    pathname: "/about",
+    settings: { color_scheme: "dark" },
+    layout: {
+      id: "layout-1",
+      name: "Starter Astro Standard Page",
+      slug: "starter-astro-standard-page",
+      schema: { fields: [] },
+      data: { content_width: "narrow", section_spacing: "spacious" },
+    },
+    blocks: [],
+  });
+
+  assert.deepEqual(page.settings, { color_scheme: "dark" });
+  assert.equal(page.layout?.slug, "starter-astro-standard-page");
+  assert.deepEqual(page.layout?.data, { content_width: "narrow", section_spacing: "spacious" });
+});
+
+test("rejects malformed assigned page layout data", () => {
+  assert.throws(
+    () => normalizePage({
+      id: "page-1",
+      title: "About",
+      slug: "about",
+      pathname: "/about",
+      layout: {
+        id: "layout-1",
+        name: "Standard Page",
+        slug: defaultPageLayoutSlug,
+        schema: { fields: [] },
+        data: ["invalid"],
+      },
+      blocks: [],
+    }),
+    /layout data must be object-shaped/,
+  );
+});
+
+test("requires Custom Layouts when Backstage pages assign a page layout", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "About",
+    slug: "about",
+    pathname: "/about",
+    layout: {
+      id: "layout-1",
+      name: "Starter Astro Standard Page",
+      slug: "starter-astro-standard-page",
+      schema: { fields: [] },
+      data: {},
+    },
+    blocks: [],
+  });
+
+  assert.throws(
+    () => assertPageLayoutDefinitions([page], false),
+    /CMS Custom Layouts is disabled.*remain editable in Backstage/,
+  );
+});
+
+test("requires assigned Backstage layouts to match the local definition and field schema", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "About",
+    slug: "about",
+    pathname: "/about",
+    layout: {
+      id: "layout-1",
+      name: "Starter Astro Standard Page",
+      slug: "starter-astro-standard-page",
+      schema: { fields: [{ slug: "content_width" }] },
+      data: {},
+    },
+    blocks: [],
+  });
+
+  assert.throws(
+    () => assertPageLayoutDefinitions([page], true),
+    /missing fields from its local definition: section_spacing.*npm run sync:layouts/,
+  );
+
+  const unknownLayoutPage = normalizePage({
+    id: "page-2",
+    title: "Campaign",
+    slug: "campaign",
+    pathname: "/campaign",
+    layout: {
+      id: "layout-2",
+      name: "Campaign",
+      slug: "campaign",
+      schema: { fields: [] },
+      data: {},
+    },
+    blocks: [],
+  });
+
+  assert.throws(
+    () => assertPageLayoutDefinitions([unknownLayoutPage], true),
+    /has no matching definition and Astro renderer/,
+  );
+
+  const unsupportedLayoutPage = normalizePage({
+    id: "page-3",
+    title: "Campaign",
+    slug: "campaign",
+    pathname: "/campaign",
+    layout: {
+      id: "layout-3",
+      name: "Starter Astro Standard Page",
+      slug: defaultPageLayoutSlug,
+      schema: {
+        fields: [
+          ...localLayoutFields(),
+          { slug: "hero_alignment" },
+        ],
+      },
+      data: {},
+    },
+    blocks: [],
+  });
+
+  assert.throws(
+    () => assertPageLayoutDefinitions([unsupportedLayoutPage], true),
+    /fields not supported by its local Astro renderer: hero_alignment.*Update the local layout definition and renderer/,
+  );
+});
+
+test("accepts an assigned layout whose Backstage fields match the local definition", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "About",
+    slug: "about",
+    pathname: "/about",
+    layout: {
+      id: "layout-1",
+      name: "Starter Astro Standard Page",
+      slug: defaultPageLayoutSlug,
+      schema: { fields: localLayoutFields() },
+      data: { content_width: "narrow", section_spacing: "comfortable" },
+    },
+    blocks: [],
+  });
+
+  assert.doesNotThrow(() => assertPageLayoutDefinitions([page], true));
+});
+
+test("rejects assigned layouts whose field types or select values differ from the local renderer", () => {
+  const makePage = (fields: unknown[]) => normalizePage({
+    id: "page-1",
+    title: "About",
+    slug: "about",
+    pathname: "/about",
+    layout: {
+      id: "layout-1",
+      name: "Starter Astro Standard Page",
+      slug: defaultPageLayoutSlug,
+      schema: { fields },
+      data: {},
+    },
+    blocks: [],
+  });
+
+  const wrongType = localLayoutFields().map((field) =>
+    field.slug === "content_width" ? { ...field, type: "text" } : field,
+  );
+  assert.throws(
+    () => assertPageLayoutDefinitions([makePage(wrongType)], true),
+    /field "content_width" has type "text"; the local Astro renderer expects "select"/,
+  );
+
+  const wrongOptions = localLayoutFields().map((field) =>
+    field.slug === "content_width"
+      ? { ...field, options: field.options?.filter(({ value }) => value !== "wide") }
+      : field,
+  );
+  assert.throws(
+    () => assertPageLayoutDefinitions([makePage(wrongOptions)], true),
+    /field "content_width" has options that differ from its local Astro definition/,
+  );
 });
 
 test("rejects legacy rendered blocks with a rendering-mode hint", () => {

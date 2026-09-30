@@ -3,6 +3,7 @@ import type { AccountBlock } from "@antlur/backstage";
 import contactFormManifest from "../../../blocks/contact-form/manifest.json";
 import heroManifest from "../../../blocks/hero/manifest.json";
 import richTextManifest from "../../../blocks/rich-text/manifest.json";
+import { pageLayoutDefinitions } from "../../site/page-layout-definitions";
 import { attachBackstageForms } from "./forms";
 
 export interface HeadlessBlock {
@@ -36,11 +37,21 @@ export interface HeadlessPage {
   slug: string;
   pathname: string;
   is_home: boolean;
+  settings: Record<string, unknown> | null;
+  layout: HeadlessPageLayout | null;
   meta?: {
     title?: string | null;
     description?: string | null;
   } | null;
   blocks: HeadlessBlock[];
+}
+
+export interface HeadlessPageLayout {
+  id: string;
+  name: string;
+  slug: string;
+  schema: Record<string, unknown>;
+  data: Record<string, unknown>;
 }
 
 export interface SiteNavigationItem {
@@ -138,8 +149,93 @@ export const assertPageBlockDefinitions = (
   }
 };
 
+export const assertPageLayoutDefinitions = (
+  pages: HeadlessPage[],
+  customLayoutsEnabled: boolean,
+): void => {
+  const assignedLayouts = pages.flatMap((page) => page.layout ? [page.layout] : []);
+  if (assignedLayouts.length === 0) return;
+
+  if (!customLayoutsEnabled) {
+    throw new Error(
+      "This Headless site assigns page layouts, but CMS Custom Layouts is disabled for the Backstage account. " +
+      "Enable that module before building so page layouts remain editable in Backstage.",
+    );
+  }
+
+  for (const layout of assignedLayouts) {
+    const definition = pageLayoutDefinitions.find((candidate) => candidate.slug === layout.slug);
+
+    if (!definition) {
+      throw new Error(
+        `Backstage page layout "${layout.slug}" has no matching definition and Astro renderer in this starter.`,
+      );
+    }
+
+    const accountFields = Array.isArray(layout.schema.fields) ? layout.schema.fields : [];
+    const accountFieldsBySlug = new Map(accountFields.flatMap((field) =>
+      isRecord(field) && typeof field.slug === "string" ? [[field.slug, field] as const] : [],
+    ));
+    const availableFields = new Set(accountFieldsBySlug.keys());
+    const missingFields = definition.schema.fields
+      .map((field) => field.slug)
+      .filter((slug) => !availableFields.has(slug));
+
+    if (missingFields.length > 0) {
+      throw new Error(
+        `Backstage page layout "${layout.slug}" is missing fields from its local definition: ${missingFields.join(", ")}. ` +
+        "Run npm run sync:layouts, then build again.",
+      );
+    }
+
+    const localFields = new Set(definition.schema.fields.map((field) => field.slug));
+    const unsupportedFields = [...availableFields].filter((slug) => !localFields.has(slug));
+
+    if (unsupportedFields.length > 0) {
+      throw new Error(
+        `Backstage page layout "${layout.slug}" has fields not supported by its local Astro renderer: ${unsupportedFields.join(", ")}. ` +
+        "Update the local layout definition and renderer, or reconcile the Backstage definition before building.",
+      );
+    }
+
+    for (const localField of definition.schema.fields) {
+      const accountField = accountFieldsBySlug.get(localField.slug);
+      if (!accountField) continue;
+
+      if (accountField.type !== localField.type) {
+        throw new Error(
+          `Backstage page layout "${layout.slug}" field "${localField.slug}" has type "${String(accountField.type)}"; ` +
+          `the local Astro renderer expects "${localField.type}". Reconcile the local and Backstage definitions before building.`,
+        );
+      }
+
+      if (localField.options) {
+        const localOptions = localField.options.map(({ value }) => String(value)).sort();
+        const accountOptions = Array.isArray(accountField.options)
+          ? accountField.options.flatMap((option) =>
+              isRecord(option) && option.value !== undefined ? [String(option.value)] : [],
+            ).sort()
+          : [];
+
+        if (JSON.stringify(accountOptions) !== JSON.stringify(localOptions)) {
+          throw new Error(
+            `Backstage page layout "${layout.slug}" field "${localField.slug}" has options that differ from its local Astro definition. ` +
+            "Reconcile the local and Backstage definitions before building.",
+          );
+        }
+      }
+    }
+  }
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const normalizeObject = (value: unknown, context: string): Record<string, unknown> => {
+  if (isRecord(value)) return value;
+  if (Array.isArray(value) && value.length === 0) return {};
+  throw new Error(context + " must be object-shaped.");
+};
 
 const optionalString = (value: unknown): string | null =>
   typeof value === "string" && value.trim() !== "" ? value.trim() : null;
@@ -157,6 +253,31 @@ export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
 
   if (!Array.isArray(value.blocks)) {
     throw new Error("Backstage page " + value.slug + " has no blocks array.");
+  }
+
+  const settings = value.settings === null || value.settings === undefined
+    ? null
+    : normalizeObject(value.settings, "Backstage page " + value.slug + " settings");
+  let layout: HeadlessPageLayout | null = null;
+
+  if (value.layout !== null && value.layout !== undefined) {
+    if (
+      !isRecord(value.layout)
+      || typeof value.layout.id !== "string"
+      || typeof value.layout.name !== "string"
+      || typeof value.layout.slug !== "string"
+      || !isRecord(value.layout.schema)
+    ) {
+      throw new Error("Backstage page " + value.slug + " has an invalid assigned layout.");
+    }
+
+    layout = {
+      id: value.layout.id,
+      name: value.layout.name,
+      slug: value.layout.slug,
+      schema: value.layout.schema,
+      data: normalizeObject(value.layout.data, "Backstage page " + value.slug + " layout data"),
+    };
   }
 
   const blocks = value.blocks.map((candidate, blockIndex): HeadlessBlock => {
@@ -189,6 +310,8 @@ export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
     slug: value.slug,
     pathname: value.pathname,
     is_home: value.is_home === true,
+    settings,
+    layout,
     meta: meta
       ? {
           title: optionalString(meta.title),
@@ -407,6 +530,21 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     }
 
     assertPageBlockDefinitions(normalizedPages, customBlocksEnabled, definitions);
+  }
+
+  if (normalizedPages.some((page) => page.layout !== null)) {
+    let customLayoutsEnabled: boolean;
+
+    try {
+      customLayoutsEnabled = await client.modules.isEnabled("cms.custom_layouts");
+    } catch (error) {
+      throw new Error(
+        "Could not verify CMS Custom Layouts in Backstage. Check that the API token can read account modules.",
+        { cause: error },
+      );
+    }
+
+    assertPageLayoutDefinitions(normalizedPages, customLayoutsEnabled);
   }
 
   return {

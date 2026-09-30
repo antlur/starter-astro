@@ -1,0 +1,43 @@
+---
+import type { HeadlessPage } from "../../lib/backstage/content";
+
+interface Props {
+  page: HeadlessPage;
+  data: Record<string, unknown>;
+  settings: Record<string, unknown> | null;
+}
+
+const { data } = Astro.props;
+const widths = ["narrow", "standard", "wide"];
+const spacings = ["compact", "comfortable", "spacious"];
+const width = typeof data.content_width === "string" && widths.includes(data.content_width)
+  ? data.content_width
+  : "standard";
+const spacing = typeof data.section_spacing === "string" && spacings.includes(data.section_spacing)
+  ? data.section_spacing
+  : "comfortable";
+---
+
+<div class:list={["page-layout", `page-layout--${width}`, `page-layout--${spacing}`]}>
+  <slot />
+</div>
+
+<style>
+  .page-layout--narrow :global(.content-section__inner) {
+    max-width: 42rem;
+  }
+
+  .page-layout--wide :global(.content-section__inner) {
+    max-width: 72rem;
+  }
+
+  .page-layout--compact :global(.content-section),
+  .page-layout--compact :global(.hero:not(.hero--full-bleed)) {
+    padding-block: clamp(2.5rem, 5vw, 4rem);
+  }
+
+  .page-layout--spacious :global(.content-section),
+  .page-layout--spacious :global(.hero:not(.hero--full-bleed)) {
+    padding-block: clamp(5rem, 10vw, 8rem);
+  }
+</style>
