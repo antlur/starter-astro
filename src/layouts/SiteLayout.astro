@@ -3,19 +3,23 @@ import "../styles/globals.css";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
 
 interface Props {
-  page: HeadlessPage;
+  page?: HeadlessPage;
+  pageTitle?: string | null;
+  pageDescription?: string | null;
   site: HeadlessWebsite;
   pathname: string;
   navigation: SiteNavigationItem[];
 }
 
-const { page, site, pathname, navigation } = Astro.props;
+const { page, pageTitle: routeTitle, pageDescription: routeDescription, site, pathname, navigation } = Astro.props;
 const siteTitle = site.meta?.title || site.name;
-const pageTitle = page.meta?.title || page.title;
-const title = pageTitle === siteTitle ? pageTitle : pageTitle + " | " + siteTitle;
-const description = page.meta?.description || site.openGraph?.description || site.meta?.description || pageTitle;
-const openGraphTitle = page.meta?.title || site.openGraph?.title || title;
-const openGraphDescription = page.meta?.description || site.openGraph?.description || description;
+const pageTitle = routeTitle || page?.meta?.title || page?.title || siteTitle;
+const title = pageTitle === siteTitle || pageTitle.endsWith(" | " + siteTitle)
+  ? pageTitle
+  : pageTitle + " | " + siteTitle;
+const description = routeDescription || page?.meta?.description || site.openGraph?.description || site.meta?.description || pageTitle;
+const openGraphTitle = routeTitle || page?.meta?.title || site.openGraph?.title || title;
+const openGraphDescription = routeDescription || page?.meta?.description || site.openGraph?.description || description;
 const canonicalUrl = Astro.site ? new URL(pathname, Astro.site).href : undefined;
 const indexable = import.meta.env.SITE_INDEXABLE === "true" && Boolean(Astro.site);
 const organization = {
