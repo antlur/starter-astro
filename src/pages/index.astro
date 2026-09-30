@@ -1,11 +1,10 @@
 ---
 import PageContent from "../components/PageContent.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
-import { getHomePage, getSiteContent } from "../lib/backstage/content";
-import { applicationRoutePaths, buildSiteRoutePlan } from "../site/routes";
+import { getHomePage } from "../lib/backstage/content";
+import { getSiteBuild } from "../site/build";
 
-const content = await getSiteContent();
-const routePlan = buildSiteRoutePlan(content, applicationRoutePaths);
+const { content, routePlan } = await getSiteBuild();
 const page = getHomePage(content.pages);
 ---
 

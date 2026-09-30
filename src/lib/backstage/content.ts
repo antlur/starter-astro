@@ -290,6 +290,41 @@ export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
 };
 
 let contentPromise: Promise<SiteContent> | undefined;
+let backstageClient: BackstageClient | undefined;
+
+const getBackstageClient = (): BackstageClient => {
+  if (backstageClient) return backstageClient;
+
+  const token = import.meta.env.BACKSTAGE_API_KEY;
+  const accountId = import.meta.env.BACKSTAGE_ACCOUNT_ID;
+
+  if (!token || !accountId) {
+    throw new Error("BACKSTAGE_API_KEY and BACKSTAGE_ACCOUNT_ID are required when BACKSTAGE_SOURCE=api.");
+  }
+
+  backstageClient = new BackstageClient({
+    baseURL: import.meta.env.BACKSTAGE_API_URL || "https://bckstg.app/api",
+    token,
+    accountId,
+  });
+
+  return backstageClient;
+};
+
+export const resolveBackstageRoute = async (path: string): Promise<unknown> => {
+  if (import.meta.env.BACKSTAGE_SOURCE === "fixture") {
+    const { fixtureRouteResolutions } = await import("../../fixtures/routes");
+    return fixtureRouteResolutions[path] ?? {
+      type: "fixture",
+      data: null,
+      meta: { id: null, type: "fixture", path },
+    };
+  }
+
+  if (import.meta.env.BACKSTAGE_SOURCE !== "api") throw new Error("Backstage route resolution requires an API or fixture source.");
+
+  return await getBackstageClient().routes.resolve<unknown>(path);
+};
 
 export const getSiteContent = (): Promise<SiteContent> => {
   contentPromise ??= loadSiteContent();
@@ -300,26 +335,15 @@ const loadSiteContent = async (): Promise<SiteContent> => {
   const source = import.meta.env.BACKSTAGE_SOURCE;
 
   if (source === "fixture") {
-    const { fixtureContent } = await import("../../fixtures/content");
-    return fixtureContent;
+    const { fixtureSiteContent } = await import("../../fixtures/site-content");
+    return fixtureSiteContent;
   }
 
   if (source !== "api") {
     throw new Error("Set BACKSTAGE_SOURCE to api or fixture before building the site.");
   }
 
-  const token = import.meta.env.BACKSTAGE_API_KEY;
-  const accountId = import.meta.env.BACKSTAGE_ACCOUNT_ID;
-
-  if (!token || !accountId) {
-    throw new Error("BACKSTAGE_API_KEY and BACKSTAGE_ACCOUNT_ID are required when BACKSTAGE_SOURCE=api.");
-  }
-
-  const client = new BackstageClient({
-    baseURL: import.meta.env.BACKSTAGE_API_URL || "https://bckstg.app/api",
-    token,
-    accountId,
-  });
+  const client = getBackstageClient();
 
   const [websites, pages, routePaths, navigations] = await Promise.all([
     client.website.getWebsites(),

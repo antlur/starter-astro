@@ -1,15 +1,13 @@
 ---
 import PageContent from "../components/PageContent.astro";
+import BlueprintRouteContent from "../components/BlueprintRouteContent.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
-import { getSiteContent } from "../lib/backstage/content";
-import { applicationRoutePaths, buildSiteRoutePlan, reportUnhandledRoutes } from "../site/routes";
+import { getSiteBuild } from "../site/build";
 
 export const getStaticPaths = async () => {
-  const content = await getSiteContent();
-  const routePlan = buildSiteRoutePlan(content, applicationRoutePaths);
-  reportUnhandledRoutes(routePlan.unhandledPaths, import.meta.env.SITE_INDEXABLE === "true");
+  const { content, routePlan } = await getSiteBuild();
 
-  return routePlan.cmsPages
+  const cmsPages = routePlan.cmsPages
     .filter(({ path }) => path !== "/")
     .map(({ path, page }) => ({
       params: { slug: path.replace(/^\/|\/$/g, "") },
@@ -20,11 +18,27 @@ export const getStaticPaths = async () => {
         navigation: routePlan.navigation,
       },
     }));
+
+  const blueprintPages = routePlan.blueprintRoutes
+    .filter((route) => route.path !== "/")
+    .map((route) => ({
+      params: { slug: route.path.replace(/^\/|\/$/g, "") },
+      props: {
+        route,
+        site: content.site,
+        pathname: route.path,
+        navigation: routePlan.navigation,
+      },
+    }));
+
+  return [...cmsPages, ...blueprintPages];
 };
 
-const { page, site, pathname, navigation } = Astro.props;
+const { page, route, site, pathname, navigation } = Astro.props;
 ---
 
-<SiteLayout page={page} site={site} pathname={pathname} navigation={navigation}>
-  <PageContent page={page} />
+<SiteLayout page={page} pageTitle={route?.seoTitle ?? route?.title} pageDescription={route?.seoDescription} site={site} pathname={pathname} navigation={navigation}>
+  {page
+    ? <PageContent page={page} />
+    : route && <BlueprintRouteContent route={route} />}
 </SiteLayout>

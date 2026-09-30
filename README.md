@@ -12,7 +12,7 @@ The site builds to static HTML. The SDK runs only during the build, so API crede
 
 ## Local setup
 
-Install dependencies with npm ci. Copy .env.example to .env and leave BACKSTAGE_SOURCE=fixture for the sample site. Start the dev server with npm run dev.
+Install dependencies with npm ci. Copy .env.example to .env and leave BACKSTAGE_SOURCE=fixture for the sample site. The fixture includes a Happenings blueprint index and location-nested entry route to preview generic route rendering and public-entry filtering. Start the dev server with npm run dev.
 
 To build and preview the static site, run npm run build and then npm run preview. The sample fixture is also used in CI, so validation does not need Backstage credentials.
 
@@ -22,7 +22,7 @@ Set BACKSTAGE_SOURCE=api, BACKSTAGE_API_KEY, BACKSTAGE_ACCOUNT_ID, and optionall
 
 The starter reads the generic Websites, Pages, route graph, and Navigation APIs through @antlur/backstage. It does not use Frontstage endpoints. For now, an account must have exactly one website because the SDK Pages method does not yet filter pages by website. Page blocks must use the Headless shape with id, type, optional variant, and fields. A mismatch stops the build with an actionable error rather than silently dropping content.
 
-For this starter, configure the website as **Headless application** with **Application owned** routing in Backstage Settings > Rendering. Backstage's canonical website route graph controls which CMS pages are generated. Pages are matched by their `pathname`, so nested pages and future CMS pages are included without duplicating the route list in the app. Pages outside the graph are not published. Routes that are not CMS pages belong to Astro; add their paths to `applicationRoutePaths` in `src/site/routes.ts` and implement them as Astro page files. Managed or Hybrid routing may also expose module routes (such as Events or Press); implement and register those in Astro before indexing the site. Duplicate paths are rejected. Unhandled Backstage routes are reported during non-indexable builds and fail an indexable production build, preventing module routes from silently shipping as 404s.
+For this starter, configure the website as **Headless application** with **Application owned** routing in Backstage Settings > Rendering. Backstage's canonical website route graph controls which CMS pages are generated. Pages are matched by their `pathname`, so nested pages and future CMS pages are included without duplicating the route list in the app. Pages outside the graph are not published. Routable blueprint index and entry routes are resolved at build time through the SDK and rendered with a generic field renderer; canonical paths come from Backstage, and collection links only include entries present in the public route graph. Other routes belong to Astro; add their paths to `applicationRoutePaths` in `src/site/routes.ts` and implement them as Astro page files. Managed or Hybrid routing may also expose module routes (such as Events or Press); implement and register those in Astro before indexing the site. Duplicate paths are rejected. Unhandled Backstage routes are reported during non-indexable builds and fail an indexable production build, preventing module routes from silently shipping as 404s.
 
 Navigation is read from Backstage. If the account has exactly one navigation, the starter uses it. If there are multiple, set `BACKSTAGE_NAVIGATION_ID` to select one. With no saved navigation, links are derived from the public CMS pages.
 
