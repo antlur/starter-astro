@@ -1,4 +1,5 @@
-import type { AccountBlockSchema, BackstageClient } from "@antlur/backstage";
+import type { AccountBlockSchema, BackstageClient, Field } from "@antlur/backstage";
+import type { FieldType } from "@antlur/backstage/studio";
 
 export interface BlockManifest {
   manifest_version: 1;
@@ -8,7 +9,7 @@ export interface BlockManifest {
   name: string;
   slug: string;
   description?: string;
-  schema: AccountBlockSchema;
+  schema: AccountBlockSchema & { fields: readonly Field[] };
 }
 
 interface RegisteredBlock {
@@ -33,6 +34,38 @@ export interface BlockSyncOptions {
 }
 
 const identityPattern = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*@[1-9][0-9]*$/;
+const supportedFieldTypes: Record<FieldType, true> = {
+  boolean: true,
+  date: true,
+  datetime: true,
+  email: true,
+  event_select: true,
+  fieldset: true,
+  form_select: true,
+  image: true,
+  image_list: true,
+  json: true,
+  list_array: true,
+  location: true,
+  markdown: true,
+  media: true,
+  menu_select: true,
+  number: true,
+  press_select: true,
+  reference: true,
+  repeater: true,
+  rich_text: true,
+  select: true,
+  separator: true,
+  slug: true,
+  spacer: true,
+  text: true,
+  textarea: true,
+  time: true,
+  url: true,
+  navigation_select: true,
+  page_select: true,
+};
 
 function statusOf(error: unknown): number | undefined {
   if (typeof error !== "object" || error === null) return undefined;
@@ -40,30 +73,97 @@ function statusOf(error: unknown): number | undefined {
   return typeof response?.status === "number" ? response.status : undefined;
 }
 
-function validateManifests(manifests: BlockManifest[]): void {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validateSchemaFields(fields: unknown[], blockSlug: string, parent = "schema.fields"): void {
+  const slugs = new Set<string>();
+
+  for (const [index, field] of fields.entries()) {
+    if (
+      !isRecord(field)
+      || typeof field.name !== "string"
+      || field.name.trim() === ""
+      || typeof field.slug !== "string"
+      || field.slug.trim() === ""
+      || typeof field.type !== "string"
+      || field.type.trim() === ""
+    ) {
+      throw new Error(`Block manifest "${blockSlug}" has an invalid ${parent}[${index}]; each field needs a name, slug, and type.`);
+    }
+
+    if (!Object.hasOwn(supportedFieldTypes, field.type)) {
+      throw new Error(`Block manifest "${blockSlug}" has unsupported field type "${field.type}" for "${field.slug}" in ${parent}.`);
+    }
+
+    if (slugs.has(field.slug)) {
+      throw new Error(`Block manifest "${blockSlug}" has duplicate field slug "${field.slug}" in ${parent}.`);
+    }
+    slugs.add(field.slug);
+
+    if (field.required !== undefined && typeof field.required !== "boolean") {
+      throw new Error(`Block manifest "${blockSlug}" has an invalid required setting for "${field.slug}".`);
+    }
+
+    if (field.is_multiple !== undefined && typeof field.is_multiple !== "boolean") {
+      throw new Error(`Block manifest "${blockSlug}" has an invalid multiple-value setting for "${field.slug}".`);
+    }
+
+    if (field.allowed_references !== undefined && (!Array.isArray(field.allowed_references)
+      || field.allowed_references.some((reference) => typeof reference !== "string"))) {
+      throw new Error(`Block manifest "${blockSlug}" has invalid reference targets for "${field.slug}".`);
+    }
+
+    if (field.options !== undefined && (!Array.isArray(field.options)
+      || field.options.some((option) => !isRecord(option)
+        || typeof option.label !== "string"
+        || option.label.trim() === ""
+        || !Object.hasOwn(option, "value")))) {
+      throw new Error(`Block manifest "${blockSlug}" has invalid options for "${field.slug}".`);
+    }
+
+    if (field.fields !== undefined) {
+      if (!Array.isArray(field.fields)) {
+        throw new Error(`Block manifest "${blockSlug}" has invalid nested fields for "${field.slug}".`);
+      }
+      validateSchemaFields(field.fields, blockSlug, `${parent}.${field.slug}.fields`);
+    }
+  }
+}
+
+export function validateBlockManifests(manifests: unknown[]): asserts manifests is BlockManifest[] {
   if (manifests.length === 0) throw new Error("No block manifests were found.");
 
   const identities = new Set<string>();
   const slugs = new Set<string>();
 
-  for (const manifest of manifests) {
+  for (const candidate of manifests) {
     if (
-      manifest.manifest_version !== 1
-      || manifest.type !== "block"
-      || !identityPattern.test(manifest.registry_identity)
-      || !manifest.name
-      || !manifest.slug
-      || !Array.isArray(manifest.schema?.fields)
+      !isRecord(candidate)
+      || candidate.manifest_version !== 1
+      || candidate.type !== "block"
+      || typeof candidate.registry_identity !== "string"
+      || !identityPattern.test(candidate.registry_identity)
+      || typeof candidate.name !== "string"
+      || candidate.name.trim() === ""
+      || typeof candidate.slug !== "string"
+      || candidate.slug.trim() === ""
+      || !isRecord(candidate.schema)
+      || !Array.isArray(candidate.schema.fields)
     ) {
       throw new Error("A block manifest is missing valid identity, name, slug, or schema fields.");
     }
 
-    if (identities.has(manifest.registry_identity) || slugs.has(manifest.slug)) {
-      throw new Error(`Block manifests must use unique identities and slugs; check "${manifest.slug}".`);
+    const { registry_identity: registryIdentity, slug } = candidate;
+    validateSchemaFields(candidate.schema.fields as unknown[], slug);
+
+    if (identities.has(registryIdentity) || slugs.has(slug)) {
+      throw new Error(`Block manifests must use unique identities and slugs; check "${slug}".`);
     }
 
-    identities.add(manifest.registry_identity);
-    slugs.add(manifest.slug);
+    identities.add(registryIdentity);
+    slugs.add(slug);
   }
 }
 
@@ -72,7 +172,7 @@ export async function syncBlockManifests(
   manifests: BlockManifest[],
   options: BlockSyncOptions = {},
 ) {
-  validateManifests(manifests);
+  validateBlockManifests(manifests);
   const adoptUnregisteredSlugs = new Set(options.adoptUnregisteredSlugs ?? []);
   const manifestSlugs = new Set(manifests.map((manifest) => manifest.slug));
 

@@ -1,10 +1,9 @@
 import { BackstageClient } from "@antlur/backstage";
-import type { AccountBlock } from "@antlur/backstage";
-import contactFormManifest from "../../../blocks/contact-form/manifest.json";
-import heroManifest from "../../../blocks/hero/manifest.json";
-import richTextManifest from "../../../blocks/rich-text/manifest.json";
+import type { AccountBlock, Field } from "@antlur/backstage";
 import { pageLayoutDefinitions } from "../../site/page-layout-definitions";
+import { loadBlockManifests } from "./block-manifests";
 import { attachBackstageForms } from "./forms";
+import { validateBlockManifests, type BlockManifest } from "./sync-blocks";
 
 export interface HeadlessBlock {
   id: string;
@@ -90,19 +89,91 @@ export interface SiteContent {
 }
 
 export type EditableBlockDefinition = Pick<AccountBlock, "slug" | "registry_identity"> & {
-  schema?: { fields?: readonly { slug: string }[] };
+  schema?: { fields?: readonly Field[] };
 };
 
-const starterBlockManifests = [contactFormManifest, heroManifest, richTextManifest];
+const serializedOptions = (field: Field): string => JSON.stringify(
+  (field.options ?? []).map(({ label, value }) => ({ label, value })),
+);
+
+const serializedFieldMetadata = (field: Field): string => JSON.stringify({
+  name: field.name,
+  description: field.description ?? null,
+  placeholder: field.placeholder ?? null,
+  order: field.order ?? null,
+});
+
+const assertBlockFieldParity = (
+  blockType: string,
+  localFields: readonly Field[],
+  accountFields: readonly Field[],
+  parent = "",
+): void => {
+  // Backstage currently drops required and resolves allowed_references to blueprint IDs.
+  const fieldPath = (slug: string) => parent ? `${parent}.${slug}` : slug;
+  const localFieldsBySlug = new Map(localFields.map((field) => [field.slug, field]));
+  const accountFieldsBySlug = new Map(accountFields.map((field) => [field.slug, field]));
+
+  if (accountFieldsBySlug.size !== accountFields.length) {
+    throw new Error(`Backstage block "${blockType}" has duplicate field slugs in ${parent || "its schema"}.`);
+  }
+
+  const missingFields = localFields.filter((field) => !accountFieldsBySlug.has(field.slug));
+  if (missingFields.length > 0) {
+    throw new Error(
+      `Backstage block "${blockType}" is missing fields from its local manifest: ${missingFields.map(({ slug }) => slug).join(", ")}. ` +
+      "Reconcile its definition before building.",
+    );
+  }
+
+  const unsupportedFields = accountFields.filter((field) => !localFieldsBySlug.has(field.slug));
+  if (unsupportedFields.length > 0) {
+    throw new Error(
+      `Backstage block "${blockType}" has fields not supported by its local manifest: ${unsupportedFields.map(({ slug }) => slug).join(", ")}. ` +
+      "Fork the semantic identity before adding fields.",
+    );
+  }
+
+  for (const localField of localFields) {
+    const accountField = accountFieldsBySlug.get(localField.slug);
+    if (!accountField) continue;
+    const path = fieldPath(localField.slug);
+
+    if (serializedFieldMetadata(accountField) !== serializedFieldMetadata(localField)) {
+      throw new Error(`Backstage block "${blockType}" field "${path}" has editor metadata that differs from its local manifest.`);
+    }
+
+    if (accountField.type !== localField.type) {
+      throw new Error(
+        `Backstage block "${blockType}" field "${path}" has type "${accountField.type}"; ` +
+        `the local manifest expects "${localField.type}".`,
+      );
+    }
+
+    if (serializedOptions(accountField) !== serializedOptions(localField)) {
+      throw new Error(`Backstage block "${blockType}" field "${path}" has options that differ from its local manifest.`);
+    }
+
+    if (Boolean(accountField.is_multiple) !== Boolean(localField.is_multiple)) {
+      throw new Error(`Backstage block "${blockType}" field "${path}" has a multiple-value setting that differs from its local manifest.`);
+    }
+
+    assertBlockFieldParity(blockType, localField.fields ?? [], accountField.fields ?? [], path);
+  }
+};
 
 export const assertPageBlockDefinitions = (
   pages: HeadlessPage[],
   customBlocksEnabled: boolean,
   definitions: EditableBlockDefinition[],
+  localManifests?: BlockManifest[],
 ): void => {
   const blockTypes = [...new Set(pages.flatMap((page) => page.blocks.map((block) => block.type)))];
 
   if (blockTypes.length === 0) return;
+
+  const manifests = localManifests ?? loadBlockManifests();
+  validateBlockManifests(manifests);
 
   if (!customBlocksEnabled) {
     throw new Error(
@@ -121,31 +192,21 @@ export const assertPageBlockDefinitions = (
   }
 
   for (const type of blockTypes) {
-    const manifest = starterBlockManifests.find((candidate) => candidate.slug === type);
+    const manifest = manifests.find((candidate) => candidate.slug === type);
     const definition = definitions.find((candidate) => candidate.slug === type);
 
     if (!manifest || !definition) {
-      throw new Error(`Block type "${type}" has no matching local starter manifest.`);
+      throw new Error(`Block type "${type}" has no matching local application manifest.`);
     }
 
     if (definition.registry_identity !== manifest.registry_identity) {
       throw new Error(
         `Backstage block "${type}" is not registered to ${manifest.registry_identity}. ` +
-        "Resolve the existing definition before syncing so the starter does not overwrite an unrelated block.",
+        "Resolve the existing definition before syncing so the local project does not overwrite an unrelated block.",
       );
     }
 
-    const availableFields = new Set(definition.schema?.fields?.map((field) => field.slug) ?? []);
-    const missingFields = manifest.schema.fields
-      .map((field) => field.slug)
-      .filter((field) => !availableFields.has(field));
-
-    if (missingFields.length > 0) {
-      throw new Error(
-        `Backstage block "${type}" is missing fields from its starter manifest: ${missingFields.join(", ")}. ` +
-        "Reconcile its definition before building.",
-      );
-    }
+    assertBlockFieldParity(type, manifest.schema.fields, definition.schema?.fields ?? []);
   }
 };
 

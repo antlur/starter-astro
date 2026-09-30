@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import type { Field } from "@antlur/backstage";
 import {
   assertPageBlockDefinitions,
   assertPageLayoutDefinitions,
@@ -9,6 +10,8 @@ import {
   normalizePage,
   normalizeWebsite,
 } from "../src/lib/backstage/content";
+import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
+import type { BlockManifest } from "../src/lib/backstage/sync-blocks";
 import { attachBackstageForms, normalizeFormDefinition } from "../src/lib/backstage/forms";
 import { sanitizeRichText } from "../src/lib/sanitize-rich-text";
 import {
@@ -17,9 +20,15 @@ import {
   resolvePageLayoutSlug,
 } from "../src/site/page-layout-definitions";
 
-const heroManifest = JSON.parse(readFileSync(new URL("../blocks/hero/manifest.json", import.meta.url), "utf8"));
-const richTextManifest = JSON.parse(readFileSync(new URL("../blocks/rich-text/manifest.json", import.meta.url), "utf8"));
-const contactFormManifest = JSON.parse(readFileSync(new URL("../blocks/contact-form/manifest.json", import.meta.url), "utf8"));
+const blockManifests = loadBlockManifests();
+const blockManifest = (slug: string): BlockManifest => {
+  const manifest = blockManifests.find((candidate) => candidate.slug === slug);
+  if (!manifest) throw new Error(`Missing test block manifest: ${slug}`);
+  return manifest;
+};
+const heroManifest = blockManifest("hero");
+const richTextManifest = blockManifest("rich-text");
+const contactFormManifest = blockManifest("contact-form");
 const blockRendererSource = readFileSync(new URL("../src/components/BlockRenderer.astro", import.meta.url), "utf8");
 const pageLayoutRendererSource = readFileSync(new URL("../src/components/PageLayoutRenderer.astro", import.meta.url), "utf8");
 const localLayoutFields = () => pageLayoutDefinitions[0].schema.fields.map(({ slug, type, options }) => ({
@@ -30,9 +39,9 @@ const localLayoutFields = () => pageLayoutDefinitions[0].schema.fields.map(({ sl
 
 test("Hero manifest exposes the fields used by its Astro renderer", () => {
   const fields = heroManifest.schema.fields;
-  const fieldBySlug = Object.fromEntries(fields.map((field: { slug: string }) => [field.slug, field]));
+  const fieldBySlug = new Map(fields.map((field) => [field.slug, field]));
 
-  assert.deepEqual(Object.keys(fieldBySlug).sort(), [
+  assert.deepEqual([...fieldBySlug.keys()].sort(), [
     "actions",
     "body",
     "eyebrow",
@@ -41,9 +50,13 @@ test("Hero manifest exposes the fields used by its Astro renderer", () => {
     "imageAlt",
     "variant",
   ]);
-  assert.deepEqual(fieldBySlug.variant.options.map((option: { value: string }) => option.value), ["default", "full-bleed-image"]);
-  assert.equal(fieldBySlug.variant.placeholder, "Default (automatic)");
-  assert.deepEqual(fieldBySlug.actions.fields.map((field: { slug: string }) => field.slug), ["label", "href"]);
+  const variant = fieldBySlug.get("variant");
+  const actions = fieldBySlug.get("actions");
+  assert.ok(variant);
+  assert.ok(actions);
+  assert.deepEqual(variant.options?.map((option) => option.value), ["default", "full-bleed-image"]);
+  assert.equal(variant.placeholder, "Default (automatic)");
+  assert.deepEqual(actions.fields?.map((field) => field.slug), ["label", "href"]);
   assert.equal(heroManifest.derived_from, "backstage:hero@1");
 });
 
@@ -52,13 +65,16 @@ test("Rich Text manifest exposes the fields used by its Astro renderer", () => {
 
   assert.equal(richTextManifest.registry_identity, "starter-astro:rich-text@1");
   assert.deepEqual(fields.map((field: { slug: string }) => field.slug), ["eyebrow", "heading", "body"]);
-  assert.equal(fields.find((field: { slug: string }) => field.slug === "body").type, "rich_text");
+  const body = fields.find((field) => field.slug === "body");
+  assert.ok(body);
+  assert.equal(body.type, "rich_text");
 });
 
 test("Contact Form manifest selects an existing Backstage form instead of defining fields", () => {
   const fields = contactFormManifest.schema.fields;
-  const formField = fields.find((field: { slug: string }) => field.slug === "form_id");
+  const formField = fields.find((field) => field.slug === "form_id");
 
+  assert.ok(formField);
   assert.equal(contactFormManifest.registry_identity, "starter-astro:contact-form@1");
   assert.equal(formField.type, "form_select");
   assert.equal(fields.some((field: { slug: string }) => field.slug === "fields"), false);
@@ -69,7 +85,7 @@ test("every block manifest has a registered Astro renderer", () => {
     Array.from(blockRendererSource.matchAll(/^\s*["']?([\w-]+)["']?\s*:/gm), (match) => match[1]),
   );
 
-  for (const manifest of [heroManifest, richTextManifest, contactFormManifest]) {
+  for (const manifest of blockManifests) {
     assert.ok(rendererKeys.has(manifest.slug), `Missing renderer for ${manifest.slug}`);
   }
 });
@@ -357,7 +373,7 @@ test("requires a synced account definition for every Headless page block", () =>
   );
 });
 
-test("requires a matching registry identity for the starter block", () => {
+test("requires a matching registry identity for the local block", () => {
   const page = normalizePage({
     id: "page-1",
     title: "Home",
@@ -372,7 +388,7 @@ test("requires a matching registry identity for the starter block", () => {
   );
 });
 
-test("requires the account block schema to include every starter manifest field", () => {
+test("requires the account block schema to include every local manifest field", () => {
   const page = normalizePage({
     id: "page-1",
     title: "Home",
@@ -385,10 +401,79 @@ test("requires the account block schema to include every starter manifest field"
     () => assertPageBlockDefinitions([page], true, [{
       slug: "hero",
       registry_identity: "starter-astro:hero@1",
-      schema: { fields: [{ slug: "heading" }] },
+      schema: { fields: [structuredClone(heroManifest.schema.fields.find(({ slug }) => slug === "heading")!)] },
     }]),
-    /missing fields from its starter manifest: variant, eyebrow, body, image, imageAlt, actions/,
+    /missing fields from its local manifest: variant, eyebrow, body, image, imageAlt, actions/,
   );
+});
+
+test("rejects account block schemas that drift from the local field contract", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    pathname: "/",
+    blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
+  });
+  const definition = (fields: readonly Field[]) => [{
+    slug: "hero",
+    registry_identity: heroManifest.registry_identity,
+    schema: { fields },
+  }];
+  const matchingFields = (): Field[] => [...structuredClone(heroManifest.schema.fields)];
+
+  const wrongType = matchingFields();
+  wrongType.find((field) => field.slug === "heading")!.type = "textarea";
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, definition(wrongType)),
+    /field "heading" has type "textarea"; the local manifest expects "text"/,
+  );
+
+  const wrongOptions = matchingFields();
+  wrongOptions.find((field) => field.slug === "variant")!.options![0].label = "Standard";
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, definition(wrongOptions)),
+    /field "variant" has options that differ from its local manifest/,
+  );
+
+  const wrongMetadata = matchingFields();
+  wrongMetadata.find((field) => field.slug === "heading")!.name = "Title";
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, definition(wrongMetadata)),
+    /field "heading" has editor metadata that differs from its local manifest/,
+  );
+
+  const wrongNestedField = matchingFields();
+  wrongNestedField.find((field) => field.slug === "actions")!.fields![1].type = "text";
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, definition(wrongNestedField)),
+    /field "actions.href" has type "text"; the local manifest expects "url"/,
+  );
+
+  const unsupportedField = [...matchingFields(), { name: "Custom", slug: "custom", type: "text" as const }];
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, definition(unsupportedField)),
+    /has fields not supported by its local manifest: custom.*Fork the semantic identity/,
+  );
+});
+
+test("accepts required metadata omitted by the Backstage account-block normalizer", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    pathname: "/",
+    blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
+  });
+  const fields = [...structuredClone(heroManifest.schema.fields)];
+  const actions = fields.find((field) => field.slug === "actions")!;
+  actions.fields?.forEach((field) => { delete field.required; });
+
+  assert.doesNotThrow(() => assertPageBlockDefinitions([page], true, [{
+    slug: "hero",
+    registry_identity: heroManifest.registry_identity,
+    schema: { fields },
+  }]));
 });
 
 test("accepts pages when every used block has a synced account definition", () => {
@@ -403,8 +488,32 @@ test("accepts pages when every used block has a synced account definition", () =
   assert.doesNotThrow(() => assertPageBlockDefinitions([page], true, [{
     slug: "hero",
     registry_identity: heroManifest.registry_identity,
-    schema: { fields: heroManifest.schema.fields.map(({ slug }: { slug: string }) => ({ slug })) },
+    schema: { fields: structuredClone(heroManifest.schema.fields) },
   }]));
+});
+
+test("validates an application-defined block manifest without a PHP block class", () => {
+  const manifest: BlockManifest = {
+    manifest_version: 1,
+    type: "block",
+    registry_identity: "fieldwork:weekly-specials@1",
+    name: "Weekly Specials",
+    slug: "weekly-specials",
+    schema: { fields: [{ name: "Heading", slug: "heading", type: "text" }] },
+  };
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    pathname: "/",
+    blocks: [{ id: "block-1", type: "weekly-specials", fields: { heading: "This week" } }],
+  });
+
+  assert.doesNotThrow(() => assertPageBlockDefinitions([page], true, [{
+    slug: "weekly-specials",
+    registry_identity: manifest.registry_identity,
+    schema: { fields: [structuredClone(manifest.schema.fields[0])] },
+  }], [manifest]));
 });
 
 test("normalizes the generic Backstage website response", () => {
