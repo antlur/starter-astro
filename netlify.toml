@@ -1,0 +1,7 @@
+[context.deploy-preview.environment]
+BACKSTAGE_SOURCE = "fixture"
+SITE_INDEXABLE = "false"
+
+[context.branch-deploy.environment]
+BACKSTAGE_SOURCE = "fixture"
+SITE_INDEXABLE = "false"

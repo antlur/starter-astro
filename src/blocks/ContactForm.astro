@@ -1,0 +1,437 @@
+---
+import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import type { BackstageFormField, HeadlessBlock } from "../lib/backstage/content";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const fields = block.fields;
+const form = block.form;
+
+if (!form) {
+  throw new Error("Contact Form block " + block.id + " has no resolved Backstage form definition.");
+}
+
+const text = (key: string): string => typeof fields[key] === "string" ? (fields[key] as string).trim() : "";
+const eyebrow = text("eyebrow");
+const heading = text("heading") || form.title;
+const body = text("body") ? sanitizeRichText(text("body")) : "";
+const submitLabel = text("submit_label") || "Send message";
+const hasFileField = form.fields.some((field) => field.type === "file");
+const HeadingTag = isPrimary ? "h1" : "h2";
+const inputType = (type: BackstageFormField["type"]): "text" | "email" | "tel" | "date" | "number" | "checkbox" | "file" | "url" => {
+  switch (type) {
+    case "email":
+    case "tel":
+    case "date":
+    case "number":
+    case "checkbox":
+    case "file":
+    case "url":
+      return type;
+    default:
+      return "text";
+  }
+};
+---
+
+<section class="contact-form-section">
+  <div class="contact-form-section__intro">
+    {eyebrow && <p class="contact-form-section__eyebrow">{eyebrow}</p>}
+    {heading && <HeadingTag>{heading}</HeadingTag>}
+    {body && <div class="contact-form-section__body" set:html={body} />}
+  </div>
+
+  <form
+    class="contact-form"
+    action={form.action}
+    method="post"
+    enctype={hasFileField ? "multipart/form-data" : undefined}
+    data-backstage-form
+    data-recaptcha-site-key={form.recaptchaSiteKey || undefined}
+    data-success-message="Thanks. Your message has been sent."
+  >
+    {form.fields.map((field) => {
+      const id = `${block.id}-${field.id}`;
+      const name = field.type === "checkbox" && field.options.length > 0 ? `${field.name}[]` : field.name;
+
+      if (field.type === "select") {
+        return (
+          <label class="contact-form__field" for={id}>
+            <span>{field.label}{field.required && <span aria-hidden="true"> *</span>}</span>
+            <select id={id} name={field.name} required={field.required}>
+              <option value="" disabled selected>Select an option</option>
+              {field.options.map((option) => <option value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+        );
+      }
+
+      if (field.type === "textarea") {
+        return (
+          <label class="contact-form__field" for={id}>
+            <span>{field.label}{field.required && <span aria-hidden="true"> *</span>}</span>
+            <textarea id={id} name={field.name} required={field.required} rows="5"></textarea>
+          </label>
+        );
+      }
+
+      if (field.type === "radio" || (field.type === "checkbox" && field.options.length > 0)) {
+        const choiceType: "radio" | "checkbox" = field.type === "radio" ? "radio" : "checkbox";
+
+        return (
+          <fieldset
+            class="contact-form__choice-group"
+            data-choice-group={choiceType === "checkbox" ? "checkbox" : undefined}
+            data-required-group={choiceType === "checkbox" && field.required ? "true" : undefined}
+          >
+            <legend>{field.label}{field.required && <span aria-hidden="true"> *</span>}</legend>
+            {field.options.map((option, index) => {
+              const optionId = `${id}-${index}`;
+
+              return (
+                <label class="contact-form__choice" for={optionId}>
+                  <input
+                    id={optionId}
+                    type={choiceType}
+                    name={name}
+                    value={option.value}
+                    required={choiceType === "radio" && field.required}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              );
+            })}
+          </fieldset>
+        );
+      }
+
+      return (
+        <label class="contact-form__field" for={id}>
+          <span>{field.label}{field.required && <span aria-hidden="true"> *</span>}</span>
+          <input
+            id={id}
+            type={inputType(field.type)}
+            name={field.name}
+            required={field.required}
+            aria-required={field.required ? "true" : undefined}
+          />
+        </label>
+      );
+    })}
+
+    <input type="hidden" name="g-recaptcha-response" data-recaptcha-response />
+    <p class="contact-form__status" role="status" aria-live="polite" data-form-status hidden></p>
+    <p class="contact-form__error" role="alert" aria-live="assertive" data-form-error hidden></p>
+    <button class="contact-form__submit" type="submit">{submitLabel}</button>
+  </form>
+</section>
+
+<script>
+interface RecaptchaV3 {
+  ready(callback: () => void): void;
+  execute(siteKey: string, options: { action: string }): Promise<string>;
+}
+
+declare global {
+  interface Window {
+    grecaptcha?: RecaptchaV3;
+  }
+}
+
+let recaptchaLoad: Promise<void> | null = null;
+
+const loadRecaptcha = (siteKey: string): Promise<void> => {
+  if (window.grecaptcha) {
+    return Promise.resolve();
+  }
+
+  if (!recaptchaLoad) {
+    recaptchaLoad = new Promise<void>((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}`;
+      script.async = true;
+      script.onerror = () => reject(new Error("Security verification could not be loaded. Please try again."));
+      script.onload = () => window.grecaptcha ? resolve(undefined) : reject(new Error("Security verification is unavailable."));
+      document.head.append(script);
+    }).catch((error: unknown) => {
+      recaptchaLoad = null;
+      throw error;
+    });
+  }
+
+  return recaptchaLoad ?? Promise.reject(new Error("Security verification is unavailable."));
+};
+
+const recaptchaToken = async (siteKey: string): Promise<string> => {
+  await loadRecaptcha(siteKey);
+
+  return new Promise((resolve, reject) => {
+    window.grecaptcha?.ready(() => {
+      window.grecaptcha?.execute(siteKey, { action: "submit" }).then(resolve, reject);
+    });
+  });
+};
+
+const errorMessage = (payload: unknown): string | null => {
+  if (typeof payload !== "object" || payload === null || !("errors" in payload)) {
+    return null;
+  }
+
+  const errors = (payload as { errors?: unknown }).errors;
+
+  if (typeof errors !== "object" || errors === null) {
+    return null;
+  }
+
+  for (const messages of Object.values(errors)) {
+    if (Array.isArray(messages) && typeof messages[0] === "string") {
+      return messages[0];
+    }
+  }
+
+  return null;
+};
+
+document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach((form) => {
+  form.addEventListener("change", (event) => {
+    const target = event.target;
+
+    if (target instanceof HTMLInputElement && target.type === "checkbox") {
+      const group = target.closest<HTMLElement>("[data-required-group='true']");
+      const firstInput = group?.querySelector<HTMLInputElement>("input[type='checkbox']");
+      const hasSelection = Boolean(group?.querySelector("input[type='checkbox']:checked"));
+      firstInput?.setCustomValidity(hasSelection ? "" : "Select at least one option.");
+    }
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const status = form.querySelector<HTMLElement>("[data-form-status]");
+    const error = form.querySelector<HTMLElement>("[data-form-error]");
+    const submit = form.querySelector<HTMLButtonElement>("button[type='submit']");
+    const requiredGroups = form.querySelectorAll<HTMLElement>("[data-required-group='true']");
+
+    if (status) status.hidden = true;
+    if (error) error.hidden = true;
+
+    for (const group of requiredGroups) {
+      const firstInput = group.querySelector<HTMLInputElement>("input[type='checkbox']");
+      const hasSelection = Boolean(group.querySelector("input[type='checkbox']:checked"));
+      firstInput?.setCustomValidity(hasSelection ? "" : "Select at least one option.");
+
+      if (!hasSelection) {
+        firstInput?.reportValidity();
+        return;
+      }
+    }
+
+    if (submit) submit.disabled = true;
+
+    try {
+      const siteKey = form.dataset.recaptchaSiteKey;
+      const tokenField = form.querySelector<HTMLInputElement>("[data-recaptcha-response]");
+
+      if (siteKey && tokenField) {
+        tokenField.value = await recaptchaToken(siteKey);
+      }
+
+      const response = await fetch(form.action, {
+        method: "POST",
+        body: new FormData(form),
+        headers: { "X-API-REQUEST": "true" },
+      });
+
+      if (!response.ok) {
+        const payload: unknown = await response.json().catch(() => null);
+        throw new Error(errorMessage(payload) || "Your message could not be sent. Please try again.");
+      }
+
+      form.reset();
+
+      if (status) {
+        status.textContent = form.dataset.successMessage || "Your message has been sent.";
+        status.hidden = false;
+      }
+    } catch (submissionError) {
+      if (error) {
+        error.textContent = submissionError instanceof Error
+          ? submissionError.message
+          : "Your message could not be sent. Please try again.";
+        error.hidden = false;
+      }
+    } finally {
+      if (submit) submit.disabled = false;
+    }
+  });
+});
+</script>
+
+<style>
+  .contact-form-section {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(20rem, 1.2fr);
+    gap: clamp(2rem, 6vw, 5rem);
+    width: min(100% - 3rem, 74rem);
+    margin: 0 auto;
+    padding: clamp(3.5rem, 8vw, 6rem) 0;
+  }
+
+  .contact-form-section__intro {
+    max-width: 32rem;
+  }
+
+  .contact-form-section__eyebrow {
+    margin: 0 0 0.8rem;
+    color: var(--color-accent-strong);
+    font-size: 0.78rem;
+    font-weight: 750;
+    text-transform: uppercase;
+  }
+
+  .contact-form-section h1,
+  .contact-form-section h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2.25rem, 4vw, 3.5rem);
+    font-weight: 560;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+
+  .contact-form-section__body {
+    margin-top: 1.25rem;
+    color: var(--color-muted);
+    line-height: 1.75;
+  }
+
+  .contact-form-section__body :global(p) {
+    margin: 0 0 1rem;
+  }
+
+  .contact-form {
+    display: grid;
+    gap: 1.1rem;
+    align-content: start;
+    padding: clamp(1.25rem, 3vw, 2rem);
+    border: 1px solid var(--color-line);
+    border-radius: 0.8rem;
+    background: white;
+  }
+
+  .contact-form__field {
+    display: grid;
+    gap: 0.45rem;
+    color: var(--color-ink);
+    font-size: 0.9rem;
+    font-weight: 650;
+  }
+
+  .contact-form__field input,
+  .contact-form__field select,
+  .contact-form__field textarea {
+    width: 100%;
+    min-height: 2.9rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid #aab5ad;
+    border-radius: 0.35rem;
+    background: white;
+    color: var(--color-ink);
+    font: inherit;
+  }
+
+  .contact-form__field textarea {
+    min-height: 9rem;
+    resize: vertical;
+  }
+
+  .contact-form__field input:focus-visible,
+  .contact-form__field select:focus-visible,
+  .contact-form__field textarea:focus-visible,
+  .contact-form__choice input:focus-visible {
+    outline: 3px solid #d15337;
+    outline-offset: 2px;
+  }
+
+  .contact-form__choice-group {
+    display: grid;
+    gap: 0.7rem;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+
+  .contact-form__choice-group legend {
+    margin-bottom: 0.6rem;
+    font-size: 0.9rem;
+    font-weight: 650;
+  }
+
+  .contact-form__choice {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    color: var(--color-ink);
+    font-size: 0.95rem;
+  }
+
+  .contact-form__choice input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--color-accent-strong);
+  }
+
+  .contact-form__status,
+  .contact-form__error {
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .contact-form__status {
+    color: #17613b;
+  }
+
+  .contact-form__error {
+    color: #9b2617;
+  }
+
+  .contact-form__submit {
+    min-height: 3rem;
+    padding: 0.7rem 1.2rem;
+    border: 0;
+    border-radius: 0.35rem;
+    background: var(--color-ink);
+    color: white;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+  }
+
+  .contact-form__submit:hover {
+    background: var(--color-accent-strong);
+  }
+
+  .contact-form__submit:disabled {
+    cursor: wait;
+    opacity: 0.65;
+  }
+
+  .contact-form__submit:focus-visible {
+    outline: 3px solid #d15337;
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 760px) {
+    .contact-form-section {
+      grid-template-columns: 1fr;
+      width: calc(100% - 2.5rem);
+      gap: 1.75rem;
+      padding: 3rem 0;
+    }
+  }
+</style>

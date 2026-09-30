@@ -1,29 +1,22 @@
-// @ts-check
 import { defineConfig } from "astro/config";
-import tailwind from "@astrojs/tailwind";
-import react from "@astrojs/react";
-import netlify from "@astrojs/netlify";
+import sitemap from "@astrojs/sitemap";
+import { loadEnv } from "vite";
 
-// https://astro.build/config
+const env = loadEnv(process.env.NODE_ENV ?? "development", process.cwd(), "");
+const siteUrl = env.SITE_URL?.trim() || undefined;
+const indexable = env.SITE_INDEXABLE === "true";
+
+if (indexable && !siteUrl) {
+  throw new Error("SITE_URL is required when SITE_INDEXABLE=true.");
+}
+
+if (indexable && new URL(siteUrl).protocol !== "https:") {
+  throw new Error("SITE_URL must use HTTPS when SITE_INDEXABLE=true.");
+}
+
 export default defineConfig({
-  server: {
-    host: "0.0.0.0",
-    port: 3000,
-  },
-  integrations: [
-    tailwind({
-      applyBaseStyles: false,
-    }),
-    react(),
-  ],
-  // output: "server",
-  adapter: netlify({
-    // edgeMiddleware: true,
-  }),
-  image: {
-    domains: ["media.bckstg.app"],
-  },
-  experimental: {
-    svg: true,
-  },
+  site: siteUrl,
+  output: "static",
+  trailingSlash: "always",
+  integrations: indexable ? [sitemap()] : [],
 });

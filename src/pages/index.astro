@@ -1,15 +1,14 @@
 ---
+import PageContent from "../components/PageContent.astro";
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { getHomePage, getSiteContent } from "../lib/backstage/content";
+import { applicationRoutePaths, buildSiteRoutePlan } from "../site/routes";
 
+const content = await getSiteContent();
+const routePlan = buildSiteRoutePlan(content, applicationRoutePaths);
+const page = getHomePage(content.pages);
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Antlur</title>
-  </head>
-  <body>
-    <h1>Antlur</h1>
-  </body>
-</html>
+<SiteLayout page={page} site={content.site} pathname="/" navigation={routePlan.navigation}>
+  <PageContent page={page} />
+</SiteLayout>

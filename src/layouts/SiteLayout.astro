@@ -1,0 +1,97 @@
+---
+import "../styles/globals.css";
+import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
+
+interface Props {
+  page: HeadlessPage;
+  site: HeadlessWebsite;
+  pathname: string;
+  navigation: SiteNavigationItem[];
+}
+
+const { page, site, pathname, navigation } = Astro.props;
+const siteTitle = site.meta?.title || site.name;
+const pageTitle = page.meta?.title || page.title;
+const title = pageTitle === siteTitle ? pageTitle : pageTitle + " | " + siteTitle;
+const description = page.meta?.description || site.openGraph?.description || site.meta?.description || pageTitle;
+const openGraphTitle = page.meta?.title || site.openGraph?.title || title;
+const openGraphDescription = page.meta?.description || site.openGraph?.description || description;
+const canonicalUrl = Astro.site ? new URL(pathname, Astro.site).href : undefined;
+const indexable = import.meta.env.SITE_INDEXABLE === "true" && Boolean(Astro.site);
+const organization = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: site.name,
+  url: Astro.site?.href,
+  logo: site.logo?.url,
+};
+const jsonLd = JSON.stringify(organization).replace(/</g, "\\u003c");
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content={indexable ? "index,follow" : "noindex,nofollow"} />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#f5f7f3" />
+    <link rel="icon" href={site.faviconUrl || "/favicon.svg"} />
+    {site.appleIconUrl && <link rel="apple-touch-icon" href={site.appleIconUrl} />}
+    {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={siteTitle} />
+    <meta property="og:title" content={openGraphTitle} />
+    <meta property="og:description" content={openGraphDescription} />
+    {site.openGraph?.image && <meta property="og:image" content={site.openGraph.image} />}
+    {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+    <meta name="twitter:card" content={site.openGraph?.image ? "summary_large_image" : "summary"} />
+    <title>{title}</title>
+    <script type="application/ld+json" set:html={jsonLd} />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <a class="site-brand" href="/" aria-label={site.name + " home"}>
+        {site.logo
+          ? <img src={site.logo.url} alt="" width={site.logo.width || 160} height={site.logo.height || 48} />
+          : <span>{site.name}</span>}
+      </a>
+      <nav aria-label="Primary navigation">
+        <ul class="site-nav">
+          {navigation.map((item) => (
+            <li>
+              <a
+                href={item.url}
+                target={item.newWindow ? "_blank" : undefined}
+                rel={item.newWindow ? "noopener noreferrer" : undefined}
+                aria-current={pathname === item.url ? "page" : undefined}
+              >{item.text}</a>
+              {item.children.length > 0 && (
+                <ul class="site-nav-children" aria-label={item.text + " links"}>
+                  {item.children.map((child) => (
+                    <li>
+                      <a
+                        href={child.url}
+                        target={child.newWindow ? "_blank" : undefined}
+                        rel={child.newWindow ? "noopener noreferrer" : undefined}
+                        aria-current={pathname === child.url ? "page" : undefined}
+                      >{child.text}</a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </header>
+    <main id="main-content" tabindex="-1">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <p>{site.name}</p>
+      <small>© {new Date().getFullYear()} {site.name}</small>
+    </footer>
+  </body>
+</html>

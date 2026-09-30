@@ -1,0 +1,30 @@
+---
+import PageContent from "../components/PageContent.astro";
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { getSiteContent } from "../lib/backstage/content";
+import { applicationRoutePaths, buildSiteRoutePlan, reportUnhandledRoutes } from "../site/routes";
+
+export const getStaticPaths = async () => {
+  const content = await getSiteContent();
+  const routePlan = buildSiteRoutePlan(content, applicationRoutePaths);
+  reportUnhandledRoutes(routePlan.unhandledPaths, import.meta.env.SITE_INDEXABLE === "true");
+
+  return routePlan.cmsPages
+    .filter(({ path }) => path !== "/")
+    .map(({ path, page }) => ({
+      params: { slug: path.replace(/^\/|\/$/g, "") },
+      props: {
+        page,
+        site: content.site,
+        pathname: path,
+        navigation: routePlan.navigation,
+      },
+    }));
+};
+
+const { page, site, pathname, navigation } = Astro.props;
+---
+
+<SiteLayout page={page} site={site} pathname={pathname} navigation={navigation}>
+  <PageContent page={page} />
+</SiteLayout>
