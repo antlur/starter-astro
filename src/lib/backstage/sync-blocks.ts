@@ -65,6 +65,27 @@ function validateSchemaFields(fields: unknown[], blockSlug: string, parent = "sc
     }
     slugs.add(field.slug);
 
+    if (field.required !== undefined && typeof field.required !== "boolean") {
+      throw new Error(`Block manifest "${blockSlug}" has an invalid required setting for "${field.slug}".`);
+    }
+
+    if (field.is_multiple !== undefined && typeof field.is_multiple !== "boolean") {
+      throw new Error(`Block manifest "${blockSlug}" has an invalid multiple-value setting for "${field.slug}".`);
+    }
+
+    if (field.allowed_references !== undefined && (!Array.isArray(field.allowed_references)
+      || field.allowed_references.some((reference) => typeof reference !== "string"))) {
+      throw new Error(`Block manifest "${blockSlug}" has invalid reference targets for "${field.slug}".`);
+    }
+
+    if (field.options !== undefined && (!Array.isArray(field.options)
+      || field.options.some((option) => !isRecord(option)
+        || typeof option.label !== "string"
+        || option.label.trim() === ""
+        || !Object.hasOwn(option, "value")))) {
+      throw new Error(`Block manifest "${blockSlug}" has invalid options for "${field.slug}".`);
+    }
+
     if (field.fields !== undefined) {
       if (!Array.isArray(field.fields)) {
         throw new Error(`Block manifest "${blockSlug}" has invalid nested fields for "${field.slug}".`);
