@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import type { Field } from "@antlur/backstage";
 import {
   assertPageBlockDefinitions,
   assertPageLayoutDefinitions,
@@ -400,10 +401,79 @@ test("requires the account block schema to include every local manifest field", 
     () => assertPageBlockDefinitions([page], true, [{
       slug: "hero",
       registry_identity: "starter-astro:hero@1",
-      schema: { fields: [{ slug: "heading" }] },
+      schema: { fields: [structuredClone(heroManifest.schema.fields.find(({ slug }) => slug === "heading")!)] },
     }]),
     /missing fields from its local manifest: variant, eyebrow, body, image, imageAlt, actions/,
   );
+});
+
+test("rejects account block schemas that drift from the local field contract", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    pathname: "/",
+    blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
+  });
+  const definition = (fields: readonly Field[]) => [{
+    slug: "hero",
+    registry_identity: heroManifest.registry_identity,
+    schema: { fields },
+  }];
+  const matchingFields = (): Field[] => [...structuredClone(heroManifest.schema.fields)];
+
+  const wrongType = matchingFields();
+  wrongType.find((field) => field.slug === "heading")!.type = "textarea";
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, definition(wrongType)),
+    /field "heading" has type "textarea"; the local manifest expects "text"/,
+  );
+
+  const wrongOptions = matchingFields();
+  wrongOptions.find((field) => field.slug === "variant")!.options![0].label = "Standard";
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, definition(wrongOptions)),
+    /field "variant" has options that differ from its local manifest/,
+  );
+
+  const wrongMetadata = matchingFields();
+  wrongMetadata.find((field) => field.slug === "heading")!.name = "Title";
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, definition(wrongMetadata)),
+    /field "heading" has editor metadata that differs from its local manifest/,
+  );
+
+  const wrongNestedField = matchingFields();
+  wrongNestedField.find((field) => field.slug === "actions")!.fields![1].type = "text";
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, definition(wrongNestedField)),
+    /field "actions.href" has type "text"; the local manifest expects "url"/,
+  );
+
+  const unsupportedField = [...matchingFields(), { name: "Custom", slug: "custom", type: "text" as const }];
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, definition(unsupportedField)),
+    /has fields not supported by its local manifest: custom.*Fork the semantic identity/,
+  );
+});
+
+test("accepts required metadata omitted by the Backstage account-block normalizer", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    pathname: "/",
+    blocks: [{ id: "block-1", type: "hero", fields: { heading: "Welcome" } }],
+  });
+  const fields = [...structuredClone(heroManifest.schema.fields)];
+  const actions = fields.find((field) => field.slug === "actions")!;
+  actions.fields?.forEach((field) => { delete field.required; });
+
+  assert.doesNotThrow(() => assertPageBlockDefinitions([page], true, [{
+    slug: "hero",
+    registry_identity: heroManifest.registry_identity,
+    schema: { fields },
+  }]));
 });
 
 test("accepts pages when every used block has a synced account definition", () => {
@@ -418,7 +488,7 @@ test("accepts pages when every used block has a synced account definition", () =
   assert.doesNotThrow(() => assertPageBlockDefinitions([page], true, [{
     slug: "hero",
     registry_identity: heroManifest.registry_identity,
-    schema: { fields: heroManifest.schema.fields.map(({ slug }: { slug: string }) => ({ slug })) },
+    schema: { fields: structuredClone(heroManifest.schema.fields) },
   }]));
 });
 
@@ -442,7 +512,7 @@ test("validates an application-defined block manifest without a PHP block class"
   assert.doesNotThrow(() => assertPageBlockDefinitions([page], true, [{
     slug: "weekly-specials",
     registry_identity: manifest.registry_identity,
-    schema: { fields: [{ slug: "heading" }] },
+    schema: { fields: [structuredClone(manifest.schema.fields[0])] },
   }], [manifest]));
 });
 

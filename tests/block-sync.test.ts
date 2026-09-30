@@ -150,3 +150,26 @@ test("rejects malformed and duplicate semantic field definitions", () => {
 
   assert.throws(() => validateBlockManifests([null]), /missing valid identity, name, slug, or schema/);
 });
+
+test("rejects malformed field metadata in block manifests", () => {
+  const baseField = manifest.schema.fields[0];
+  const malformedFields = [
+    { ...baseField, required: "yes" },
+    { ...baseField, is_multiple: 1 },
+    { ...baseField, allowed_references: "hero" },
+    { ...baseField, options: [{ label: "Missing value" }] },
+  ];
+  const expectedErrors = [
+    /invalid required setting for "variant"/,
+    /invalid multiple-value setting for "variant"/,
+    /invalid reference targets for "variant"/,
+    /invalid options for "variant"/,
+  ];
+
+  for (const [index, field] of malformedFields.entries()) {
+    assert.throws(
+      () => validateBlockManifests([{ ...manifest, schema: { fields: [field] } }]),
+      expectedErrors[index],
+    );
+  }
+});
