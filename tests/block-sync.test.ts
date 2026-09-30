@@ -151,6 +151,15 @@ test("rejects malformed and duplicate semantic field definitions", () => {
   assert.throws(() => validateBlockManifests([null]), /missing valid identity, name, slug, or schema/);
 });
 
+test("rejects field types that are not supported by the SDK", () => {
+  const field = manifest.schema.fields[0];
+
+  assert.throws(
+    () => validateBlockManifests([{ ...manifest, schema: { fields: [{ ...field, type: "phoen" }] } }]),
+    /unsupported field type "phoen" for "variant" in schema.fields/,
+  );
+});
+
 test("rejects malformed field metadata in block manifests", () => {
   const baseField = manifest.schema.fields[0];
   const malformedFields = [

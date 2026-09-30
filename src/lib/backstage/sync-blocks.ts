@@ -1,4 +1,5 @@
 import type { AccountBlockSchema, BackstageClient, Field } from "@antlur/backstage";
+import type { FieldType } from "@antlur/backstage/studio";
 
 export interface BlockManifest {
   manifest_version: 1;
@@ -33,6 +34,38 @@ export interface BlockSyncOptions {
 }
 
 const identityPattern = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*@[1-9][0-9]*$/;
+const supportedFieldTypes: Record<FieldType, true> = {
+  boolean: true,
+  date: true,
+  datetime: true,
+  email: true,
+  event_select: true,
+  fieldset: true,
+  form_select: true,
+  image: true,
+  image_list: true,
+  json: true,
+  list_array: true,
+  location: true,
+  markdown: true,
+  media: true,
+  menu_select: true,
+  number: true,
+  press_select: true,
+  reference: true,
+  repeater: true,
+  rich_text: true,
+  select: true,
+  separator: true,
+  slug: true,
+  spacer: true,
+  text: true,
+  textarea: true,
+  time: true,
+  url: true,
+  navigation_select: true,
+  page_select: true,
+};
 
 function statusOf(error: unknown): number | undefined {
   if (typeof error !== "object" || error === null) return undefined;
@@ -58,6 +91,10 @@ function validateSchemaFields(fields: unknown[], blockSlug: string, parent = "sc
       || field.type.trim() === ""
     ) {
       throw new Error(`Block manifest "${blockSlug}" has an invalid ${parent}[${index}]; each field needs a name, slug, and type.`);
+    }
+
+    if (!Object.hasOwn(supportedFieldTypes, field.type)) {
+      throw new Error(`Block manifest "${blockSlug}" has unsupported field type "${field.type}" for "${field.slug}" in ${parent}.`);
     }
 
     if (slugs.has(field.slug)) {
