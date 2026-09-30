@@ -1,4 +1,4 @@
-import type { AccountBlockSchema, BackstageClient } from "@antlur/backstage";
+import type { AccountBlockSchema, BackstageClient, Field } from "@antlur/backstage";
 
 export interface BlockManifest {
   manifest_version: 1;
@@ -8,7 +8,7 @@ export interface BlockManifest {
   name: string;
   slug: string;
   description?: string;
-  schema: AccountBlockSchema;
+  schema: AccountBlockSchema & { fields: readonly Field[] };
 }
 
 interface RegisteredBlock {
@@ -40,30 +40,72 @@ function statusOf(error: unknown): number | undefined {
   return typeof response?.status === "number" ? response.status : undefined;
 }
 
-function validateManifests(manifests: BlockManifest[]): void {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validateSchemaFields(fields: unknown[], blockSlug: string, parent = "schema.fields"): void {
+  const slugs = new Set<string>();
+
+  for (const [index, field] of fields.entries()) {
+    if (
+      !isRecord(field)
+      || typeof field.name !== "string"
+      || field.name.trim() === ""
+      || typeof field.slug !== "string"
+      || field.slug.trim() === ""
+      || typeof field.type !== "string"
+      || field.type.trim() === ""
+    ) {
+      throw new Error(`Block manifest "${blockSlug}" has an invalid ${parent}[${index}]; each field needs a name, slug, and type.`);
+    }
+
+    if (slugs.has(field.slug)) {
+      throw new Error(`Block manifest "${blockSlug}" has duplicate field slug "${field.slug}" in ${parent}.`);
+    }
+    slugs.add(field.slug);
+
+    if (field.fields !== undefined) {
+      if (!Array.isArray(field.fields)) {
+        throw new Error(`Block manifest "${blockSlug}" has invalid nested fields for "${field.slug}".`);
+      }
+      validateSchemaFields(field.fields, blockSlug, `${parent}.${field.slug}.fields`);
+    }
+  }
+}
+
+export function validateBlockManifests(manifests: unknown[]): asserts manifests is BlockManifest[] {
   if (manifests.length === 0) throw new Error("No block manifests were found.");
 
   const identities = new Set<string>();
   const slugs = new Set<string>();
 
-  for (const manifest of manifests) {
+  for (const candidate of manifests) {
     if (
-      manifest.manifest_version !== 1
-      || manifest.type !== "block"
-      || !identityPattern.test(manifest.registry_identity)
-      || !manifest.name
-      || !manifest.slug
-      || !Array.isArray(manifest.schema?.fields)
+      !isRecord(candidate)
+      || candidate.manifest_version !== 1
+      || candidate.type !== "block"
+      || typeof candidate.registry_identity !== "string"
+      || !identityPattern.test(candidate.registry_identity)
+      || typeof candidate.name !== "string"
+      || candidate.name.trim() === ""
+      || typeof candidate.slug !== "string"
+      || candidate.slug.trim() === ""
+      || !isRecord(candidate.schema)
+      || !Array.isArray(candidate.schema.fields)
     ) {
       throw new Error("A block manifest is missing valid identity, name, slug, or schema fields.");
     }
 
-    if (identities.has(manifest.registry_identity) || slugs.has(manifest.slug)) {
-      throw new Error(`Block manifests must use unique identities and slugs; check "${manifest.slug}".`);
+    const { registry_identity: registryIdentity, slug } = candidate;
+    validateSchemaFields(candidate.schema.fields as unknown[], slug);
+
+    if (identities.has(registryIdentity) || slugs.has(slug)) {
+      throw new Error(`Block manifests must use unique identities and slugs; check "${slug}".`);
     }
 
-    identities.add(manifest.registry_identity);
-    slugs.add(manifest.slug);
+    identities.add(registryIdentity);
+    slugs.add(slug);
   }
 }
 
@@ -72,7 +114,7 @@ export async function syncBlockManifests(
   manifests: BlockManifest[],
   options: BlockSyncOptions = {},
 ) {
-  validateManifests(manifests);
+  validateBlockManifests(manifests);
   const adoptUnregisteredSlugs = new Set(options.adoptUnregisteredSlugs ?? []);
   const manifestSlugs = new Set(manifests.map((manifest) => manifest.slug));
 
