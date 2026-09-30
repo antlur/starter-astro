@@ -26,6 +26,8 @@ export const fixtureContent: SiteContent = {
       slug: "/",
       pathname: "/",
       is_home: true,
+      settings: {},
+      layout: null,
       meta: {
         title: "Coffee for the everyday",
         description: "A neighborhood coffee shop with carefully sourced coffee and a generous welcome.",
@@ -54,6 +56,14 @@ export const fixtureContent: SiteContent = {
       slug: "about",
       pathname: "/about",
       is_home: false,
+      settings: {},
+      layout: {
+        id: "fixture-standard-page-layout",
+        name: "Starter Astro Standard Page",
+        slug: "starter-astro-standard-page",
+        schema: { fields: [] },
+        data: { content_width: "narrow", section_spacing: "comfortable" },
+      },
       meta: {
         title: "About Fieldwork Coffee",
         description: "Get to know the people, coffee, and care behind Fieldwork Coffee.",

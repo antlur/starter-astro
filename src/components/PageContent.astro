@@ -1,5 +1,6 @@
 ---
 import BlockRenderer from "./BlockRenderer.astro";
+import PageLayoutRenderer from "./PageLayoutRenderer.astro";
 import type { HeadlessPage } from "../lib/backstage/content";
 
 interface Props {
@@ -12,11 +13,13 @@ const primaryHeadingIndex = page.blocks.findIndex(
 );
 ---
 
-{primaryHeadingIndex === -1 && page.blocks.length > 0 && <h1 class="visually-hidden">{page.title}</h1>}
-{page.blocks.length === 0 && <h1 class="page-title">{page.title}</h1>}
-{page.blocks.map((block, index) => (
-  <BlockRenderer block={block} isPrimary={index === primaryHeadingIndex} />
-))}
+<PageLayoutRenderer page={page}>
+  {primaryHeadingIndex === -1 && page.blocks.length > 0 && <h1 class="visually-hidden">{page.title}</h1>}
+  {page.blocks.length === 0 && <h1 class="page-title">{page.title}</h1>}
+  {page.blocks.map((block, index) => (
+    <BlockRenderer block={block} isPrimary={index === primaryHeadingIndex} />
+  ))}
+</PageLayoutRenderer>
 
 <style>
   .visually-hidden {

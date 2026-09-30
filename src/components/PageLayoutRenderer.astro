@@ -1,0 +1,20 @@
+---
+import StandardPage from "../layouts/pages/StandardPage.astro";
+import type { HeadlessPage } from "../lib/backstage/content";
+import { resolvePageLayoutSlug } from "../site/page-layout-definitions";
+
+interface Props {
+  page: HeadlessPage;
+}
+
+const { page } = Astro.props;
+const registry = {
+  "starter-astro-standard-page": StandardPage,
+} as const;
+const slug = resolvePageLayoutSlug(page.layout?.slug, Object.keys(registry));
+const Component = registry[slug as keyof typeof registry];
+---
+
+<Component page={page} data={page.layout?.data ?? {}} settings={page.settings}>
+  <slot />
+</Component>
