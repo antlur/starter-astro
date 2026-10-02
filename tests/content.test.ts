@@ -29,6 +29,13 @@ const blockManifest = (slug: string): BlockManifest => {
 const heroManifest = blockManifest("hero");
 const richTextManifest = blockManifest("rich-text");
 const contactFormManifest = blockManifest("contact-form");
+const imageManifest = blockManifest("image");
+const cardGridManifest = blockManifest("card-grid");
+const callToActionManifest = blockManifest("call-to-action");
+const mediaWithTextManifest = blockManifest("media-with-text");
+const imageGalleryManifest = blockManifest("image-gallery");
+const upcomingEventsManifest = blockManifest("upcoming-events");
+const instagramFeedManifest = blockManifest("instagram-feed");
 const blockRendererSource = readFileSync(new URL("../src/components/BlockRenderer.astro", import.meta.url), "utf8");
 const pageLayoutRendererSource = readFileSync(new URL("../src/components/PageLayoutRenderer.astro", import.meta.url), "utf8");
 const localLayoutFields = () => pageLayoutDefinitions[0].schema.fields.map(({ slug, type, options }) => ({
@@ -48,6 +55,8 @@ test("Hero manifest exposes the fields used by its Astro renderer", () => {
     "heading",
     "image",
     "imageAlt",
+    "logo",
+    "logoAlt",
     "variant",
   ]);
   const variant = fieldBySlug.get("variant");
@@ -56,6 +65,8 @@ test("Hero manifest exposes the fields used by its Astro renderer", () => {
   assert.ok(actions);
   assert.deepEqual(variant.options?.map((option) => option.value), ["default", "full-bleed-image"]);
   assert.equal(variant.placeholder, "Default (automatic)");
+  assert.equal(fieldBySlug.get("image")?.type, "image_list");
+  assert.equal(fieldBySlug.get("logo")?.type, "image");
   assert.deepEqual(actions.fields?.map((field) => field.slug), ["label", "href"]);
   assert.equal(heroManifest.derived_from, "backstage:hero@1");
 });
@@ -78,6 +89,69 @@ test("Contact Form manifest selects an existing Backstage form instead of defini
   assert.equal(contactFormManifest.registry_identity, "starter-astro:contact-form@1");
   assert.equal(formField.type, "form_select");
   assert.equal(fields.some((field: { slug: string }) => field.slug === "fields"), false);
+});
+
+test("common content manifests expose their renderer fields", () => {
+  assert.deepEqual(imageManifest.schema.fields.map((field) => field.slug), ["image", "imageAlt", "caption"]);
+  assert.equal(imageManifest.registry_identity, "starter-astro:image@1");
+
+  const cards = cardGridManifest.schema.fields.find((field) => field.slug === "cards");
+  assert.ok(cards);
+  assert.deepEqual(cards.fields?.map((field) => field.slug), [
+    "image",
+    "imageAlt",
+    "title",
+    "body",
+    "link_label",
+    "link_url",
+  ]);
+
+  assert.deepEqual(callToActionManifest.schema.fields.map((field) => field.slug), [
+    "eyebrow",
+    "heading",
+    "body",
+    "button_label",
+    "button_url",
+  ]);
+});
+
+test("media with text and image gallery cover reusable editorial layouts", () => {
+  assert.deepEqual(mediaWithTextManifest.schema.fields.map((field) => field.slug), [
+    "eyebrow",
+    "heading",
+    "subheading",
+    "body",
+    "image",
+    "imageAlt",
+    "image_position",
+    "section_width",
+    "cta_label",
+    "cta_url",
+  ]);
+  assert.deepEqual(
+    mediaWithTextManifest.schema.fields.find((field) => field.slug === "image_position")?.options?.map((option) => option.value),
+    ["left", "right"],
+  );
+
+  const images = imageGalleryManifest.schema.fields.find((field) => field.slug === "images");
+  assert.ok(images);
+  assert.deepEqual(images.fields?.map((field) => field.slug), ["image", "imageAlt", "caption"]);
+  assert.deepEqual(imageGalleryManifest.schema.fields.find((field) => field.slug === "columns")?.options?.map((option) => option.value), ["2", "3", "4"]);
+});
+
+test("upcoming events block uses a small editable schema backed by the Events module", () => {
+  assert.deepEqual(upcomingEventsManifest.schema.fields.map((field) => field.slug), [
+    "eyebrow",
+    "title",
+    "description",
+    "count",
+  ]);
+  assert.equal(upcomingEventsManifest.schema.fields.find((field) => field.slug === "description")?.type, "rich_text");
+});
+
+test("Instagram Feed block uses connected public posts and a compact editable schema", () => {
+  assert.deepEqual(instagramFeedManifest.schema.fields.map((field) => field.slug), ["eyebrow", "heading", "count"]);
+  assert.equal(instagramFeedManifest.registry_identity, "starter-astro:instagram-feed@1");
 });
 
 test("every block manifest has a registered Astro renderer", () => {
@@ -403,7 +477,7 @@ test("requires the account block schema to include every local manifest field", 
       registry_identity: "starter-astro:hero@1",
       schema: { fields: [structuredClone(heroManifest.schema.fields.find(({ slug }) => slug === "heading")!)] },
     }]),
-    /missing fields from its local manifest: variant, eyebrow, body, image, imageAlt, actions/,
+    /missing fields from its local manifest: variant, eyebrow, body, image, imageAlt, logo, logoAlt, actions/,
   );
 });
 
@@ -519,19 +593,54 @@ test("validates an application-defined block manifest without a PHP block class"
 test("normalizes the generic Backstage website response", () => {
   const site = normalizeWebsite({
     app_name: "Fieldwork",
+    domain: "fieldwork.example.test",
     account: { id: "account-1", name: "Fieldwork Coffee" },
     meta: { title: "Fieldwork", description: "Coffee nearby" },
     open_graph: { title: "Fieldwork social title", image: "https://example.test/og.jpg" },
     favicon_url: "https://example.test/favicon.ico",
     logo: { url: "https://example.test/logo.svg", width: 180, height: 50 },
+    theme: { colors: { primary: "#c24436", header: "#000000", headerForeground: "#ffffff", background: "#ffffff" } },
+    font_urls: ["https://use.typekit.net/ieq8pyc.css", "https://evil.example.test/fonts.css"],
+    font_families: [{ name: "heading", value: "fresno, sans-serif" }],
+    social_links: [
+      { name: "instagram", url: "https://instagram.com/example" },
+      { name: "unsafe", url: "javascript:alert(1)" },
+    ],
+    home_cta_text: "Order Online",
+    home_cta_url: "https://order.example.test",
   });
 
   assert.equal(site.name, "Fieldwork Coffee");
+  assert.equal(site.domain, "fieldwork.example.test");
+  assert.equal(site.domain, "fieldwork.example.test");
   assert.equal(site.openGraph?.image, "https://example.test/og.jpg");
   assert.equal(site.logo?.width, 180);
+  assert.equal(site.theme.colors.primary, "#c24436");
+  assert.equal(site.theme.colors.header, "#000000");
+  assert.equal(site.theme.fonts.heading, "fresno, sans-serif");
+  assert.deepEqual(site.theme.fontStylesheets, ["https://use.typekit.net/ieq8pyc.css"]);
+  assert.deepEqual(site.socialLinks, [{ name: "instagram", url: "https://instagram.com/example" }]);
+  assert.deepEqual(site.homeCta, { text: "Order Online", url: "https://order.example.test" });
 });
 
-test("normalizes Backstage form fields and compatible phone fields", () => {
+test("ignores unsafe website colors, font definitions, media URLs, and stylesheet URLs", () => {
+  const site = normalizeWebsite({
+    app_name: "Unsafe Site",
+    theme: { colors: { primary: "red; background:url(javascript:alert(1))" } },
+    font_families: [{ name: "default", value: "serif; background: red" }],
+    font_urls: ["http://fonts.googleapis.com/css?family=Unsafe", "https://evil.example.test/fonts.css"],
+    logo: { url: "javascript:alert(1)" },
+    favicon_url: "javascript:alert(1)",
+  });
+
+  assert.equal(site.theme.colors.primary, "#294c3d");
+  assert.equal(site.theme.fonts.body, 'Inter, "Avenir Next", Avenir, sans-serif');
+  assert.deepEqual(site.theme.fontStylesheets, []);
+  assert.equal(site.logo, null);
+  assert.equal(site.faviconUrl, null);
+});
+
+test("normalizes Backstage form fields and legacy choice/time types", () => {
   const form = normalizeFormDefinition({
     data: {
       id: "form-1",
@@ -542,6 +651,10 @@ test("normalizes Backstage form fields and compatible phone fields", () => {
         { id: "field-1", name: null, label: "Email Address", type: "email", required: true, options: [] },
         { id: "field-2", name: "phone_number", label: "Phone", type: "phone", required: false, options: [] },
         { id: "field-3", name: "interest", label: "Interest", type: "select", required: true, options: ["General", { label: "Catering", value: "catering" }] },
+        { id: "field-4", name: null, label: "Desired Position", type: "dropdown", required: true, options: ["Server", "Cook"] },
+        { id: "field-5", name: null, label: "Organization Type", type: "single-choice", required: true, options: ["School", "Team"] },
+        { id: "field-6", name: null, label: "Attachments", type: "multiple-choice", required: false, options: ["Logo", "Tax Letter"] },
+        { id: "field-7", name: null, label: "Requested Time", type: "time", required: true, options: [] },
       ],
     },
   }, "form-1");
@@ -554,6 +667,8 @@ test("normalizes Backstage form fields and compatible phone fields", () => {
     { label: "General", value: "General" },
     { label: "Catering", value: "catering" },
   ]);
+  assert.deepEqual(form.fields.slice(3).map((field) => field.type), ["select", "radio", "checkbox", "time"]);
+  assert.deepEqual(form.fields.slice(3, 6).map((field) => field.name), ["desired_position", "organization_type", "attachments"]);
 });
 
 test("resolves each referenced Backstage form once and attaches it to contact blocks", async () => {
@@ -648,7 +763,7 @@ test("normalizes Backstage navigation and rejects unsafe link schemes", () => {
       text: "Menus",
       url: "/menus",
       new_window: false,
-      children: [{ id: "menu-2", text: "Dinner", url: "/menus/dinner", new_window: true }],
+      children: [{ id: "menu-2", text: "Dinner", url: "/menus/dinner", style: "button", new_window: true }],
     }],
   });
 
@@ -657,7 +772,8 @@ test("normalizes Backstage navigation and rejects unsafe link schemes", () => {
     text: "Menus",
     url: "/menus/",
     newWindow: false,
-    children: [{ id: "menu-2", text: "Dinner", url: "/menus/dinner/", newWindow: true, children: [] }],
+    style: "link",
+    children: [{ id: "menu-2", text: "Dinner", url: "/menus/dinner/", newWindow: true, style: "button", children: [] }],
   }]);
 
   assert.throws(
@@ -674,4 +790,37 @@ test("sanitizes rich text tags and unsafe link schemes", () => {
   assert.match(html, /<p>Hello<\/p>/);
   assert.match(html, /Unsafe link/);
   assert.doesNotMatch(html, /<script|javascript:/i);
+});
+
+test("localizes known same-site rich-text links only in a preview context", () => {
+  const html = sanitizeRichText(
+    '<p><a href="https://www.goallinebar.com/menu">Menu</a> <a href="https://order.goallinebar.com">Order</a></p>',
+    { siteDomain: "goallinebar.com", routePaths: ["/menu"] },
+  );
+
+  assert.match(html, /href="\/menu\/?"/);
+  assert.match(html, /href="https:\/\/order\.goallinebar\.com"/);
+});
+
+test("preserves the primary legacy heading and formatting while removing unsafe inline styles", () => {
+  const html = sanitizeRichText(
+    '<h1 style="text-align: center; color: #c24436; position: fixed">WELCOME</h1><div style="display: grid; grid-template-columns: 1fr 1fr; column-gap: 2rem"><p style="font-size: 1.25rem; line-height: 1.6 !important">Hello</p></div><script>alert(1)</script>',
+    undefined,
+    { preserveFirstH1: true },
+  );
+
+  assert.match(html, /<h1[^>]*>WELCOME<\/h1>/);
+  assert.match(html, /text-align:\s*center/i);
+  assert.match(html, /color:\s*#c24436/i);
+  assert.match(html, /grid-template-columns:\s*1fr 1fr/i);
+  assert.match(html, /line-height:\s*1\.6\s*!important/i);
+  assert.doesNotMatch(html, /position|<script|alert\(1\)/i);
+});
+
+test("demotes rich-text h1 headings unless one is selected as the page heading", () => {
+  assert.equal(sanitizeRichText("<h1>First</h1><h1>Second</h1>"), "<h2>First</h2><h2>Second</h2>");
+  assert.equal(
+    sanitizeRichText("<h1>First</h1><h1>Second</h1>", undefined, { preserveFirstH1: true }),
+    "<h1>First</h1><h2>Second</h2>",
+  );
 });

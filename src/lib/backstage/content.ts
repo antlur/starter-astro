@@ -3,7 +3,15 @@ import type { AccountBlock, Field } from "@antlur/backstage";
 import { pageLayoutDefinitions } from "../../site/page-layout-definitions";
 import { loadBlockManifests } from "./block-manifests";
 import { attachBackstageForms } from "./forms";
+import { normalizeLocation, type SiteLocation } from "./locations";
+import { normalizeMenu, type SiteMenu } from "./menus";
+import { normalizePublicPressReleases, type SitePressRelease } from "./press";
+import { normalizeEvent, type SiteEvent } from "./events";
+import { normalizeInstagramPosts, type SiteInstagramPost } from "./instagram";
+import { assertLegacyPreviewConfiguration, collectLegacyPageMediaIds, normalizeLegacyPreviewPages } from "./legacy-page-preview";
 import { validateBlockManifests, type BlockManifest } from "./sync-blocks";
+import { previewRouteUrl, safeImageUrl, safeLinkUrl } from "../safe-url";
+import { sanitizeRichText } from "../sanitize-rich-text";
 
 export interface HeadlessBlock {
   id: string;
@@ -11,6 +19,9 @@ export interface HeadlessBlock {
   variant?: string | null;
   fields: Record<string, unknown>;
   form?: BackstageFormDefinition;
+  events?: SiteEvent[];
+  instagramPosts?: SiteInstagramPost[];
+  instagramUrl?: string | null;
 }
 
 export interface BackstageFormDefinition {
@@ -25,7 +36,7 @@ export interface BackstageFormField {
   id: string;
   name: string;
   label: string;
-  type: "text" | "email" | "tel" | "textarea" | "date" | "number" | "select" | "checkbox" | "radio" | "file" | "url";
+  type: "text" | "email" | "tel" | "textarea" | "date" | "time" | "number" | "select" | "checkbox" | "radio" | "file" | "url";
   required: boolean;
   options: Array<{ label: string; value: string }>;
 }
@@ -58,11 +69,14 @@ export interface SiteNavigationItem {
   text: string;
   url: string;
   newWindow: boolean;
+  style?: "link" | "button";
+  menuId?: string;
   children: SiteNavigationItem[];
 }
 
 export interface HeadlessWebsite {
   name: string;
+  domain: string | null;
   meta?: {
     title?: string | null;
     description?: string | null;
@@ -79,6 +93,13 @@ export interface HeadlessWebsite {
   } | null;
   faviconUrl?: string | null;
   appleIconUrl?: string | null;
+  theme: {
+    colors: Record<string, string>;
+    fonts: { body: string; heading: string; navigation: string };
+    fontStylesheets: string[];
+  };
+  socialLinks: Array<{ name: string; url: string }>;
+  homeCta: { text: string; url: string } | null;
 }
 
 export interface SiteContent {
@@ -86,6 +107,11 @@ export interface SiteContent {
   pages: HeadlessPage[];
   routePaths: string[];
   navigation: SiteNavigationItem[];
+  footerNavigation: SiteNavigationItem[];
+  menus: SiteMenu[];
+  locations: SiteLocation[];
+  events: SiteEvent[];
+  pressReleases: SitePressRelease[];
 }
 
 export type EditableBlockDefinition = Pick<AccountBlock, "slug" | "registry_identity"> & {
@@ -301,6 +327,97 @@ const normalizeObject = (value: unknown, context: string): Record<string, unknow
 const optionalString = (value: unknown): string | null =>
   typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 
+const rewritePreviewLinks = (
+  value: unknown,
+  siteDomain: string | null,
+  routePaths: readonly string[],
+  key = "",
+): unknown => {
+  if (typeof value === "string") {
+    if (/<a\b/i.test(value)) return sanitizeRichText(value, { siteDomain, routePaths });
+    if (["href", "url", "button_url", "link_url", "cta_url"].includes(key)) {
+      return previewRouteUrl(value, siteDomain, routePaths) ?? value;
+    }
+    return value;
+  }
+
+  if (Array.isArray(value)) return value.map((child) => rewritePreviewLinks(child, siteDomain, routePaths));
+  if (isRecord(value)) {
+    return Object.fromEntries(Object.entries(value).map(([childKey, child]) => [
+      childKey,
+      rewritePreviewLinks(child, siteDomain, routePaths, childKey),
+    ]));
+  }
+
+  return value;
+};
+
+const rewritePreviewNavigation = (
+  items: SiteNavigationItem[],
+  siteDomain: string | null,
+  routePaths: readonly string[],
+): SiteNavigationItem[] => items.map((item) => ({
+  ...item,
+  url: previewRouteUrl(item.url, siteDomain, routePaths) ?? item.url,
+  children: rewritePreviewNavigation(item.children, siteDomain, routePaths),
+}));
+
+const collectMenuMediaIds = (menus: unknown[]): string[] => {
+  const ids = new Set<string>();
+
+  for (const menu of menus) {
+    if (!isRecord(menu) || !Array.isArray(menu.categories)) continue;
+    for (const category of menu.categories) {
+      if (!isRecord(category) || !Array.isArray(category.items)) continue;
+      for (const item of category.items) {
+        if (!isRecord(item)) continue;
+        const globalItem = isRecord(item.menu_item) ? item.menu_item : {};
+        const hasLocalImageOverride = item.image !== undefined || item.image_id !== undefined;
+        const imageSource = hasLocalImageOverride ? item : globalItem;
+        if (safeImageUrl(imageSource.image) || imageSource.image_id === undefined || imageSource.image_id === null) continue;
+        ids.add(String(imageSource.image_id));
+      }
+    }
+  }
+
+  return [...ids];
+};
+
+const loadMenuMedia = async (client: BackstageClient, ids: string[]): Promise<Map<string, unknown>> => {
+  const mediaById = new Map<string, unknown>();
+
+  for (let offset = 0; offset < ids.length; offset += 8) {
+    const batch = ids.slice(offset, offset + 8);
+    const media = await Promise.all(batch.map(async (id) => [id, await client.media.get(id)] as const));
+    for (const [id, value] of media) {
+      if (value) mediaById.set(id, value);
+    }
+  }
+
+  if (mediaById.size < ids.length) {
+    console.warn(`Backstage menu references ${ids.length - mediaById.size} media item(s) that could not be resolved.`);
+  }
+
+  return mediaById;
+};
+
+const loadLegacyPageMedia = async (client: BackstageClient, ids: string[]): Promise<Map<string, unknown>> => {
+  const mediaById = new Map<string, unknown>();
+
+  for (let offset = 0; offset < ids.length; offset += 8) {
+    const media = await Promise.all(ids.slice(offset, offset + 8).map(async (id) => [id, await client.media.get(id)] as const));
+    for (const [id, value] of media) {
+      if (value) mediaById.set(id, value);
+    }
+  }
+
+  if (mediaById.size < ids.length) {
+    console.warn(`Backstage legacy pages reference ${ids.length - mediaById.size} media item(s) that could not be resolved.`);
+  }
+
+  return mediaById;
+};
+
 export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
   if (
     !isRecord(value)
@@ -419,11 +536,15 @@ const normalizeNavigationItem = (value: unknown): SiteNavigationItem => {
     throw new Error("Backstage navigation item " + value.id + " has an invalid children list.");
   }
 
+  const menuId = optionalString(value.menu_id) ?? (isRecord(value.menu) ? optionalString(value.menu.id) : null);
+
   return {
     id: value.id,
     text: value.text,
     url: normalizeNavigationUrl(value.url),
     newWindow: value.new_window === true,
+    style: value.style === "button" ? "button" : "link",
+    ...(menuId ? { menuId } : {}),
     children: (value.children ?? []).map(normalizeNavigationItem),
   };
 };
@@ -444,10 +565,44 @@ export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
   const account = isRecord(value.account) ? value.account : null;
   const meta = isRecord(value.meta) ? value.meta : null;
   const openGraph = isRecord(value.open_graph) ? value.open_graph : null;
-  const logo = isRecord(value.logo) && typeof value.logo.url === "string" ? value.logo : null;
+  const logo = isRecord(value.logo) && safeImageUrl(value.logo.url) ? value.logo : null;
+  const theme = isRecord(value.theme) && isRecord(value.theme.colors) ? value.theme.colors : {};
+  const color = (key: string, fallback: string): string =>
+    typeof theme[key] === "string" && /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(theme[key] as string)
+      ? theme[key] as string
+      : fallback;
+  const fontFamilies = Array.isArray(value.font_families) ? value.font_families : [];
+  const fontFamily = (name: string, fallback: string): string => {
+    const family = fontFamilies.find((candidate) => isRecord(candidate) && candidate.name === name);
+    const normalized = isRecord(family) && typeof family.value === "string" ? family.value.trim() : "";
+    return /^[\w\s.,"'-]+$/.test(normalized) ? normalized : fallback;
+  };
+  const fontStylesheets = Array.isArray(value.font_urls)
+    ? value.font_urls.flatMap((candidate) => {
+        if (typeof candidate !== "string") return [];
+        try {
+          const url = new URL(candidate);
+          return url.protocol === "https:" && ["use.typekit.net", "fonts.googleapis.com"].includes(url.hostname)
+            ? [url.href]
+            : [];
+        } catch {
+          return [];
+        }
+      })
+    : [];
+  const socialLinks = Array.isArray(value.social_links)
+    ? value.social_links.flatMap((candidate) => {
+        if (!isRecord(candidate) || typeof candidate.name !== "string") return [];
+        const url = safeLinkUrl(candidate.url);
+        return url?.startsWith("https://") ? [{ name: candidate.name.trim(), url }] : [];
+      })
+    : [];
+  const homeCtaText = optionalString(value.home_cta_text);
+  const homeCtaUrl = safeLinkUrl(value.home_cta_url);
 
   return {
     name: optionalString(account?.name) ?? optionalString(value.app_name) ?? "Website",
+    domain: optionalString(value.domain),
     meta: meta
       ? {
           title: optionalString(meta.title),
@@ -458,18 +613,47 @@ export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
       ? {
           title: optionalString(openGraph.title),
           description: optionalString(openGraph.description),
-          image: optionalString(openGraph.image),
+          image: safeImageUrl(openGraph.image),
         }
       : null,
     logo: logo
       ? {
-          url: logo.url as string,
+          url: safeImageUrl(logo.url) as string,
           width: typeof logo.width === "number" ? logo.width : undefined,
           height: typeof logo.height === "number" ? logo.height : undefined,
         }
       : null,
-    faviconUrl: optionalString(value.favicon_url),
-    appleIconUrl: optionalString(value.apple_icon_url),
+    faviconUrl: safeImageUrl(value.favicon_url),
+    appleIconUrl: safeImageUrl(value.apple_icon_url),
+    theme: {
+      colors: {
+        background: color("background", "#f5f7f3"),
+        foreground: color("foreground", "#17221d"),
+        mutedForeground: color("mutedForeground", "#536158"),
+        accent: color("tertiary", "#d9ef98"),
+        accentForeground: color("tertiaryForeground", "#17221d"),
+        primary: color("primary", "#294c3d"),
+        primaryForeground: color("primaryForeground", "#ffffff"),
+        header: color("header", "#ffffff"),
+        headerForeground: color("headerForeground", "#17221d"),
+        topbar: color("topbar", "#17221d"),
+        topbarForeground: color("topbarForeground", "#ffffff"),
+        footerLocation: color("footerLocation", "#294c3d"),
+        footerLocationForeground: color("footerLocationForeground", "#ffffff"),
+        footer: color("footer", "#17221d"),
+        footerForeground: color("footerForeground", "#ffffff"),
+        border: color("border", "#d9dfd8"),
+        surface: color("card", "#ffffff"),
+      },
+      fonts: {
+        body: fontFamily("default", 'Inter, "Avenir Next", Avenir, sans-serif'),
+        heading: fontFamily("heading", 'Georgia, "Times New Roman", serif'),
+        navigation: fontFamily("nav-item", fontFamily("default", 'Inter, "Avenir Next", Avenir, sans-serif')),
+      },
+      fontStylesheets,
+    },
+    socialLinks,
+    homeCta: homeCtaText && homeCtaUrl ? { text: homeCtaText, url: homeCtaUrl } : null,
   };
 };
 
@@ -517,6 +701,11 @@ export const getSiteContent = (): Promise<SiteContent> => {
 
 const loadSiteContent = async (): Promise<SiteContent> => {
   const source = import.meta.env.BACKSTAGE_SOURCE;
+  const legacyPreview = assertLegacyPreviewConfiguration(
+    source,
+    import.meta.env.BACKSTAGE_PAGE_MODE,
+    import.meta.env.SITE_INDEXABLE === "true",
+  );
 
   if (source === "fixture") {
     const { fixtureSiteContent } = await import("../../fixtures/site-content");
@@ -529,11 +718,12 @@ const loadSiteContent = async (): Promise<SiteContent> => {
 
   const client = getBackstageClient();
 
-  const [websites, pages, routePaths, navigations] = await Promise.all([
+  const [websites, rawPages, routePaths, navigations, rawLocations] = await Promise.all([
     client.website.getWebsites(),
-    client.pages.getHeadlessPages(),
+    legacyPreview ? client.pages.getPages() : client.pages.getHeadlessPages(),
     client.website.routes(),
     client.navigation.list(),
+    client.locations.getLocations(),
   ]);
 
   if (!Array.isArray(websites) || websites.length !== 1) {
@@ -542,13 +732,33 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     );
   }
 
-  if (!Array.isArray(pages)) {
+  if (!Array.isArray(rawPages)) {
     throw new Error("Backstage did not return a pages collection.");
   }
+  if (!Array.isArray(routePaths)) throw new Error("Backstage did not return a routes collection.");
+  if (!Array.isArray(rawLocations)) throw new Error("Backstage did not return a locations collection.");
 
-  const normalizedPages = pages.map(normalizePage);
+  const pagePayloads = legacyPreview
+    ? normalizeLegacyPreviewPages(rawPages, await loadLegacyPageMedia(client, collectLegacyPageMediaIds(rawPages)))
+    : rawPages;
+  const normalizedPages = pagePayloads.map(normalizePage);
+  const website = normalizeWebsite(websites[0]);
 
-  const requestedNavigationId = import.meta.env.BACKSTAGE_NAVIGATION_ID?.trim();
+  if (legacyPreview) {
+    for (const page of normalizedPages) {
+      for (const block of page.blocks) {
+        block.fields = rewritePreviewLinks(block.fields, website.domain, routePaths) as Record<string, unknown>;
+      }
+    }
+    if (website.homeCta) {
+      website.homeCta.url = previewRouteUrl(website.homeCta.url, website.domain, routePaths) ?? website.homeCta.url;
+    }
+  }
+
+  const rawWebsite: Record<string, unknown> = isRecord(websites[0]) ? websites[0] : {};
+  const requestedNavigationId = import.meta.env.BACKSTAGE_NAVIGATION_ID?.trim()
+    || optionalString(rawWebsite.header_navigation_id)
+    || undefined;
   let navigation: SiteNavigationItem[];
 
   if (requestedNavigationId) {
@@ -565,7 +775,92 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     navigation = [];
   }
 
-  if (normalizedPages.some((page) => page.blocks.length > 0)) {
+  const footerNavigationId = optionalString(rawWebsite.footer_navigation_id);
+  let footerNavigation: SiteNavigationItem[] = [];
+  if (footerNavigationId && footerNavigationId !== requestedNavigationId) {
+    if (!navigations.some((candidate) => candidate.id === footerNavigationId)) {
+      throw new Error("The Backstage website references a footer navigation that is missing from the account.");
+    }
+    footerNavigation = normalizeNavigation(await client.navigation.getNavigation(footerNavigationId));
+  }
+
+  if (legacyPreview) {
+    navigation = rewritePreviewNavigation(navigation, website.domain, routePaths);
+    footerNavigation = rewritePreviewNavigation(footerNavigation, website.domain, routePaths);
+  }
+
+  const navigationItems = (items: SiteNavigationItem[]): SiteNavigationItem[] =>
+    items.flatMap((item) => [item, ...navigationItems(item.children)]);
+  const navigationMenuIds = [...new Set([...navigationItems(navigation), ...navigationItems(footerNavigation)].flatMap((item) => item.menuId ? [item.menuId] : []))];
+  const publicMenuSlugs = new Set(routePaths.flatMap((path) => {
+    const match = /^\/menu\/([^/]+)\/?$/.exec(path);
+    return match ? [match[1]] : [];
+  }));
+  const locationMenuIds = rawLocations.flatMap((location) =>
+    isRecord(location) && Array.isArray(location.menus)
+      ? location.menus.flatMap((menu) => isRecord(menu) && typeof menu.id === "string" ? [menu.id] : [])
+      : [],
+  );
+  let menuSummaries: unknown[] = [];
+  if (navigationMenuIds.length > 0 || routePaths.some((path) => path === "/menu" || path.startsWith("/menu/"))) {
+    const response: unknown = await client.menus.getMenus();
+    if (!Array.isArray(response)) throw new Error("Backstage did not return a menus collection.");
+    menuSummaries = response;
+  }
+  const routeMenuIds = menuSummaries.flatMap((menu) =>
+    isRecord(menu) && typeof menu.id === "string" && typeof menu.slug === "string" && publicMenuSlugs.has(menu.slug)
+      ? [menu.id]
+      : [],
+  );
+  const indexMenuIds = publicMenuSlugs.size === 0 && routePaths.some((path) => path === "/menu" || path === "/menu/")
+    ? locationMenuIds
+    : [];
+  const menuIds = [...new Set([...navigationMenuIds, ...routeMenuIds, ...indexMenuIds])];
+  const rawMenus = await Promise.all(menuIds.map(async (id) => {
+    try {
+      const response: unknown = await client.menus.getMenu(id);
+      const menu = Array.isArray(response)
+        ? response.find((candidate) => isRecord(candidate) && String(candidate.id) === id)
+        : response;
+
+      if (!menu) throw new Error("The linked menu was not found.");
+      return menu;
+    } catch (error) {
+      throw new Error(`Could not load Backstage menu ${id} linked from navigation.`, { cause: error });
+    }
+  }));
+  const menuMedia = await loadMenuMedia(client, collectMenuMediaIds(rawMenus));
+  const menus = rawMenus.map((menu, index) => normalizeMenu(menu, index, menuMedia));
+  const locations = rawLocations.map(normalizeLocation);
+
+  const hasPressRoutes = routePaths.some((path) => path === "/press" || path.startsWith("/press/"));
+  let pressReleases: SitePressRelease[] = [];
+
+  if (hasPressRoutes) {
+    let pressModuleEnabled: boolean;
+    try {
+      pressModuleEnabled = await client.modules.isEnabled("engagement.press");
+    } catch (error) {
+      throw new Error(
+        "Could not verify the Backstage Press module. Check that the API token can read account modules.",
+        { cause: error },
+      );
+    }
+    if (!pressModuleEnabled) {
+      throw new Error("This site has public Press routes, but the Backstage Press module is disabled.");
+    }
+
+    let rawPress: unknown;
+    try {
+      rawPress = await client.press.getPress();
+    } catch (error) {
+      throw new Error("Could not read press items from Backstage.", { cause: error });
+    }
+    if (!Array.isArray(rawPress)) throw new Error("Backstage did not return a press collection.");
+    pressReleases = normalizePublicPressReleases(rawPress, routePaths);
+  }
+
+  if (!legacyPreview && normalizedPages.some((page) => page.blocks.length > 0)) {
     let customBlocksEnabled: boolean;
 
     try {
@@ -593,7 +888,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     assertPageBlockDefinitions(normalizedPages, customBlocksEnabled, definitions);
   }
 
-  if (normalizedPages.some((page) => page.layout !== null)) {
+  if (!legacyPreview && normalizedPages.some((page) => page.layout !== null)) {
     let customLayoutsEnabled: boolean;
 
     try {
@@ -608,10 +903,95 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     assertPageLayoutDefinitions(normalizedPages, customLayoutsEnabled);
   }
 
+  const hasUpcomingEvents = normalizedPages.some((page) =>
+    page.blocks.some((block) => block.type === "upcoming-events"),
+  );
+  const hasEventRoutes = routePaths.some((path) => path === "/events" || path.startsWith("/events/"));
+  let events: SiteEvent[] = [];
+  if (hasUpcomingEvents || hasEventRoutes) {
+    let eventsModuleEnabled: boolean;
+    try {
+      eventsModuleEnabled = await client.modules.isEnabled("engagement.events");
+    } catch (error) {
+      throw new Error(
+        "Could not verify the Backstage Events module. Check that the API token can read account modules.",
+        { cause: error },
+      );
+    }
+    if (!eventsModuleEnabled) {
+      throw new Error("This site uses an Upcoming Events block, but the Backstage Events module is disabled.");
+    }
+
+    let rawEvents: unknown;
+    try {
+      rawEvents = await client.events.getEvents();
+    } catch (error) {
+      throw new Error("Could not read events from Backstage.", { cause: error });
+    }
+    if (!Array.isArray(rawEvents)) throw new Error("Backstage did not return an events collection.");
+    const publicEventPaths = new Map(routePaths.flatMap((path) => {
+      const match = /^\/events\/([^/]+)\/?$/.exec(path);
+      if (!match) return [];
+      try {
+        const normalizedPath = `/${path.split("/").filter(Boolean).join("/")}/`;
+        return [[decodeURIComponent(match[1]), normalizedPath] as const];
+      } catch {
+        return [];
+      }
+    }));
+    events = rawEvents.map(normalizeEvent).map((event) => ({
+      ...event,
+      publicPath: publicEventPaths.get(event.slug) ?? null,
+    }));
+    for (const page of normalizedPages) {
+      for (const block of page.blocks) {
+        if (block.type === "upcoming-events") block.events = events;
+      }
+    }
+  }
+
+  const instagramBlocks = normalizedPages.flatMap((page) => page.blocks.filter((block) => block.type === "instagram-feed"));
+  const instagramProfile = website.socialLinks.find((link) => link.name.toLowerCase() === "instagram")?.url ?? null;
+  const shouldLoadInstagram = instagramBlocks.length > 0 || (legacyPreview && Boolean(instagramProfile));
+  let instagramPosts: SiteInstagramPost[] = [];
+
+  if (shouldLoadInstagram) {
+    try {
+      instagramPosts = normalizeInstagramPosts(await client.instagram.latest());
+    } catch (error) {
+      if (instagramBlocks.length > 0) {
+        throw new Error("Could not load Instagram posts required by an Instagram Feed block.", { cause: error });
+      }
+      console.warn("Could not load the optional Instagram feed for this Legacy Preview.");
+    }
+  }
+
+  for (const block of instagramBlocks) {
+    block.instagramPosts = instagramPosts;
+    block.instagramUrl = instagramProfile;
+  }
+
+  if (legacyPreview && instagramPosts.length > 0 && instagramProfile) {
+    const homePage = normalizedPages.find((page) => page.is_home);
+    if (homePage && !homePage.blocks.some((block) => block.type === "instagram-feed")) {
+      homePage.blocks.push({
+        id: "legacy-preview-instagram-feed",
+        type: "instagram-feed",
+        fields: { eyebrow: "Follow along", heading: "On Instagram", count: 6 },
+        instagramPosts,
+        instagramUrl: instagramProfile,
+      });
+    }
+  }
+
   return {
-    site: normalizeWebsite(websites[0]),
+    site: website,
     pages: await attachBackstageForms(normalizedPages, client),
     routePaths,
+    menus,
+    locations,
+    events,
+    pressReleases,
     navigation: navigation.length > 0
       ? navigation
       : normalizedPages.map((page) => ({
@@ -621,6 +1001,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
           newWindow: false,
           children: [],
         })),
+    footerNavigation,
   };
 };
 

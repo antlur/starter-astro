@@ -1,0 +1,15 @@
+{
+  "manifest_version": 1,
+  "type": "block",
+  "registry_identity": "starter-astro:instagram-feed@1",
+  "name": "Instagram Feed",
+  "slug": "instagram-feed",
+  "description": "Show recent public Instagram posts for the connected business account.",
+  "schema": {
+    "fields": [
+      { "name": "Eyebrow", "slug": "eyebrow", "type": "text", "order": 0 },
+      { "name": "Heading", "slug": "heading", "type": "text", "order": 1 },
+      { "name": "Number of posts", "slug": "count", "type": "number", "placeholder": "6", "order": 2 }
+    ]
+  }
+}

@@ -1,10 +1,101 @@
 import { fixtureContent } from "./content";
+import type { SiteContent } from "../lib/backstage/content";
 
-export const fixtureSiteContent = {
+export const fixtureSiteContent: SiteContent = {
   ...fixtureContent,
-  routePaths: [...fixtureContent.routePaths, "/happenings", "/locations/fieldwork/community-supper"],
+  routePaths: [
+    ...fixtureContent.routePaths,
+    "/contact",
+    "/menu",
+    "/menu/all-day",
+    "/happenings",
+    "/locations/fieldwork/community-supper",
+    "/events",
+    "/events/community-supper",
+    "/location",
+    "/press",
+    "/press/community-supper-in-the-neighborhood",
+  ],
   navigation: [
     ...fixtureContent.navigation,
+    { id: "fixture-contact-link", text: "Contact", url: "/contact/", newWindow: false, children: [] },
+    { id: "fixture-menu-link", text: "Menu", url: "/menu/", newWindow: false, menuId: "fixture-menu", children: [] },
     { id: "fixture-happenings-link", text: "Happenings", url: "/happenings/", newWindow: false, children: [] },
+    { id: "fixture-press-link", text: "Press", url: "/press/", newWindow: false, children: [] },
+  ],
+  events: [
+    {
+      id: "fixture-community-supper-event",
+      slug: "community-supper",
+      publicPath: "/events/community-supper/",
+      title: "Community supper",
+      startTime: "2027-04-10T18:00:00-05:00",
+      endTime: null,
+      timezone: "America/Chicago",
+      shortDescription: "A seasonal dinner around the long table.",
+      description: "<p>Gather with neighbors for a relaxed evening around the table.</p>",
+      imageUrl: null,
+      imageAlt: "",
+      ticketUrl: "https://events.example.test/community-supper",
+    },
+  ],
+  locations: [
+    {
+      id: "fixture-location",
+      slug: "main-street",
+      name: "Main Street",
+      description: "<p>Join us in the neighborhood.</p>",
+      addressLines: ["12 Market Street", "Chicago, IL 60601"],
+      phone: "(312) 555-0100",
+      email: "hello@example.test",
+      mapUrl: "https://maps.example.test/fieldwork",
+      mapEmbedUrl: null,
+      latitude: null,
+      longitude: null,
+      imageUrl: null,
+      imageAlt: "",
+      loyaltyUrl: null,
+      hours: [],
+    },
+  ],
+  pages: [
+    ...fixtureContent.pages,
+    {
+      id: "fixture-contact",
+      title: "Contact Fieldwork Coffee",
+      slug: "contact",
+      pathname: "/contact",
+      is_home: false,
+      settings: {},
+      layout: null,
+      meta: {
+        title: "Contact Fieldwork Coffee",
+        description: "Get in touch with the Fieldwork Coffee team.",
+      },
+      blocks: [
+        {
+          id: "fixture-contact-form",
+          type: "contact-form",
+          fields: {
+            eyebrow: "Say hello",
+            heading: "We'd love to hear from you.",
+            body: "<p>Send a note and our team will get back to you.</p>",
+            form_id: "fixture-contact-form",
+            submit_label: "Send message",
+          },
+          form: {
+            id: "fixture-contact-form",
+            title: "Contact Fieldwork Coffee",
+            action: "https://backstage.example.test/api/wa/forms/fixture-contact-form",
+            recaptchaSiteKey: null,
+            fields: [
+              { id: "fixture-contact-name", name: "name", label: "Name", type: "text", required: true, options: [] },
+              { id: "fixture-contact-email", name: "email", label: "Email", type: "email", required: true, options: [] },
+              { id: "fixture-contact-message", name: "message", label: "Message", type: "textarea", required: true, options: [] },
+            ],
+          },
+        },
+      ],
+    },
   ],
 };

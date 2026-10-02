@@ -1,0 +1,359 @@
+---
+import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import type { SiteMenu } from "../lib/backstage/menus";
+import { safeLinkUrl } from "../lib/safe-url";
+
+interface Props {
+  menu: SiteMenu;
+  menuRoutes: Array<{ path: string; label: string; menu: SiteMenu }>;
+}
+
+const { menu, menuRoutes } = Astro.props;
+const formatPrice = (value: string): string => {
+  return value.trim().replace(/^\$\s*/, "");
+};
+const pdfUrl = safeLinkUrl(menu.pdfUrl);
+const categoryAnchors = menu.categories.map((category, index) => ({
+  id: `menu-category-${index}`,
+  title: category.title,
+}));
+---
+
+<div class="menu-page">
+  <header class="menu-page__header">
+    <h1 class="sr-only">{menu.title}</h1>
+    {menu.subtitle && <p class="menu-page__subtitle">{menu.subtitle}</p>}
+    {pdfUrl && <a class="menu-page__download" href={pdfUrl} target="_blank" rel="noopener noreferrer">Download Menu</a>}
+  </header>
+
+  {menuRoutes.length > 1 && (
+    <nav class="menu-page__selector" aria-label="Choose a menu">
+      {menuRoutes.map((route) => (
+        <a href={route.path} aria-current={route.menu.id === menu.id ? "page" : undefined}>{route.label}</a>
+      ))}
+    </nav>
+  )}
+
+  {categoryAnchors.length > 1 && (
+    <nav class="menu-page__category-nav" aria-label="Menu categories">
+      {categoryAnchors.map((category) => <a href={`#${category.id}`}>{category.title}</a>)}
+    </nav>
+  )}
+
+  <div class="menu-page__categories">
+    {menu.categories.map((category, index) => (
+      <section class="menu-category" id={categoryAnchors[index].id} aria-labelledby={`${categoryAnchors[index].id}-title`} style={`--category-columns: ${category.columns ?? 2}`}>
+        <header class="menu-category__header">
+          <h2 id={`${categoryAnchors[index].id}-title`}>{category.title}</h2>
+          {category.subtitle && <p class="menu-category__subtitle">{category.subtitle}</p>}
+          {category.description && <div class="menu-category__description" set:html={sanitizeRichText(category.description)} />}
+        </header>
+        <div class="menu-category__items">
+          {category.items.map((item) => {
+            const description = item.description ? sanitizeRichText(item.description) : "";
+            const multiPrice = item.prices.length > 1;
+            const itemPrice = !item.hiddenPrice && !multiPrice ? item.prices[0]?.value : null;
+
+            return (
+              <article class:list={["menu-item", item.imageUrl && "menu-item--with-image"]}>
+                <div class="menu-item__content">
+                  <div class="menu-item__topline">
+                    <h3>{item.title}</h3>
+                    {itemPrice && <span class="menu-item__leader" aria-hidden="true" />}
+                    {itemPrice && <span class="menu-item__price">{formatPrice(itemPrice)}</span>}
+                  </div>
+                  {item.subtitle && <p class="menu-item__subtitle">{item.subtitle}</p>}
+                  {description && <div class="menu-item__description" set:html={description} />}
+                  {multiPrice && (
+                    <dl class="menu-item__prices">
+                      {item.prices.map((price) => (
+                        <div>
+                          {price.label && <dt>{price.label}</dt>}
+                          <dd>{formatPrice(price.value)}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </div>
+                {item.imageUrl && <img class="menu-item__image" src={item.imageUrl} alt={item.imageAlt || item.title} loading="lazy" decoding="async" />}
+              </article>
+            );
+          })}
+        </div>
+        {category.afterDescription && <div class="menu-category__after" set:html={sanitizeRichText(category.afterDescription)} />}
+      </section>
+    ))}
+  </div>
+</div>
+
+<style>
+  .menu-page {
+    width: min(100% - 3rem, 76rem);
+    margin: 0 auto;
+    padding: 1rem 0 2rem;
+  }
+
+  .menu-page__header {
+    display: flex;
+    min-height: 2.25rem;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1rem;
+  }
+
+  .menu-page__subtitle {
+    margin: 0 auto 0 0;
+    color: var(--color-muted);
+    line-height: 1.5;
+  }
+
+  .menu-page__download {
+    flex: 0 0 auto;
+    color: var(--color-ink);
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .menu-page__download:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .menu-page__selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .menu-page__selector a {
+    display: inline-flex;
+    min-height: 2.8rem;
+    align-items: center;
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--color-line);
+    border-radius: 0.25rem;
+    background: white;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .menu-page__selector a[aria-current="page"] {
+    border-color: var(--color-accent-strong);
+    background: var(--color-accent-strong);
+    color: white;
+  }
+
+  .menu-page__category-nav {
+    display: flex;
+    gap: clamp(1rem, 2.5vw, 2rem);
+    overflow-x: auto;
+    padding: 0.85rem 0;
+    border-block: 1px solid var(--color-line);
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+
+  .menu-page__category-nav a {
+    flex: 0 0 auto;
+    padding: 0.35rem 0;
+    border-bottom: 2px solid transparent;
+    color: var(--color-ink);
+    font-size: 0.82rem;
+    font-weight: 750;
+    text-decoration: none;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .menu-page__category-nav a:hover,
+  .menu-page__category-nav a:focus-visible {
+    border-color: var(--color-accent-strong);
+  }
+
+  .menu-page__categories {
+    display: grid;
+    gap: clamp(2.5rem, 5vw, 4rem);
+    padding-top: clamp(2.5rem, 5vw, 4rem);
+  }
+
+  .menu-category__header {
+    max-width: 50rem;
+    margin-bottom: 1.1rem;
+  }
+
+  .menu-category h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 2.4vw, 2rem);
+    font-weight: 560;
+    line-height: 1.1;
+    text-transform: uppercase;
+  }
+
+  .menu-category h2::after {
+    display: block;
+    width: 2rem;
+    height: 0.18rem;
+    margin-top: 0.45rem;
+    background: var(--color-accent-strong);
+    content: "";
+  }
+
+  .menu-category__subtitle,
+  .menu-category__description,
+  .menu-category__after {
+    color: var(--color-muted);
+    line-height: 1.6;
+  }
+
+  .menu-category__subtitle {
+    margin: 0.45rem 0 0;
+    font-weight: 650;
+  }
+
+  .menu-category__description {
+    margin-top: 0.6rem;
+  }
+
+  .menu-category__description :global(p),
+  .menu-category__after :global(p),
+  .menu-item__description :global(p) {
+    margin: 0;
+  }
+
+  .menu-category__items {
+    display: grid;
+    grid-template-columns: repeat(var(--category-columns), minmax(0, 1fr));
+    column-gap: clamp(1.5rem, 4vw, 3.5rem);
+  }
+
+  .menu-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    padding: 0.9rem 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .menu-item--with-image {
+    grid-template-columns: minmax(0, 1fr) 4.75rem;
+    gap: 0.9rem;
+  }
+
+  .menu-item__image {
+    grid-column: 2;
+    grid-row: 1;
+    width: 4.75rem;
+    height: 4.75rem;
+    object-fit: cover;
+  }
+
+  .menu-item__content {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .menu-item__topline {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 0.55rem;
+  }
+
+  .menu-item h3 {
+    flex: 0 1 auto;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 750;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .menu-item__leader {
+    min-width: 1rem;
+    flex: 1;
+    border-bottom: 1px dotted #9ba49c;
+    transform: translateY(-0.25rem);
+  }
+
+  .menu-item__price,
+  .menu-item__prices dd {
+    flex: 0 0 auto;
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+    font-weight: 750;
+  }
+
+  .menu-item__subtitle {
+    margin: 0.2rem 0 0;
+    color: var(--color-accent-strong);
+    font-size: 0.88rem;
+    font-weight: 650;
+  }
+
+  .menu-item__description {
+    margin-top: 0.3rem;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+
+  .menu-item__prices {
+    display: grid;
+    gap: 0.25rem;
+    margin: 0.65rem 0 0;
+  }
+
+  .menu-item__prices > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    color: var(--color-muted);
+    font-size: 0.88rem;
+  }
+
+  .menu-item__prices dt,
+  .menu-item__prices dd {
+    margin: 0;
+  }
+
+  .menu-item__prices dt:empty {
+    display: none;
+  }
+
+  .menu-category__after {
+    margin-top: 1rem;
+  }
+
+  @media (max-width: 760px) {
+    .menu-page {
+      width: calc(100% - 2.5rem);
+    }
+
+    .menu-page__header {
+      min-height: 2rem;
+    }
+
+    .menu-category__items {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .menu-page__category-nav {
+      margin-inline: -0.25rem;
+      padding-inline: 0.25rem;
+    }
+
+    .menu-item--with-image {
+      grid-template-columns: minmax(0, 1fr) 4rem;
+      gap: 0.65rem;
+    }
+
+    .menu-item__image {
+      width: 4rem;
+      height: 4rem;
+    }
+  }
+</style>

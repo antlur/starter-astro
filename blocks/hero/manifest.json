@@ -38,9 +38,10 @@
         "order": 3
       },
       {
-        "name": "Image",
+        "name": "Background images",
         "slug": "image",
-        "type": "image",
+        "type": "image_list",
+        "description": "Select one image for a static hero or several for a manually browsable image sequence.",
         "order": 4
       },
       {
@@ -49,6 +50,19 @@
         "type": "text",
         "description": "Describe the image when it conveys information; leave blank when it is decorative.",
         "order": 5
+      },
+      {
+        "name": "Logo",
+        "slug": "logo",
+        "type": "image",
+        "order": 6
+      },
+      {
+        "name": "Logo alt text",
+        "slug": "logoAlt",
+        "type": "text",
+        "description": "Describe the logo when it is the only way the brand name is presented.",
+        "order": 7
       },
       {
         "name": "Actions",
@@ -70,7 +84,7 @@
             "order": 1
           }
         ],
-        "order": 6
+        "order": 8
       }
     ]
   }

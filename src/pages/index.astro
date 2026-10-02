@@ -1,5 +1,6 @@
 ---
 import PageContent from "../components/PageContent.astro";
+import LocationHoursSection from "../components/LocationHoursSection.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { getHomePage } from "../lib/backstage/content";
 import { getSiteBuild } from "../site/build";
@@ -8,6 +9,7 @@ const { content, routePlan } = await getSiteBuild();
 const page = getHomePage(content.pages);
 ---
 
-<SiteLayout page={page} site={content.site} pathname="/" navigation={routePlan.navigation}>
+<SiteLayout page={page} site={content.site} pathname="/" navigation={routePlan.navigation} footerNavigation={routePlan.footerNavigation} locations={content.locations} showLocationHours={false}>
   <PageContent page={page} />
+  {content.locations.length > 0 && <LocationHoursSection locations={content.locations} />}
 </SiteLayout>

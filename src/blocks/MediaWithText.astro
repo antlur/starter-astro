@@ -1,0 +1,182 @@
+---
+import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import type { HeadlessBlock } from "../lib/backstage/content";
+import { mediaAltText, safeAltText, safeImageUrl, safeLinkUrl } from "../lib/safe-url";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const text = (key: string): string =>
+  typeof block.fields[key] === "string" ? (block.fields[key] as string).trim() : "";
+const eyebrow = text("eyebrow");
+const heading = text("heading");
+const subheading = text("subheading");
+const body = text("body") ? sanitizeRichText(text("body")) : "";
+const image = safeImageUrl(block.fields.image);
+const imageAlt = safeAltText(text("imageAlt")) || mediaAltText(block.fields.image);
+const actionLabel = text("cta_label");
+const actionHref = safeLinkUrl(block.fields.cta_url);
+const imagePosition = text("image_position") === "right" ? "right" : "left";
+const sectionWidth = text("section_width") === "full-width" ? "full-width" : "standard";
+const HeadingTag = isPrimary ? "h1" : "h2";
+---
+
+<section class:list={["media-text", `media-text--${imagePosition}`, `media-text--${sectionWidth}`]}>
+  <div class="media-text__inner">
+    {image && (
+      <figure class="media-text__media">
+        <img src={image} alt={imageAlt} loading="lazy" decoding="async" />
+      </figure>
+    )}
+    <div class="media-text__copy">
+      {eyebrow && <p class="media-text__eyebrow">{eyebrow}</p>}
+      {heading && <HeadingTag>{heading}</HeadingTag>}
+      {subheading && <p class="media-text__subheading">{subheading}</p>}
+      {body && <div class="media-text__body" set:html={body} />}
+      {actionLabel && actionHref && <a class="media-text__action" href={actionHref}>{actionLabel}</a>}
+    </div>
+  </div>
+</section>
+
+<style>
+  .media-text {
+    padding: clamp(3rem, 7vw, 6rem) max(1.5rem, calc((100vw - 74rem) / 2));
+  }
+
+  .media-text--full-width {
+    padding-inline: 0;
+    background: #e8ece8;
+  }
+
+  .media-text__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+    align-items: center;
+    gap: clamp(2rem, 6vw, 5.5rem);
+    max-width: 74rem;
+    margin-inline: auto;
+  }
+
+  .media-text--right .media-text__media {
+    order: 2;
+  }
+
+  .media-text--full-width .media-text__inner {
+    max-width: none;
+    padding-inline: max(1.5rem, calc((100vw - 74rem) / 2));
+  }
+
+  .media-text__media {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    background: #d9dfd8;
+  }
+
+  .media-text__media img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+  }
+
+  .media-text__copy {
+    max-width: 38rem;
+    padding-block: 1rem;
+  }
+
+  .media-text__eyebrow {
+    margin: 0 0 0.9rem;
+    color: var(--color-accent-strong);
+    font-size: 0.78rem;
+    font-weight: 750;
+    text-transform: uppercase;
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2.2rem, 4vw, 3.5rem);
+    font-weight: 560;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+
+  .media-text__subheading {
+    margin: 0.85rem 0 0;
+    color: var(--color-accent-strong);
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+
+  .media-text__body {
+    margin-top: 1.25rem;
+    color: var(--color-muted);
+    line-height: 1.75;
+  }
+
+  .media-text__body :global(p) {
+    margin: 0;
+  }
+
+  .media-text__body :global(p + p) {
+    margin-top: 0.9rem;
+  }
+
+  .media-text__body :global(a) {
+    color: var(--color-accent-strong);
+    font-weight: 700;
+    text-underline-offset: 0.2em;
+  }
+
+  .media-text__action {
+    display: inline-flex;
+    min-height: 3rem;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1.5rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 999px;
+    background: var(--color-accent-strong);
+    color: white;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .media-text__action:hover {
+    background: var(--color-ink);
+  }
+
+  .media-text__action:focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 760px) {
+    .media-text {
+      padding-inline: 1.25rem;
+    }
+
+    .media-text--full-width {
+      padding-inline: 0;
+    }
+
+    .media-text__inner {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .media-text--right .media-text__media {
+      order: 0;
+    }
+
+    .media-text--full-width .media-text__inner {
+      padding-inline: 1.25rem;
+    }
+  }
+</style>

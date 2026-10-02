@@ -1,0 +1,172 @@
+---
+import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import type { HeadlessBlock } from "../lib/backstage/content";
+import { mediaAltText, safeAltText, safeImageUrl, safeLinkUrl } from "../lib/safe-url";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const text = (value: unknown): string => typeof value === "string" ? value.trim() : "";
+const eyebrow = text(block.fields.eyebrow);
+const heading = text(block.fields.heading);
+const intro = text(block.fields.intro) ? sanitizeRichText(text(block.fields.intro)) : "";
+const items = Array.isArray(block.fields.cards)
+  ? block.fields.cards.filter((item): item is Record<string, unknown> =>
+      typeof item === "object" && item !== null && !Array.isArray(item)
+    )
+  : [];
+const HeadingTag = isPrimary ? "h1" : "h2";
+---
+
+<section class="card-grid" aria-label={heading || undefined}>
+  {(eyebrow || heading || intro) && (
+    <header class="card-grid__header">
+      {eyebrow && <p class="card-grid__eyebrow">{eyebrow}</p>}
+      {heading && <HeadingTag>{heading}</HeadingTag>}
+      {intro && <div class="card-grid__intro" set:html={intro} />}
+    </header>
+  )}
+  {items.length > 0 && (
+    <div class="card-grid__items">
+      {items.map((item) => {
+        const title = text(item.title);
+        const body = text(item.body) ? sanitizeRichText(text(item.body)) : "";
+        const image = safeImageUrl(item.image);
+        const imageAlt = safeAltText(text(item.imageAlt)) || mediaAltText(item.image);
+        const href = safeLinkUrl(item.link_url);
+        const linkLabel = text(item.link_label) || (title ? `Learn more about ${title}` : "Learn more");
+
+        return (
+          <article class="card-grid__item">
+            {image && <img src={image} alt={imageAlt} loading="lazy" decoding="async" />}
+            <div class="card-grid__copy">
+              {title && <h3>{title}</h3>}
+              {body && <div class="card-grid__body" set:html={body} />}
+              {href && <a href={href}>{linkLabel}</a>}
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  )}
+</section>
+
+<style>
+  .card-grid {
+    padding: clamp(3.5rem, 7vw, 6rem) max(1.5rem, calc((100vw - 74rem) / 2));
+  }
+
+  .card-grid__header {
+    max-width: 54rem;
+    margin: 0 auto 2.5rem;
+  }
+
+  .card-grid__eyebrow {
+    margin: 0 0 0.8rem;
+    color: var(--color-accent-strong);
+    font-size: 0.78rem;
+    font-weight: 750;
+    text-transform: uppercase;
+  }
+
+  h1,
+  h2 {
+    max-width: 22ch;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 3rem;
+    font-weight: 560;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+
+  .card-grid__intro,
+  .card-grid__body {
+    color: var(--color-muted);
+    line-height: 1.7;
+  }
+
+  .card-grid__intro {
+    max-width: 48rem;
+    margin-top: 1rem;
+    font-size: 1.05rem;
+  }
+
+  .card-grid__items {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+
+  .card-grid__item {
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--color-line);
+    border-radius: 0.5rem;
+    background: white;
+  }
+
+  .card-grid__item img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    background: var(--color-line);
+  }
+
+  .card-grid__copy {
+    padding: 1.35rem;
+  }
+
+  h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.15;
+  }
+
+  .card-grid__body {
+    margin-top: 0.7rem;
+  }
+
+  .card-grid__body :global(p) {
+    margin: 0;
+  }
+
+  .card-grid__body :global(p + p) {
+    margin-top: 0.75rem;
+  }
+
+  a {
+    display: inline-block;
+    margin-top: 1rem;
+    color: var(--color-accent-strong);
+    font-weight: 700;
+    text-underline-offset: 0.2em;
+  }
+
+  @media (max-width: 850px) {
+    .card-grid__items {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 560px) {
+    .card-grid {
+      padding-inline: 1.25rem;
+    }
+
+    h1,
+    h2 {
+      font-size: 2.25rem;
+    }
+
+    .card-grid__items {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

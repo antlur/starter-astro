@@ -1,0 +1,21 @@
+{
+  "manifest_version": 1,
+  "type": "block",
+  "registry_identity": "starter-astro:image@1",
+  "name": "Image",
+  "slug": "image",
+  "description": "A responsive editorial image with optional alt text and caption.",
+  "schema": {
+    "fields": [
+      { "name": "Image", "slug": "image", "type": "image", "required": true, "order": 0 },
+      {
+        "name": "Image alt text",
+        "slug": "imageAlt",
+        "type": "text",
+        "description": "Describe meaningful images; leave blank when the image is decorative.",
+        "order": 1
+      },
+      { "name": "Caption", "slug": "caption", "type": "text", "order": 2 }
+    ]
+  }
+}
