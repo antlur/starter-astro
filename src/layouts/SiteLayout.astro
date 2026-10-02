@@ -1,5 +1,5 @@
 ---
-import "../styles/globals.css";
+import "../styles/global.css";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
 
 interface Props {
@@ -53,7 +53,7 @@ const jsonLd = JSON.stringify(organization).replace(/</g, "\\u003c");
     <title>{title}</title>
     <script type="application/ld+json" set:html={jsonLd} />
   </head>
-  <body>
+  <body class="bg-background text-foreground font-body">
     <a class="skip-link" href="#main-content">Skip to content</a>
     <header class="site-header">
       <a class="site-brand" href="/" aria-label={site.name + " home"}>

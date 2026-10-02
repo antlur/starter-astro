@@ -1,13 +1,21 @@
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "./tokens/brand.css";
+@import "./tokens/theme.css";
+@import "./tokens/ui.css";
+
 :root {
+  /* Existing block styles use these names; new code should use semantic tokens. */
+  --color-paper: var(--theme-color-background);
+  --color-ink: var(--theme-color-foreground);
+  --color-muted: var(--theme-color-muted);
+  --color-accent: var(--theme-color-accent);
+  --color-accent-strong: var(--theme-color-action);
+  --color-line: var(--theme-color-border);
+  --font-body: var(--theme-font-body);
+  --font-display: var(--theme-font-heading);
   color-scheme: light;
-  --color-paper: #f5f7f3;
-  --color-ink: #17221d;
-  --color-muted: #536158;
-  --color-accent: #d9ef98;
-  --color-accent-strong: #294c3d;
-  --color-line: #d9dfd8;
-  --font-body: Inter, "Avenir Next", Avenir, sans-serif;
-  --font-display: Georgia, "Times New Roman", serif;
   font-family: var(--font-body);
   color: var(--color-ink);
   background: var(--color-paper);
@@ -38,7 +46,7 @@ a {
 a:focus-visible,
 button:focus-visible,
 [tabindex="-1"]:focus-visible {
-  outline: 3px solid #d15337;
+  outline: 3px solid var(--theme-color-focus);
   outline-offset: 4px;
 }
 
@@ -49,7 +57,7 @@ button:focus-visible,
   left: 0.75rem;
   padding: 0.8rem 1rem;
   transform: translateY(-150%);
-  border-radius: 0.4rem;
+  border-radius: var(--ui-radius-sm);
   background: var(--color-ink);
   color: white;
 }
@@ -62,7 +70,7 @@ button:focus-visible,
   position: relative;
   z-index: 2;
   display: flex;
-  width: min(100% - 3rem, 78rem);
+  width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
   min-height: 5.5rem;
   align-items: center;
   justify-content: space-between;
@@ -124,7 +132,7 @@ button:focus-visible,
 
 .site-footer {
   display: flex;
-  width: min(100% - 3rem, 78rem);
+  width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
   align-items: baseline;
   justify-content: space-between;
   gap: 1.5rem;
@@ -145,8 +153,12 @@ button:focus-visible,
 }
 
 @media (max-width: 620px) {
+  :root {
+    --ui-page-gutter: 1.25rem;
+  }
+
   .site-header {
-    width: calc(100% - 2.5rem);
+    width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
     min-height: 5rem;
     flex-wrap: wrap;
     gap: 0.5rem 1rem;
@@ -162,7 +174,7 @@ button:focus-visible,
   }
 
   .site-footer {
-    width: calc(100% - 2.5rem);
+    width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
     flex-direction: column;
     gap: 0.5rem;
     margin-top: 2.5rem;

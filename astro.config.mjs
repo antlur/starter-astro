@@ -1,5 +1,6 @@
 import { defineConfig } from "astro/config";
 import sitemap from "@astrojs/sitemap";
+import tailwindcss from "@tailwindcss/vite";
 import { loadEnv } from "vite";
 
 const env = loadEnv(process.env.NODE_ENV ?? "development", process.cwd(), "");
@@ -19,4 +20,7 @@ export default defineConfig({
   output: "static",
   trailingSlash: "always",
   integrations: indexable ? [sitemap()] : [],
+  vite: {
+    plugins: [tailwindcss()],
+  },
 });

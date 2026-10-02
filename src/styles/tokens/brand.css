@@ -1,0 +1,8 @@
+/* Code-managed until this project configures an explicit Backstage sync workflow. */
+:root {
+  --brand-color-primary: #294c3d;
+  --brand-color-secondary: #d9ef98;
+  --brand-color-accent: #d15337;
+  --brand-font-display: Georgia, "Times New Roman", serif;
+  --brand-font-body: Inter, "Avenir Next", Avenir, sans-serif;
+}

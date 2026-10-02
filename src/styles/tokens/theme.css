@@ -1,0 +1,25 @@
+:root {
+  --theme-color-background: #f5f7f3;
+  --theme-color-surface: #fff;
+  --theme-color-foreground: #17221d;
+  --theme-color-muted: #536158;
+  --theme-color-border: #d9dfd8;
+  --theme-color-action: var(--brand-color-primary);
+  --theme-color-accent: var(--brand-color-secondary);
+  --theme-color-focus: var(--brand-color-accent);
+  --theme-font-heading: var(--brand-font-display);
+  --theme-font-body: var(--brand-font-body);
+}
+
+@theme inline {
+  --color-background: var(--theme-color-background);
+  --color-surface: var(--theme-color-surface);
+  --color-foreground: var(--theme-color-foreground);
+  --color-muted: var(--theme-color-muted);
+  --color-border: var(--theme-color-border);
+  --color-action: var(--theme-color-action);
+  --color-accent: var(--theme-color-accent);
+  --color-focus: var(--theme-color-focus);
+  --font-heading: var(--theme-font-heading);
+  --font-body: var(--theme-font-body);
+}
