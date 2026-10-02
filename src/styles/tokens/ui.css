@@ -1,0 +1,15 @@
+:root {
+  --ui-radius-sm: 0.4rem;
+  --ui-radius-md: 0.5rem;
+  --ui-radius-lg: 0.75rem;
+  --ui-spacing-unit: 0.25rem;
+  --ui-container-width: 78rem;
+  --ui-page-gutter: 1.5rem;
+}
+
+@theme inline {
+  --radius-sm: var(--ui-radius-sm);
+  --radius-md: var(--ui-radius-md);
+  --radius-lg: var(--ui-radius-lg);
+  --spacing: var(--ui-spacing-unit);
+}
