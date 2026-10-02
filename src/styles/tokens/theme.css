@@ -16,6 +16,7 @@
   --color-surface: var(--theme-color-surface);
   --color-foreground: var(--theme-color-foreground);
   --color-muted: var(--theme-color-muted);
+  --color-border: var(--theme-color-border);
   --color-action: var(--theme-color-action);
   --color-accent: var(--theme-color-accent);
   --color-focus: var(--theme-color-focus);

@@ -31,6 +31,7 @@ test("brand, semantic theme, and UI tokens retain distinct ownership", async () 
   assert.match(theme, /--theme-color-focus:\s*var\(--brand-color-accent\)/);
   assert.match(theme, /@theme inline/);
   assert.match(theme, /--color-foreground:\s*var\(--theme-color-foreground\)/);
+  assert.match(theme, /--color-border:\s*var\(--theme-color-border\)/);
   assert.match(theme, /--color-focus:\s*var\(--theme-color-focus\)/);
   assert.match(await readSource("../src/styles/global.css"), /--color-ink:\s*var\(--theme-color-foreground\)/);
   assert.match(ui, /--ui-container-width/);
