@@ -1,4 +1,5 @@
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import { safeAltText } from "../lib/safe-url";
 import { normalizeRoutePath } from "./routes";
 
 interface BlueprintField {
@@ -174,7 +175,7 @@ const presentValue = (field: BlueprintField, value: unknown): PresentedValue | n
       const src = safeWebUrl(candidate.url);
       if (!src) return [];
 
-      return [{ src, alt: optionalString(candidate.alt) ?? field.name }];
+      return [{ src, alt: safeAltText(candidate.alt) || field.name }];
     });
 
     return images.length > 0 ? { kind: "images", images } : null;

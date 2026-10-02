@@ -1,0 +1,138 @@
+---
+import type { HeadlessBlock } from "../lib/backstage/content";
+import { safeLinkUrl } from "../lib/safe-url";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const text = (key: string): string =>
+  typeof block.fields[key] === "string" ? (block.fields[key] as string).trim() : "";
+const eyebrow = text("eyebrow");
+const heading = text("heading");
+const count = Number(block.fields.count);
+const posts = (block.instagramPosts ?? []).slice(0, Number.isFinite(count) && count > 0 ? Math.min(Math.floor(count), 12) : 6);
+const profileUrl = safeLinkUrl(block.instagramUrl);
+const HeadingTag = isPrimary ? "h1" : "h2";
+---
+
+{posts.length > 0 && (
+  <section class="instagram-feed" aria-labelledby={heading ? `instagram-${block.id}` : undefined}>
+    <div class="instagram-feed__header">
+      <div>
+        {eyebrow && <p class="instagram-feed__eyebrow">{eyebrow}</p>}
+        {heading && <HeadingTag id={`instagram-${block.id}`}>{heading}</HeadingTag>}
+      </div>
+      {profileUrl && <a href={profileUrl} target="_blank" rel="noopener noreferrer">Follow on Instagram<span class="sr-only"> (opens in a new tab)</span></a>}
+    </div>
+    <div class="instagram-feed__grid">
+      {posts.map((post) => (
+        <a class="instagram-feed__post" href={post.permalink} target="_blank" rel="noopener noreferrer" aria-label={post.caption || "View Instagram post (opens in a new tab)"}>
+          <img src={post.imageUrl} alt="" loading="lazy" decoding="async" />
+          {post.caption && <span class="instagram-feed__caption">{post.caption}</span>}
+        </a>
+      ))}
+    </div>
+  </section>
+)}
+
+<style>
+  .instagram-feed {
+    padding: clamp(3rem, 7vw, 6rem) max(1.5rem, calc((100vw - 74rem) / 2));
+    background: var(--color-surface);
+  }
+
+  .instagram-feed__header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .instagram-feed__eyebrow {
+    margin: 0 0 0.65rem;
+    color: var(--color-accent-strong);
+    font-size: 0.78rem;
+    font-weight: 750;
+    text-transform: uppercase;
+  }
+
+  h1,
+  h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 3rem);
+    line-height: 1.08;
+  }
+
+  .instagram-feed__header > a {
+    color: var(--color-accent-strong);
+    font-weight: 700;
+    text-underline-offset: 0.2em;
+  }
+
+  .instagram-feed__grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+
+  .instagram-feed__post {
+    position: relative;
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    aspect-ratio: 1;
+    background: var(--color-line);
+  }
+
+  .instagram-feed__post img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 180ms ease;
+  }
+
+  .instagram-feed__post:hover img {
+    transform: scale(1.04);
+  }
+
+  .instagram-feed__caption {
+    position: absolute;
+    inset: auto 0 0;
+    padding: 1.5rem 0.65rem 0.65rem;
+    background: linear-gradient(transparent, rgb(0 0 0 / 0.76));
+    color: white;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+
+  .instagram-feed__post:hover .instagram-feed__caption,
+  .instagram-feed__post:focus-visible .instagram-feed__caption {
+    opacity: 1;
+  }
+
+  @media (max-width: 760px) {
+    .instagram-feed {
+      padding-inline: 1.25rem;
+    }
+
+    .instagram-feed__grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.45rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .instagram-feed__post img,
+    .instagram-feed__caption {
+      transition: none;
+    }
+  }
+</style>

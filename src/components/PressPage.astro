@@ -1,0 +1,194 @@
+---
+import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import type { SitePressRelease } from "../lib/backstage/press";
+
+interface Props {
+  kind: "index" | "detail";
+  releases: SitePressRelease[];
+  release?: SitePressRelease;
+}
+
+const { kind, releases, release } = Astro.props;
+const dateLabel = (value: string): string => new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+}).format(new Date(value));
+const sortedReleases = [...releases].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
+const content = release?.content ? sanitizeRichText(release.content) : "";
+---
+
+<section class="press-page" aria-labelledby="press-title">
+  {kind === "index" ? (
+    <>
+      <header class="press-page__header">
+        <p class="press-page__eyebrow">News &amp; recognition</p>
+        <h1 id="press-title">Press</h1>
+      </header>
+      {sortedReleases.length > 0 ? (
+        <div class="press-list">
+          {sortedReleases.map((item) => (
+            <article class="press-item">
+              {item.imageUrl && <img src={item.imageUrl} alt={item.imageAlt || item.title} loading="lazy" decoding="async" />}
+              <div class="press-item__content">
+                <p class="press-item__meta">{item.source} <span aria-hidden="true">·</span> <time datetime={item.publishedAt}>{dateLabel(item.publishedAt)}</time></p>
+                <h2><a href={`/press/${encodeURIComponent(item.slug)}/`}>{item.title}</a></h2>
+                {item.excerpt && <p>{item.excerpt}</p>}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p class="press-empty">There are no press updates yet.</p>
+      )}
+    </>
+  ) : release ? (
+    <article class="press-detail">
+      <a class="press-detail__back" href="/press/">All press</a>
+      <header class="press-detail__header">
+        <p class="press-item__meta">{release.source} <span aria-hidden="true">·</span> <time datetime={release.publishedAt}>{dateLabel(release.publishedAt)}</time></p>
+        <h1 id="press-title">{release.title}</h1>
+        {release.excerpt && <p class="press-detail__excerpt">{release.excerpt}</p>}
+      </header>
+      {release.imageUrl && <img class="press-detail__image" src={release.imageUrl} alt={release.imageAlt || release.title} fetchpriority="high" />}
+      {content && <div class="press-detail__content" set:html={content} />}
+      {release.sourceUrl && <p class="press-detail__source"><a href={release.sourceUrl} target="_blank" rel="noopener noreferrer">Read the original story at {release.source}</a></p>}
+    </article>
+  ) : null}
+</section>
+
+<style>
+  .press-page {
+    width: min(100% - 3rem, 74rem);
+    margin-inline: auto;
+    padding-block: clamp(3.5rem, 8vw, 6rem);
+  }
+
+  .press-page__header,
+  .press-detail__header {
+    max-width: 48rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .press-page__eyebrow,
+  .press-item__meta {
+    color: var(--color-accent-strong);
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .press-page__eyebrow {
+    margin: 0 0 0.8rem;
+    text-transform: uppercase;
+  }
+
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(2.4rem, 5vw, 4rem);
+  }
+
+  .press-list {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .press-item {
+    display: grid;
+    grid-template-columns: minmax(9rem, 15rem) minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(1.25rem, 4vw, 2.5rem);
+    padding-block: 1.25rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .press-item > img,
+  .press-detail__image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: #e8ece8;
+  }
+
+  .press-item__meta {
+    margin: 0 0 0.6rem;
+  }
+
+  .press-item h2 {
+    margin: 0;
+    font-size: clamp(1.25rem, 2.4vw, 1.75rem);
+  }
+
+  .press-item h2 a {
+    color: var(--color-ink);
+    text-decoration: none;
+    text-underline-offset: 0.2em;
+  }
+
+  .press-item h2 a:hover {
+    color: var(--color-accent-strong);
+    text-decoration: underline;
+  }
+
+  .press-item__content > p:last-child,
+  .press-detail__excerpt {
+    color: var(--color-muted);
+    line-height: 1.7;
+  }
+
+  .press-detail__back,
+  .press-detail__source a {
+    color: var(--color-accent-strong);
+    font-weight: 700;
+    text-underline-offset: 0.2em;
+  }
+
+  .press-detail__header {
+    margin-top: 2rem;
+  }
+
+  .press-detail__image {
+    max-height: 34rem;
+    margin-bottom: 2rem;
+  }
+
+  .press-detail__content {
+    max-width: 48rem;
+    color: var(--color-muted);
+    line-height: 1.8;
+  }
+
+  .press-detail__content :global(p + p) {
+    margin-top: 1rem;
+  }
+
+  .press-detail__source {
+    margin-top: 2rem;
+  }
+
+  .press-empty {
+    color: var(--color-muted);
+  }
+
+  @media (max-width: 640px) {
+    .press-page {
+      width: min(100% - 2rem, 74rem);
+    }
+
+    .press-item {
+      grid-template-columns: 1fr;
+    }
+
+    .press-item > img {
+      max-height: 18rem;
+    }
+  }
+</style>

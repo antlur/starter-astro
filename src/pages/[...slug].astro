@@ -1,6 +1,10 @@
 ---
 import PageContent from "../components/PageContent.astro";
 import BlueprintRouteContent from "../components/BlueprintRouteContent.astro";
+import EventPage from "../components/EventPage.astro";
+import LocationPage from "../components/LocationPage.astro";
+import MenuPage from "../components/MenuPage.astro";
+import PressPage from "../components/PressPage.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { getSiteBuild } from "../site/build";
 
@@ -14,8 +18,10 @@ export const getStaticPaths = async () => {
       props: {
         page,
         site: content.site,
+        locations: content.locations,
         pathname: path,
         navigation: routePlan.navigation,
+        footerNavigation: routePlan.footerNavigation,
       },
     }));
 
@@ -26,19 +32,123 @@ export const getStaticPaths = async () => {
       props: {
         route,
         site: content.site,
+        locations: content.locations,
         pathname: route.path,
         navigation: routePlan.navigation,
+        footerNavigation: routePlan.footerNavigation,
       },
     }));
 
-  return [...cmsPages, ...blueprintPages];
+  const menuPages = routePlan.menuRoutes.map((menuRoute) => ({
+    params: { slug: menuRoute.path.replace(/^\/|\/$/g, "") },
+    props: {
+      menuRoute,
+      menuRoutes: routePlan.menuRoutes,
+      site: content.site,
+      locations: content.locations,
+      pathname: menuRoute.path,
+      navigation: routePlan.navigation,
+      footerNavigation: routePlan.footerNavigation,
+    },
+  }));
+
+  const menuIndexPages = routePlan.menuIndexPaths.flatMap((path) => {
+    const menuRoute = routePlan.menuRoutes[0];
+    return menuRoute ? [{
+      params: { slug: path.replace(/^\/+|\/+$/g, "") },
+      props: {
+        menuRoute,
+        menuRoutes: routePlan.menuRoutes,
+        site: content.site,
+        locations: content.locations,
+        pathname: path,
+        navigation: routePlan.navigation,
+        footerNavigation: routePlan.footerNavigation,
+      },
+    }] : [];
+  });
+
+  const eventPages = routePlan.eventRoutes.map((eventRoute) => ({
+    params: { slug: eventRoute.path.replace(/^\/+|\/+$/g, "") },
+    props: {
+      eventRoute,
+      events: content.events,
+      locations: content.locations,
+      site: content.site,
+      pathname: eventRoute.path,
+      navigation: routePlan.navigation,
+      footerNavigation: routePlan.footerNavigation,
+    },
+  }));
+
+  const locationPages = routePlan.locationRoutes.map((locationRoute) => ({
+    params: { slug: locationRoute.path.replace(/^\/+|\/+$/g, "") },
+    props: {
+      locationRoute,
+      menuRoutes: routePlan.menuRoutes,
+      site: content.site,
+      locations: content.locations,
+      pathname: locationRoute.path,
+      navigation: routePlan.navigation,
+      footerNavigation: routePlan.footerNavigation,
+    },
+  }));
+
+  const pressPages = routePlan.pressRoutes.map((pressRoute) => ({
+    params: { slug: pressRoute.path.replace(/^\/|\/$/g, "") },
+    props: {
+      pressRoute,
+      pressReleases: content.pressReleases,
+      site: content.site,
+      locations: content.locations,
+      pathname: pressRoute.path,
+      navigation: routePlan.navigation,
+      footerNavigation: routePlan.footerNavigation,
+    },
+  }));
+
+  return [...cmsPages, ...blueprintPages, ...menuPages, ...menuIndexPages, ...eventPages, ...locationPages, ...pressPages];
 };
 
-const { page, route, site, pathname, navigation } = Astro.props;
+const { page, route, menuRoute, menuRoutes, eventRoute, events, locationRoute, pressRoute, pressReleases, site, pathname, navigation, footerNavigation, locations } = Astro.props;
+const pageTitle = pressRoute?.kind === "detail"
+  ? pressRoute.release.title
+  : pressRoute?.kind === "index"
+    ? "Press"
+    : eventRoute?.kind === "detail"
+      ? eventRoute.event.title
+      : eventRoute?.kind === "index"
+        ? "Events"
+        : locationRoute
+          ? `Visit ${locationRoute.location.name}`
+          : null;
+const pageDescription = pressRoute?.kind === "detail"
+  ? pressRoute.release.excerpt ?? pressRoute.release.title
+  : eventRoute?.kind === "detail"
+    ? eventRoute.event.shortDescription ?? eventRoute.event.title
+    : locationRoute
+      ? locationRoute.location.description
+      : null;
+const pageImage = pressRoute?.kind === "detail"
+  ? pressRoute.release.imageUrl
+  : eventRoute?.kind === "detail"
+    ? eventRoute.event.imageUrl
+    : locationRoute
+      ? locationRoute.location.imageUrl
+      : null;
+const contentType = pressRoute?.kind === "detail" || eventRoute?.kind === "detail" ? "article" : "website";
 ---
 
-<SiteLayout page={page} pageTitle={route?.seoTitle ?? route?.title} pageDescription={route?.seoDescription} site={site} pathname={pathname} navigation={navigation}>
+<SiteLayout page={page} pageTitle={route?.seoTitle ?? route?.title ?? menuRoute?.menu.title ?? pageTitle} pageDescription={route?.seoDescription ?? menuRoute?.menu.subtitle ?? pageDescription} pageImage={pageImage} contentType={contentType} site={site} pathname={pathname} navigation={navigation} footerNavigation={footerNavigation} locations={locations} showLocationHours={!locationRoute}>
   {page
     ? <PageContent page={page} />
-    : route && <BlueprintRouteContent route={route} />}
+    : route
+      ? <BlueprintRouteContent route={route} />
+      : menuRoute
+        ? <MenuPage menu={menuRoute.menu} menuRoutes={menuRoutes} />
+        : eventRoute
+          ? <EventPage kind={eventRoute.kind} event={eventRoute.kind === "detail" ? eventRoute.event : undefined} events={events} locations={locations} />
+          : locationRoute
+            ? <LocationPage location={locationRoute.location} menuRoutes={menuRoutes.map(({ path, label }) => ({ path, label }))} />
+            : pressRoute && <PressPage kind={pressRoute.kind} release={pressRoute.kind === "detail" ? pressRoute.release : undefined} releases={pressReleases} />}
 </SiteLayout>

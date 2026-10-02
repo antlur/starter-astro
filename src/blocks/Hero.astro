@@ -1,6 +1,7 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import type { HeadlessBlock } from "../lib/backstage/content";
+import { mediaAltText, safeAltText, safeImageUrl, safeLinkUrl } from "../lib/safe-url";
 
 interface Props {
   block: HeadlessBlock;
@@ -20,22 +21,12 @@ const text = (key: string): string =>
 const heading = text("heading");
 const eyebrow = text("eyebrow");
 const body = text("body") ? sanitizeRichText(text("body")) : "";
-const media = typeof fields.image === "object" && fields.image !== null ? fields.image as Record<string, unknown> : null;
-const imageUrl = typeof media?.url === "string" ? media.url : typeof fields.image === "string" ? fields.image : "";
-const imageAlt = text("imageAlt") || (typeof media?.alt === "string" ? media.alt : heading);
-const isSafeUrl = (value: string, schemes: string[]): boolean => {
-  if (value.startsWith("/") || value.startsWith("#")) {
-    return !value.startsWith("//");
-  }
-
-  try {
-    return schemes.includes(new URL(value).protocol);
-  } catch {
-    return false;
-  }
-};
-const imageIsSafe = isSafeUrl(imageUrl, ["https:", "http:"]);
-const imageSrc = imageUrl && imageIsSafe ? imageUrl : "";
+const heroImages = (Array.isArray(fields.image) ? fields.image : [fields.image]).flatMap((media) => {
+  const src = safeImageUrl(media);
+  return src ? [{ src, alt: safeAltText(text("imageAlt")) || mediaAltText(media) }] : [];
+});
+const logoSrc = safeImageUrl(fields.logo);
+const logoAlt = safeAltText(text("logoAlt")) || mediaAltText(fields.logo);
 const actions = Array.isArray(fields.actions)
   ? fields.actions.filter((action): action is Record<string, unknown> =>
       typeof action === "object" && action !== null && !Array.isArray(action)
@@ -44,15 +35,18 @@ const actions = Array.isArray(fields.actions)
 const safeActions = actions.flatMap((action) => {
   const label = typeof action.label === "string" ? action.label.trim() : "";
   const href = typeof action.href === "string" ? action.href.trim() : "";
-  const isSafe = isSafeUrl(href, ["http:", "https:", "mailto:", "tel:"]);
+  const safeHref = safeLinkUrl(href);
 
-  return label && href && isSafe ? [{ label, href }] : [];
+  return label && safeHref ? [{ label, href: safeHref }] : [];
 });
+const imageOnly = heroImages.length > 0 && !eyebrow && !heading && !body && safeActions.length === 0;
+const fullBleed = variant === "full-bleed-image" || imageOnly;
 const HeadingTag = isPrimary ? "h1" : "h2";
 ---
 
-<section class:list={["hero", variant === "full-bleed-image" && "hero--full-bleed"]}>
+<section class:list={["hero", fullBleed && "hero--full-bleed", imageOnly && "hero--image-only"]}>
   <div class="hero__copy">
+    {logoSrc && <img class="hero__logo" src={logoSrc} alt={logoAlt} width="480" height="180" />}
     {eyebrow && <p class="eyebrow">{eyebrow}</p>}
     {heading && <HeadingTag>{heading}</HeadingTag>}
     {body && <div class="hero__body" set:html={body} />}
@@ -62,12 +56,79 @@ const HeadingTag = isPrimary ? "h1" : "h2";
       </div>
     )}
   </div>
-  {imageSrc && (
-    <figure class="hero__media">
-      <img src={imageSrc} alt={imageAlt} width="1200" height="900" fetchpriority={isPrimary ? "high" : "auto"} />
+  {heroImages.length > 0 && (
+    <figure class="hero__media" data-hero-carousel={heroImages.length > 1 ? "" : undefined}>
+      {heroImages.map((image, index) => (
+        <img
+          class="hero__slide"
+          src={image.src}
+          alt={image.alt}
+          width="1200"
+          height="900"
+          hidden={index > 0}
+          aria-hidden={index > 0 ? "true" : "false"}
+          fetchpriority={isPrimary && index === 0 ? "high" : "auto"}
+          loading={index > 0 || !isPrimary ? "lazy" : undefined}
+          data-hero-slide
+        />
+      ))}
+      {heroImages.length > 1 && (
+        <div class="hero__controls" role="group" aria-label="Hero image controls">
+          <button class="hero__arrow" type="button" data-hero-step="-1" aria-label="Previous image"><span aria-hidden="true">&larr;</span></button>
+          <div class="hero__indicators" role="group" aria-label="Choose a hero image">
+            {heroImages.map((_, index) => (
+              <button
+                class="hero__indicator"
+                type="button"
+                data-hero-to={index}
+                aria-label={`Show image ${index + 1} of ${heroImages.length}`}
+                aria-current={index === 0 ? "true" : undefined}
+              />
+            ))}
+          </div>
+          <span class="sr-only" data-hero-status aria-live="polite" aria-atomic="true">Image 1 of {heroImages.length}</span>
+          <button class="hero__arrow" type="button" data-hero-step="1" aria-label="Next image"><span aria-hidden="true">&rarr;</span></button>
+        </div>
+      )}
     </figure>
   )}
 </section>
+
+<script>
+  document.querySelectorAll<HTMLElement>("[data-hero-carousel]").forEach((carousel) => {
+    const slides = Array.from(carousel.querySelectorAll<HTMLImageElement>("[data-hero-slide]"));
+    const status = carousel.querySelector<HTMLElement>("[data-hero-status]");
+    const indicators = Array.from(carousel.querySelectorAll<HTMLButtonElement>("[data-hero-to]"));
+    let current = 0;
+
+    const showSlide = (index: number) => {
+      current = (index + slides.length) % slides.length;
+      slides.forEach((slide, slideIndex) => {
+        slide.hidden = slideIndex !== current;
+        slide.setAttribute("aria-hidden", String(slideIndex !== current));
+      });
+      indicators.forEach((indicator, slideIndex) => {
+        if (slideIndex === current) indicator.setAttribute("aria-current", "true");
+        else indicator.removeAttribute("aria-current");
+      });
+      if (status) status.textContent = `Image ${current + 1} of ${slides.length}`;
+    };
+
+    carousel.addEventListener("click", (event) => {
+      if (!(event.target instanceof Element)) return;
+      const button = event.target.closest<HTMLButtonElement>("[data-hero-step], [data-hero-to]");
+      if (!button || slides.length < 2) return;
+
+      if (button.dataset.heroStep !== undefined) {
+        showSlide(current + Number(button.dataset.heroStep));
+        return;
+      }
+
+      const target = Number(button.dataset.heroTo);
+      if (Number.isInteger(target) && target >= 0 && target < slides.length) showSlide(target);
+    });
+  });
+</script>
 
 <style>
   .hero {
@@ -82,8 +143,17 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .hero__copy {
     position: relative;
-    z-index: 1;
+    z-index: 3;
     max-width: 36rem;
+  }
+
+  .hero__logo {
+    display: block;
+    width: min(15rem, 50vw);
+    max-height: 8rem;
+    margin-bottom: 1.5rem;
+    object-fit: contain;
+    object-position: left center;
   }
 
   .eyebrow {
@@ -154,12 +224,89 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     background: #dfe5de;
   }
 
-  .hero__media img {
+  .hero__slide {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
     min-height: 24rem;
     object-fit: cover;
+  }
+
+  .hero__slide[hidden] {
+    display: none;
+  }
+
+  .hero__controls {
+    position: absolute;
+    z-index: 2;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    pointer-events: none;
+  }
+
+  .hero__arrow {
+    display: grid;
+    width: 2.75rem;
+    height: 2.75rem;
+    place-items: center;
+    border: 1px solid rgb(255 255 255 / 0.44);
+    border-radius: 50%;
+    background: rgb(0 0 0 / 0.36);
+    color: white;
+    font-size: 1.25rem;
+    cursor: pointer;
+    pointer-events: auto;
+    backdrop-filter: blur(6px);
+  }
+
+  .hero__arrow:hover {
+    background: rgb(0 0 0 / 0.62);
+  }
+
+  .hero__controls button:focus-visible {
+    outline: 2px solid white;
+    outline-offset: 2px;
+  }
+
+  .hero__indicators {
+    position: absolute;
+    bottom: 0.75rem;
+    left: 50%;
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+    transform: translateX(-50%);
+    pointer-events: auto;
+  }
+
+  .hero__indicator {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .hero__indicator::before {
+    width: 0.55rem;
+    height: 0.55rem;
+    border: 1px solid white;
+    border-radius: 50%;
+    background: rgb(0 0 0 / 0.25);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.45);
+    content: "";
+  }
+
+  .hero__indicator[aria-current="true"]::before {
+    background: white;
   }
 
   .hero--full-bleed {
@@ -189,18 +336,28 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     inset: 0;
     min-height: 0;
     border-radius: 0;
-    opacity: 0.55;
+    z-index: 0;
   }
 
   .hero--full-bleed .hero__media::after {
     position: absolute;
+    z-index: 1;
     inset: 0;
     background: linear-gradient(90deg, rgb(16 28 22 / 0.86), rgb(16 28 22 / 0.12));
     content: "";
+    pointer-events: none;
   }
 
-  .hero--full-bleed .hero__media img {
+  .hero--full-bleed .hero__slide {
     min-height: 100%;
+  }
+
+  .hero--image-only .hero__media::after {
+    background: linear-gradient(0deg, rgb(0 0 0 / 0.22), transparent 38%);
+  }
+
+  .hero--image-only .hero__slide {
+    opacity: 1;
   }
 
   @media (max-width: 760px) {
@@ -217,13 +374,18 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     }
 
     .hero__media,
-    .hero__media img {
+    .hero__slide {
       min-height: 18rem;
     }
 
     .hero--full-bleed {
       min-height: 35rem;
       align-content: end;
+    }
+
+    .hero--full-bleed.hero--image-only {
+      min-height: clamp(14rem, 56vw, 25rem);
+      padding: 0;
     }
   }
 </style>

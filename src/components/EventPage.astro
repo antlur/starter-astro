@@ -1,0 +1,258 @@
+---
+import { eventScheduleLabels, type SiteEvent } from "../lib/backstage/events";
+import type { SiteLocation } from "../lib/backstage/locations";
+import { sanitizeRichText } from "../lib/sanitize-rich-text";
+
+interface Props {
+  kind: "index" | "detail";
+  events: SiteEvent[];
+  event?: SiteEvent;
+  locations: SiteLocation[];
+}
+
+const { kind, events, event, locations } = Astro.props;
+const location = locations[0];
+const sortedUpcoming = [...events]
+  .filter((candidate) => Date.parse(candidate.endTime ?? candidate.startTime) >= Date.now())
+  .sort((left, right) => Date.parse(left.startTime) - Date.parse(right.startTime));
+const schemaLocation = location ? {
+  "@type": "Place",
+  name: location.name,
+  address: location.addressLines.join(", "),
+} : undefined;
+const eventJsonLd = event ? JSON.stringify({
+  "@context": "https://schema.org",
+  "@type": "Event",
+  name: event.title,
+  startDate: event.startTime,
+  endDate: event.endTime ?? undefined,
+  description: event.shortDescription ?? event.title,
+  image: event.imageUrl ?? undefined,
+  url: Astro.site && event.publicPath ? new URL(event.publicPath, Astro.site).href : undefined,
+  location: schemaLocation,
+  offers: event.ticketUrl ? { "@type": "Offer", url: event.ticketUrl } : undefined,
+}).replace(/</g, "\\u003c") : null;
+const details = event ? eventScheduleLabels(event) : null;
+const eventDescription = event?.description ? sanitizeRichText(event.description) : "";
+---
+
+{eventJsonLd && <script type="application/ld+json" set:html={eventJsonLd} />}
+
+<section class="event-page" aria-labelledby="event-page-title">
+  {kind === "index" ? (
+    <>
+      <header class="event-page__intro">
+        <p class="event-page__eyebrow">Gather with us</p>
+        <h1 id="event-page-title">Events</h1>
+        <p>See what is coming up at {location?.name ?? "our restaurant"}.</p>
+      </header>
+      {sortedUpcoming.length > 0 ? (
+        <div class="event-list">
+          {sortedUpcoming.map((item) => {
+            const schedule = eventScheduleLabels(item);
+            return (
+              <article class="event-list__item">
+                {item.imageUrl && <img src={item.imageUrl} alt={item.imageAlt || item.title} loading="lazy" decoding="async" />}
+                <div class="event-list__date">
+                  <time datetime={item.startTime}>{schedule.startDate}</time>
+                  <span>{schedule.startTime}{schedule.endTime ? ` - ${schedule.endTime}` : ""}</span>
+                </div>
+                <div class="event-list__copy">
+                  <h2>{item.publicPath ? <a href={item.publicPath}>{item.title}</a> : item.title}</h2>
+                  {item.shortDescription && <p>{item.shortDescription}</p>}
+                  {item.ticketUrl && <a class="event-list__tickets" href={item.ticketUrl} target="_blank" rel="noopener noreferrer">Tickets</a>}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p class="event-page__empty">No upcoming events are scheduled right now.</p>
+      )}
+    </>
+  ) : event && details ? (
+    <article class="event-detail">
+      <a class="event-detail__back" href="/events/">All events</a>
+      {event.imageUrl && <img class="event-detail__image" src={event.imageUrl} alt={event.imageAlt || event.title} fetchpriority="high" />}
+      <header class="event-detail__header">
+        <p class="event-page__eyebrow">{details.startDate}{details.endDate ? ` - ${details.endDate}` : ""}</p>
+        <h1 id="event-page-title">{event.title}</h1>
+        <p class="event-detail__time">{details.startTime}{details.endTime ? ` - ${details.endTime}` : ""}</p>
+      </header>
+      {event.shortDescription && <p class="event-detail__summary">{event.shortDescription}</p>}
+      {eventDescription && <div class="event-detail__content" set:html={eventDescription} />}
+      {location && (
+        <address class="event-detail__location">
+          <strong>{location.name}</strong>
+          {location.addressLines.map((line) => <span>{line}</span>)}
+        </address>
+      )}
+      {event.ticketUrl && <a class="event-detail__tickets" href={event.ticketUrl} target="_blank" rel="noopener noreferrer">Get tickets</a>}
+    </article>
+  ) : null}
+</section>
+
+<style>
+  .event-page {
+    width: min(100% - 3rem, 72rem);
+    margin-inline: auto;
+    padding-block: clamp(3.5rem, 8vw, 6rem);
+  }
+
+  .event-page__intro,
+  .event-detail__header {
+    max-width: 48rem;
+    margin-bottom: 2.75rem;
+  }
+
+  .event-page__eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--color-accent-strong);
+    font-size: 0.82rem;
+    font-weight: 750;
+    text-transform: uppercase;
+  }
+
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(2.5rem, 5vw, 4.25rem);
+  }
+
+  .event-page__intro > p:last-child,
+  .event-detail__summary,
+  .event-detail__content {
+    max-width: 46rem;
+    color: var(--color-muted);
+    line-height: 1.75;
+  }
+
+  .event-list {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .event-list__item {
+    display: grid;
+    grid-template-columns: minmax(0, 12rem) minmax(10rem, 0.7fr) minmax(0, 1.6fr);
+    align-items: center;
+    gap: clamp(1rem, 3vw, 2rem);
+    padding: 1.25rem 0;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .event-list__item > img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+  }
+
+  .event-list__date {
+    display: grid;
+    gap: 0.35rem;
+    color: var(--color-accent-strong);
+    font-size: 0.9rem;
+    font-weight: 700;
+  }
+
+  .event-list__date span {
+    color: var(--color-muted);
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .event-list__copy h2 {
+    margin: 0;
+    font-size: clamp(1.35rem, 2.5vw, 1.8rem);
+  }
+
+  .event-list__copy h2 a {
+    text-decoration: none;
+    text-underline-offset: 0.2em;
+  }
+
+  .event-list__copy h2 a:hover {
+    text-decoration: underline;
+  }
+
+  .event-list__copy p {
+    margin: 0.55rem 0 0;
+    color: var(--color-muted);
+    line-height: 1.6;
+  }
+
+  .event-list__tickets,
+  .event-detail__tickets,
+  .event-detail__back {
+    display: inline-block;
+    margin-top: 0.8rem;
+    color: var(--color-accent-strong);
+    font-weight: 750;
+    text-underline-offset: 0.2em;
+  }
+
+  .event-detail__back {
+    margin: 0 0 1.75rem;
+  }
+
+  .event-detail__image {
+    display: block;
+    width: 100%;
+    max-height: 38rem;
+    aspect-ratio: 16 / 8;
+    object-fit: cover;
+    margin-bottom: 2.5rem;
+  }
+
+  .event-detail__time {
+    margin: 0.75rem 0 0;
+    color: var(--color-muted);
+    font-size: 1rem;
+  }
+
+  .event-detail__summary {
+    font-size: 1.15rem;
+  }
+
+  .event-detail__content :global(p + p) {
+    margin-top: 1rem;
+  }
+
+  .event-detail__location {
+    display: grid;
+    margin-top: 2rem;
+    color: var(--color-muted);
+    font-style: normal;
+    line-height: 1.6;
+  }
+
+  .event-detail__location strong {
+    color: var(--color-ink);
+  }
+
+  .event-detail__tickets {
+    padding: 0.85rem 1.1rem;
+    border-radius: 0.25rem;
+    background: var(--color-accent-strong);
+    color: white;
+    text-decoration: none;
+  }
+
+  .event-page__empty {
+    color: var(--color-muted);
+  }
+
+  @media (max-width: 680px) {
+    .event-page { width: calc(100% - 2rem); }
+    .event-list__item { grid-template-columns: 5.5rem minmax(0, 1fr); align-items: start; }
+    .event-list__item > img { grid-row: span 2; aspect-ratio: 1; }
+    .event-list__date { padding-top: 0.15rem; }
+    .event-list__copy { grid-column: 2; }
+    .event-detail__image { aspect-ratio: 4 / 3; }
+  }
+</style>

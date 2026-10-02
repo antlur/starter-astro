@@ -13,6 +13,7 @@ const supportedFieldTypes = new Set<BackstageFormField["type"]>([
   "tel",
   "textarea",
   "date",
+  "time",
   "number",
   "select",
   "checkbox",
@@ -99,7 +100,11 @@ export const normalizeFormDefinition = (value: unknown, expectedId: string): Bac
 
     const label = optionalString(field.label);
     const rawType = optionalString(field.type);
-    const type = rawType === "phone" ? "tel" : rawType;
+    const type = rawType === "phone" ? "tel"
+      : rawType === "dropdown" ? "select"
+        : rawType === "single-choice" ? "radio"
+          : rawType === "multiple-choice" ? "checkbox"
+            : rawType;
 
     if (!label || !type || !supportedFieldTypes.has(type as BackstageFormField["type"])) {
       throw new Error(`Backstage form ${expectedId} has an unsupported field at index ${index}.`);

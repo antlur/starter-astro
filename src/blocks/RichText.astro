@@ -12,7 +12,9 @@ const text = (key: string): string =>
   typeof block.fields[key] === "string" ? (block.fields[key] as string).trim() : "";
 const eyebrow = text("eyebrow");
 const heading = text("heading");
-const body = text("body") ? sanitizeRichText(text("body")) : "";
+const body = text("body")
+  ? sanitizeRichText(text("body"), undefined, { preserveFirstH1: isPrimary && !heading })
+  : "";
 const HeadingTag = isPrimary ? "h1" : "h2";
 ---
 

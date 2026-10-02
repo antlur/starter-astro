@@ -1,7 +1,14 @@
 ---
 import Hero from "../blocks/Hero.astro";
 import ContactForm from "../blocks/ContactForm.astro";
+import CallToAction from "../blocks/CallToAction.astro";
+import CardGrid from "../blocks/CardGrid.astro";
+import ImageBlock from "../blocks/ImageBlock.astro";
+import ImageGallery from "../blocks/ImageGallery.astro";
+import MediaWithText from "../blocks/MediaWithText.astro";
 import RichText from "../blocks/RichText.astro";
+import UpcomingEvents from "../blocks/UpcomingEvents.astro";
+import InstagramFeed from "../blocks/InstagramFeed.astro";
 import type { HeadlessBlock } from "../lib/backstage/content";
 
 interface Props {
@@ -13,7 +20,14 @@ const { block, isPrimary = false } = Astro.props;
 const registry = {
   hero: Hero,
   "contact-form": ContactForm,
+  "call-to-action": CallToAction,
+  "card-grid": CardGrid,
+  image: ImageBlock,
+  "image-gallery": ImageGallery,
+  "media-with-text": MediaWithText,
   "rich-text": RichText,
+  "upcoming-events": UpcomingEvents,
+  "instagram-feed": InstagramFeed,
 } as const;
 
 const Component = registry[block.type as keyof typeof registry];

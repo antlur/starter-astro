@@ -1,17 +1,24 @@
 ---
 import "../styles/global.css";
+import LocationHoursSection from "../components/LocationHoursSection.astro";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
+import type { SiteLocation } from "../lib/backstage/locations";
 
 interface Props {
   page?: HeadlessPage;
   pageTitle?: string | null;
   pageDescription?: string | null;
+  pageImage?: string | null;
+  contentType?: "website" | "article";
   site: HeadlessWebsite;
   pathname: string;
   navigation: SiteNavigationItem[];
+  footerNavigation?: SiteNavigationItem[];
+  locations: SiteLocation[];
+  showLocationHours?: boolean;
 }
 
-const { page, pageTitle: routeTitle, pageDescription: routeDescription, site, pathname, navigation } = Astro.props;
+const { page, pageTitle: routeTitle, pageDescription: routeDescription, pageImage, contentType = "website", site, pathname, navigation, footerNavigation = [], locations, showLocationHours = true } = Astro.props;
 const siteTitle = site.meta?.title || site.name;
 const pageTitle = routeTitle || page?.meta?.title || page?.title || siteTitle;
 const title = pageTitle === siteTitle || pageTitle.endsWith(" | " + siteTitle)
@@ -20,6 +27,7 @@ const title = pageTitle === siteTitle || pageTitle.endsWith(" | " + siteTitle)
 const description = routeDescription || page?.meta?.description || site.openGraph?.description || site.meta?.description || pageTitle;
 const openGraphTitle = routeTitle || page?.meta?.title || site.openGraph?.title || title;
 const openGraphDescription = routeDescription || page?.meta?.description || site.openGraph?.description || description;
+const openGraphImage = pageImage || site.openGraph?.image;
 const canonicalUrl = Astro.site ? new URL(pathname, Astro.site).href : undefined;
 const indexable = import.meta.env.SITE_INDEXABLE === "true" && Boolean(Astro.site);
 const organization = {
@@ -30,6 +38,44 @@ const organization = {
   logo: site.logo?.url,
 };
 const jsonLd = JSON.stringify(organization).replace(/</g, "\\u003c");
+const firstLocation = locations[0];
+const topbarCta = site.homeCta && navigation.some((item) => item.style === "button" && item.url === site.homeCta?.url)
+  ? null
+  : site.homeCta;
+const showTopbar = Boolean(firstLocation?.phone || firstLocation?.addressLines.length || firstLocation?.mapUrl || topbarCta || site.socialLinks.length);
+const themeStyle = [
+  `--theme-color-background:${site.theme.colors.background}`,
+  `--theme-color-surface:${site.theme.colors.surface}`,
+  `--theme-color-foreground:${site.theme.colors.foreground}`,
+  `--theme-color-muted:${site.theme.colors.mutedForeground}`,
+  `--theme-color-border:${site.theme.colors.border}`,
+  `--theme-color-action:${site.theme.colors.primary}`,
+  `--theme-color-accent:${site.theme.colors.accent}`,
+  `--theme-color-focus:${site.theme.colors.primary}`,
+  `--theme-font-heading:${site.theme.fonts.heading}`,
+  `--theme-font-body:${site.theme.fonts.body}`,
+  // Keep existing block CSS working while the semantic tokens are adopted.
+  `--color-paper:${site.theme.colors.background}`,
+  `--color-ink:${site.theme.colors.foreground}`,
+  `--color-muted:${site.theme.colors.mutedForeground}`,
+  `--color-accent:${site.theme.colors.accent}`,
+  `--color-accent-strong:${site.theme.colors.primary}`,
+  `--color-primary-foreground:${site.theme.colors.primaryForeground}`,
+  `--color-line:${site.theme.colors.border}`,
+  `--color-surface:${site.theme.colors.surface}`,
+  `--color-header:${site.theme.colors.header}`,
+  `--color-header-foreground:${site.theme.colors.headerForeground}`,
+  `--color-topbar:${site.theme.colors.topbar}`,
+  `--color-topbar-foreground:${site.theme.colors.topbarForeground}`,
+  `--color-footer-location:${site.theme.colors.footerLocation}`,
+  `--color-footer-location-foreground:${site.theme.colors.footerLocationForeground}`,
+  `--color-footer:${site.theme.colors.footer}`,
+  `--color-footer-foreground:${site.theme.colors.footerForeground}`,
+  `--font-body:${site.theme.fonts.body}`,
+  `--font-display:${site.theme.fonts.heading}`,
+  `--font-navigation:${site.theme.fonts.navigation}`,
+].join(";");
+const socialLinks = site.socialLinks;
 ---
 
 <!doctype html>
@@ -39,63 +85,147 @@ const jsonLd = JSON.stringify(organization).replace(/</g, "\\u003c");
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content={indexable ? "index,follow" : "noindex,nofollow"} />
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#f5f7f3" />
+    <meta name="theme-color" content={site.theme.colors.header} />
     <link rel="icon" href={site.faviconUrl || "/favicon.svg"} />
     {site.appleIconUrl && <link rel="apple-touch-icon" href={site.appleIconUrl} />}
+    {site.theme.fontStylesheets.map((url) => <link rel="stylesheet" href={url} />)}
     {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content={contentType} />
     <meta property="og:site_name" content={siteTitle} />
     <meta property="og:title" content={openGraphTitle} />
     <meta property="og:description" content={openGraphDescription} />
-    {site.openGraph?.image && <meta property="og:image" content={site.openGraph.image} />}
+    {openGraphImage && <meta property="og:image" content={openGraphImage} />}
     {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
-    <meta name="twitter:card" content={site.openGraph?.image ? "summary_large_image" : "summary"} />
+    <meta name="twitter:card" content={openGraphImage ? "summary_large_image" : "summary"} />
     <title>{title}</title>
     <script type="application/ld+json" set:html={jsonLd} />
   </head>
-  <body class="bg-background text-foreground font-body">
+  <body class="bg-background text-foreground font-body" style={themeStyle}>
     <a class="skip-link" href="#main-content">Skip to content</a>
-    <header class="site-header">
-      <a class="site-brand" href="/" aria-label={site.name + " home"}>
-        {site.logo
-          ? <img src={site.logo.url} alt="" width={site.logo.width || 160} height={site.logo.height || 48} />
-          : <span>{site.name}</span>}
-      </a>
-      <nav aria-label="Primary navigation">
-        <ul class="site-nav">
-          {navigation.map((item) => (
-            <li>
-              <a
-                href={item.url}
-                target={item.newWindow ? "_blank" : undefined}
-                rel={item.newWindow ? "noopener noreferrer" : undefined}
-                aria-current={pathname === item.url ? "page" : undefined}
-              >{item.text}</a>
-              {item.children.length > 0 && (
-                <ul class="site-nav-children" aria-label={item.text + " links"}>
-                  {item.children.map((child) => (
-                    <li>
-                      <a
-                        href={child.url}
-                        target={child.newWindow ? "_blank" : undefined}
-                        rel={child.newWindow ? "noopener noreferrer" : undefined}
-                        aria-current={pathname === child.url ? "page" : undefined}
-                      >{child.text}</a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
-      </nav>
+    <header class="site-header-shell">
+      {showTopbar && (
+        <div class="site-topbar">
+          <div class="site-topbar__inner">
+            {socialLinks.length > 0 && (
+              <nav class="site-topbar__social" aria-label="Social media">
+                {socialLinks.map((link) => <a href={link.url} target="_blank" rel="noopener noreferrer">{link.name}<span class="sr-only"> (opens in a new tab)</span></a>)}
+              </nav>
+            )}
+            <div class="site-topbar__details">
+              {firstLocation?.addressLines.length && firstLocation.mapUrl
+                ? <a class="site-topbar__address" href={firstLocation.mapUrl} target="_blank" rel="noopener noreferrer" aria-label={`Directions to ${firstLocation.name}`}>{firstLocation.addressLines.map((line) => <span>{line}</span>)}</a>
+                : firstLocation?.addressLines.length ? <span>{firstLocation.addressLines.join(", ")}</span> : null}
+              {firstLocation?.phone && <a href={`tel:${firstLocation.phone.replace(/[^\d+]/g, "")}`}>{firstLocation.phone}</a>}
+              {!firstLocation?.addressLines.length && firstLocation?.mapUrl && <a href={firstLocation.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {firstLocation.name}</span></a>}
+            </div>
+            {topbarCta && <a class="site-topbar__cta" href={topbarCta.url} target="_blank" rel="noopener noreferrer">{topbarCta.text}</a>}
+          </div>
+        </div>
+      )}
+      <div class="site-header">
+        <a class="site-brand" href="/" aria-label={site.name + " home"}>
+          {site.logo
+            ? <img src={site.logo.url} alt="" width={site.logo.width || 160} height={site.logo.height || 48} />
+            : <span>{site.name}</span>}
+        </a>
+        <button
+          class="site-menu-toggle"
+          type="button"
+          aria-label="Open navigation"
+          aria-expanded="false"
+          aria-controls="site-primary-navigation"
+          hidden
+        >
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+          <span aria-hidden="true"></span>
+        </button>
+        <nav class="site-header__navigation" id="site-primary-navigation" aria-label="Primary navigation">
+          <ul class="site-nav">
+            {navigation.map((item) => (
+              <li class="site-nav-item">
+                <a
+                  class={item.style === "button" ? "site-nav-link site-nav-link--button" : "site-nav-link"}
+                  href={item.url}
+                  target={item.newWindow ? "_blank" : undefined}
+                  rel={item.newWindow ? "noopener noreferrer" : undefined}
+                  aria-current={pathname === item.url ? "page" : undefined}
+                >{item.text}</a>
+                {item.children.length > 0 && (
+                  <details class="site-nav-menu">
+                    <summary aria-label={`Show ${item.text} pages`}><span aria-hidden="true"></span></summary>
+                    <ul class="site-nav-children" aria-label={item.text + " links"}>
+                      {item.children.map((child) => (
+                        <li>
+                          <a
+                            href={child.url}
+                            target={child.newWindow ? "_blank" : undefined}
+                            rel={child.newWindow ? "noopener noreferrer" : undefined}
+                            aria-current={pathname === child.url ? "page" : undefined}
+                          >{child.text}</a>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </div>
     </header>
     <main id="main-content" tabindex="-1">
       <slot />
     </main>
+    {showLocationHours && locations.length > 0 && <LocationHoursSection locations={locations} />}
     <footer class="site-footer">
-      <p>{site.name}</p>
-      <small>© {new Date().getFullYear()} {site.name}</small>
+      <div class="site-footer__base">
+        <div class="site-footer__base-inner">
+          <a class="site-footer__brand" href="/" aria-label={site.name + " home"}>
+            {site.logo ? <img src={site.logo.url} alt="" width={site.logo.width || 160} height={site.logo.height || 48} /> : <span>{site.name}</span>}
+          </a>
+          {footerNavigation.length > 0 && (
+            <nav aria-label="Footer navigation">
+              {footerNavigation.map((item) => <a href={item.url} target={item.newWindow ? "_blank" : undefined} rel={item.newWindow ? "noopener noreferrer" : undefined}>{item.text}</a>)}
+            </nav>
+          )}
+          <small>© {new Date().getFullYear()} {site.name}</small>
+        </div>
+      </div>
     </footer>
   </body>
 </html>
+
+<script>
+  document.querySelectorAll<HTMLElement>(".site-header").forEach((header) => {
+    const toggle = header.querySelector<HTMLButtonElement>(".site-menu-toggle");
+    const navigation = header.querySelector<HTMLElement>(".site-header__navigation");
+    if (!toggle || !navigation) return;
+
+    const closeMenu = () => {
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.setAttribute("aria-label", "Open navigation");
+      navigation.removeAttribute("data-open");
+    };
+
+    toggle.hidden = false;
+    header.classList.add("site-header--enhanced");
+    toggle.addEventListener("click", () => {
+      const isOpen = toggle.getAttribute("aria-expanded") === "true";
+      toggle.setAttribute("aria-expanded", String(!isOpen));
+      toggle.setAttribute("aria-label", isOpen ? "Open navigation" : "Close navigation");
+      if (isOpen) navigation.removeAttribute("data-open");
+      else navigation.setAttribute("data-open", "");
+    });
+
+    navigation.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest("a")) closeMenu();
+    });
+
+    header.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || toggle.getAttribute("aria-expanded") !== "true") return;
+      closeMenu();
+      toggle.focus();
+    });
+  });
+</script>
