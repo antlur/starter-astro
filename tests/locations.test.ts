@@ -11,7 +11,7 @@ test("normalizes grouped Backstage hours and collapses adjacent matching days", 
     state: "IL",
     zip: "60131",
     phone: "(847) 349-9325",
-    map_link: "https://maps.example.test/goal-line",
+    map_link: "https://maps.example.test/restaurant",
     hours: [{
       label: "",
       days: [
@@ -30,7 +30,7 @@ test("normalizes grouped Backstage hours and collapses adjacent matching days", 
     { day: "Sat", value: "11 AM - 12 AM" },
     { day: "Sun", value: "11 AM - 10 PM" },
   ]);
-  assert.equal(location.mapUrl, "https://maps.example.test/goal-line");
+  assert.equal(location.mapUrl, "https://maps.example.test/restaurant");
 });
 
 test("omits unsafe map URLs and respects closed, hidden, and 24-hour days", () => {

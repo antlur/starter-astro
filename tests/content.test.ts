@@ -5,6 +5,8 @@ import type { Field } from "@antlur/backstage";
 import {
   assertPageBlockDefinitions,
   assertPageLayoutDefinitions,
+  attachEventsToBlocks,
+  attachMenusToBlocks,
   getPageBySlug,
   normalizeNavigation,
   normalizePage,
@@ -71,6 +73,27 @@ test("Hero manifest exposes the fields used by its Astro renderer", () => {
   assert.equal(heroManifest.derived_from, "backstage:hero@1");
 });
 
+test("starter block identities align with the SDK registry namespace", () => {
+  const canonicalIdentities = new Set([
+    "starter-astro:call-to-action@1",
+    "starter-astro:card-grid@1",
+    "starter-astro:contact-form@1",
+    "starter-astro:hero@1",
+    "starter-astro:image-gallery@1",
+    "starter-astro:image@1",
+    "starter-astro:instagram-feed@1",
+    "starter-astro:media-with-text@1",
+    "starter-astro:menu@1",
+    "starter-astro:rich-text@1",
+    "starter-astro:upcoming-events@1",
+  ]);
+
+  assert.equal(blockManifests.length, canonicalIdentities.size);
+  assert.deepEqual(new Set(blockManifests.map((manifest) => manifest.registry_identity)), canonicalIdentities);
+  assert.equal(heroManifest.derived_from, "backstage:hero@1");
+  assert.ok(blockManifests.filter((manifest) => manifest.slug !== "hero").every((manifest) => manifest.derived_from === undefined));
+});
+
 test("Rich Text manifest exposes the fields used by its Astro renderer", () => {
   const fields = richTextManifest.schema.fields;
 
@@ -112,7 +135,9 @@ test("common content manifests expose their renderer fields", () => {
     "body",
     "button_label",
     "button_url",
+    "actions",
   ]);
+  assert.deepEqual(callToActionManifest.schema.fields.find((field) => field.slug === "actions")?.fields?.map((field) => field.slug), ["label", "href"]);
 });
 
 test("media with text and image gallery cover reusable editorial layouts", () => {
@@ -137,6 +162,7 @@ test("media with text and image gallery cover reusable editorial layouts", () =>
   assert.ok(images);
   assert.deepEqual(images.fields?.map((field) => field.slug), ["image", "imageAlt", "caption"]);
   assert.deepEqual(imageGalleryManifest.schema.fields.find((field) => field.slug === "columns")?.options?.map((option) => option.value), ["2", "3", "4"]);
+  assert.deepEqual(imageGalleryManifest.schema.fields.find((field) => field.slug === "image_fit")?.options?.map((option) => option.value), ["cover", "contain"]);
 });
 
 test("upcoming events block uses a small editable schema backed by the Events module", () => {
@@ -145,8 +171,55 @@ test("upcoming events block uses a small editable schema backed by the Events mo
     "title",
     "description",
     "count",
+    "view_all_label",
   ]);
   assert.equal(upcomingEventsManifest.schema.fields.find((field) => field.slug === "description")?.type, "rich_text");
+  assert.equal(upcomingEventsManifest.schema.fields.find((field) => field.slug === "view_all_label")?.placeholder, "View all events");
+});
+
+test("Menu block selects canonical Backstage menu data", () => {
+  assert.equal(blockManifest("menu").registry_identity, "starter-astro:menu@1");
+  assert.deepEqual(blockManifest("menu").schema.fields.map((field) => [field.slug, field.type]), [["menu_id", "menu_select"]]);
+});
+
+test("attaches selected menus to page blocks by canonical menu ID", () => {
+  const page = normalizePage({
+    id: "page-menu",
+    title: "Dinner",
+    slug: "dinner",
+    pathname: "/dinner",
+    blocks: [{ id: "block-menu", type: "menu", fields: { menu_id: { id: "menu-1", slug: "dinner" } } }],
+  });
+  const menu = { id: "menu-1", title: "Dinner", slug: "dinner", subtitle: null, pdfUrl: null, categories: [] };
+
+  attachMenusToBlocks([page], [menu]);
+  assert.equal(page.blocks[0].menu?.id, "menu-1");
+  assert.throws(() => attachMenusToBlocks([page], []), /references menu menu-1 that was not loaded/);
+  assert.throws(
+    () => attachMenusToBlocks([normalizePage({
+      id: "missing-menu-page",
+      title: "Dinner",
+      slug: "dinner",
+      pathname: "/dinner",
+      blocks: [{ id: "empty-menu", type: "menu", fields: {} }],
+    })], []),
+    /has no selected menu/,
+  );
+});
+
+test("connects Upcoming Events blocks to the generated events index only when that route exists", () => {
+  const page = normalizePage({
+    id: "page-events",
+    title: "Events",
+    slug: "events",
+    pathname: "/events",
+    blocks: [{ id: "block-events", type: "upcoming-events", fields: {} }],
+  });
+
+  attachEventsToBlocks([page], [], ["/events"]);
+  assert.equal(page.blocks[0].eventsIndexPath, "/events/");
+  attachEventsToBlocks([page], [], []);
+  assert.equal(page.blocks[0].eventsIndexPath, null);
 });
 
 test("Instagram Feed block uses connected public posts and a compact editable schema", () => {

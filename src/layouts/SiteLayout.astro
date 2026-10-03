@@ -1,6 +1,8 @@
 ---
 import "../styles/global.css";
 import LocationHoursSection from "../components/LocationHoursSection.astro";
+import SocialIcon from "../components/SocialIcon.astro";
+import { richTextToPlainText } from "../lib/sanitize-rich-text";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
 import type { SiteLocation } from "../lib/backstage/locations";
 
@@ -24,9 +26,9 @@ const pageTitle = routeTitle || page?.meta?.title || page?.title || siteTitle;
 const title = pageTitle === siteTitle || pageTitle.endsWith(" | " + siteTitle)
   ? pageTitle
   : pageTitle + " | " + siteTitle;
-const description = routeDescription || page?.meta?.description || site.openGraph?.description || site.meta?.description || pageTitle;
+const description = richTextToPlainText(routeDescription || page?.meta?.description || site.openGraph?.description || site.meta?.description || pageTitle);
 const openGraphTitle = routeTitle || page?.meta?.title || site.openGraph?.title || title;
-const openGraphDescription = routeDescription || page?.meta?.description || site.openGraph?.description || description;
+const openGraphDescription = richTextToPlainText(routeDescription || page?.meta?.description || site.openGraph?.description || description);
 const openGraphImage = pageImage || site.openGraph?.image;
 const canonicalUrl = Astro.site ? new URL(pathname, Astro.site).href : undefined;
 const indexable = import.meta.env.SITE_INDEXABLE === "true" && Boolean(Astro.site);
@@ -108,7 +110,12 @@ const socialLinks = site.socialLinks;
           <div class="site-topbar__inner">
             {socialLinks.length > 0 && (
               <nav class="site-topbar__social" aria-label="Social media">
-                {socialLinks.map((link) => <a href={link.url} target="_blank" rel="noopener noreferrer">{link.name}<span class="sr-only"> (opens in a new tab)</span></a>)}
+                {socialLinks.map((link) => (
+                  <a href={link.url} target="_blank" rel="noopener noreferrer">
+                    <SocialIcon name={link.name} />
+                    <span class="sr-only">{link.name} (opens in a new tab)</span>
+                  </a>
+                ))}
               </nav>
             )}
             <div class="site-topbar__details">

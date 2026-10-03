@@ -6,7 +6,7 @@ import {
   normalizeLegacyPreviewPages,
 } from "../src/lib/backstage/legacy-page-preview";
 
-test("adapts the legacy block types currently used by Goal Line", () => {
+test("adapts the supported legacy PHP block types", () => {
   const pages = normalizeLegacyPreviewPages([{
     id: 1,
     title: "Home",

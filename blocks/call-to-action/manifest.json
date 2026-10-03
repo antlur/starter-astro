@@ -4,14 +4,24 @@
   "registry_identity": "starter-astro:call-to-action@1",
   "name": "Call to Action",
   "slug": "call-to-action",
-  "description": "A focused section that pairs short supporting copy with one prominent link.",
+  "description": "A focused section that pairs short supporting copy with one or more actions.",
   "schema": {
     "fields": [
       { "name": "Eyebrow", "slug": "eyebrow", "type": "text", "order": 0 },
       { "name": "Heading", "slug": "heading", "type": "text", "order": 1 },
       { "name": "Body", "slug": "body", "type": "rich_text", "order": 2 },
-      { "name": "Button label", "slug": "button_label", "type": "text", "required": true, "order": 3 },
-      { "name": "Button URL", "slug": "button_url", "type": "url", "required": true, "order": 4 }
+      { "name": "Button label", "slug": "button_label", "type": "text", "description": "Optional single action. Use Actions when this section needs multiple links.", "order": 3 },
+      { "name": "Button URL", "slug": "button_url", "type": "url", "order": 4 },
+      {
+        "name": "Actions",
+        "slug": "actions",
+        "type": "repeater",
+        "fields": [
+          { "name": "Label", "slug": "label", "type": "text", "required": true, "order": 0 },
+          { "name": "URL", "slug": "href", "type": "url", "required": true, "order": 1 }
+        ],
+        "order": 5
+      }
     ]
   }
 }
