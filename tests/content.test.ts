@@ -71,6 +71,26 @@ test("Hero manifest exposes the fields used by its Astro renderer", () => {
   assert.equal(heroManifest.derived_from, "backstage:hero@1");
 });
 
+test("starter block identities align with the SDK registry namespace", () => {
+  const canonicalIdentities = new Set([
+    "starter-astro:call-to-action@1",
+    "starter-astro:card-grid@1",
+    "starter-astro:contact-form@1",
+    "starter-astro:hero@1",
+    "starter-astro:image-gallery@1",
+    "starter-astro:image@1",
+    "starter-astro:instagram-feed@1",
+    "starter-astro:media-with-text@1",
+    "starter-astro:rich-text@1",
+    "starter-astro:upcoming-events@1",
+  ]);
+
+  assert.equal(blockManifests.length, canonicalIdentities.size);
+  assert.deepEqual(new Set(blockManifests.map((manifest) => manifest.registry_identity)), canonicalIdentities);
+  assert.equal(heroManifest.derived_from, "backstage:hero@1");
+  assert.ok(blockManifests.filter((manifest) => manifest.slug !== "hero").every((manifest) => manifest.derived_from === undefined));
+});
+
 test("Rich Text manifest exposes the fields used by its Astro renderer", () => {
   const fields = richTextManifest.schema.fields;
 

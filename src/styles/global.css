@@ -111,12 +111,23 @@ button:focus-visible,
 }
 
 .site-topbar__social a {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
   font-weight: 650;
   text-decoration: none;
 }
 
 .site-topbar__social a:hover {
-  text-decoration: underline;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.site-topbar__social a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 
 .site-topbar__details {

@@ -1,6 +1,7 @@
 ---
 import "../styles/global.css";
 import LocationHoursSection from "../components/LocationHoursSection.astro";
+import SocialIcon from "../components/SocialIcon.astro";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
 import type { SiteLocation } from "../lib/backstage/locations";
 
@@ -108,7 +109,12 @@ const socialLinks = site.socialLinks;
           <div class="site-topbar__inner">
             {socialLinks.length > 0 && (
               <nav class="site-topbar__social" aria-label="Social media">
-                {socialLinks.map((link) => <a href={link.url} target="_blank" rel="noopener noreferrer">{link.name}<span class="sr-only"> (opens in a new tab)</span></a>)}
+                {socialLinks.map((link) => (
+                  <a href={link.url} target="_blank" rel="noopener noreferrer">
+                    <SocialIcon name={link.name} />
+                    <span class="sr-only">{link.name} (opens in a new tab)</span>
+                  </a>
+                ))}
               </nav>
             )}
             <div class="site-topbar__details">
