@@ -5,7 +5,7 @@
   "derived_from": "backstage:hero@1",
   "name": "Hero",
   "slug": "hero",
-  "description": "A flexible page introduction with optional text, image, and actions.",
+  "description": "A flexible page introduction with optional text, image, logo, and actions.",
   "schema": {
     "fields": [
       {
