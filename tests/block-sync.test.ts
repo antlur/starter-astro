@@ -1,11 +1,41 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
 import { syncBlockManifests, validateBlockManifests, type BlockManifest, type BlockSyncClient } from "../src/lib/backstage/sync-blocks";
 
 const manifest = JSON.parse(
   readFileSync(new URL("../blocks/hero/manifest.json", import.meta.url), "utf8"),
 ) as BlockManifest;
+
+test("creates the complete starter block set for a new account", async () => {
+  const manifests = loadBlockManifests(fileURLToPath(new URL("../blocks", import.meta.url)));
+  const created: Array<Record<string, unknown>> = [];
+  const client = {
+    blocks: {
+      async list() {
+        return [];
+      },
+      async create(payload: Record<string, unknown>) {
+        created.push(payload);
+      },
+      async update() {
+        throw new Error("new account sync should not update existing blocks");
+      },
+    },
+  };
+
+  assert.equal(manifests.length, 10);
+  assert.deepEqual(await syncBlockManifests(client as unknown as BlockSyncClient, manifests), {
+    created: 10,
+    updated: 0,
+  });
+  assert.deepEqual(
+    created.map(({ registry_identity }) => registry_identity).sort(),
+    manifests.map(({ registry_identity }) => registry_identity).sort(),
+  );
+});
 
 test("creates and then updates an account block by its registered identity", async () => {
   const blocks: Array<{ id: string; slug: string; registry_identity: string; derived_from?: string | null }> = [];
