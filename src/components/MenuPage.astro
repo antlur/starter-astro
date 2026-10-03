@@ -99,8 +99,8 @@ const categoryAnchors = menu.categories.map((category, index) => ({
   }
 
   .menu-page--embedded {
-    width: 100%;
-    padding: 0;
+    width: calc(100% - 3rem);
+    padding: clamp(2rem, 4vw, 3rem) 0;
   }
 
   .menu-page__header {
