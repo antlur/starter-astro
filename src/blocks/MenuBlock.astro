@@ -1,0 +1,13 @@
+---
+import MenuPage from "../components/MenuPage.astro";
+import type { HeadlessBlock } from "../lib/backstage/content";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block } = Astro.props;
+---
+
+{block.menu && <MenuPage menu={block.menu} menuRoutes={[]} isEmbedded />}

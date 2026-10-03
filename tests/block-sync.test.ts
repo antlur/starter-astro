@@ -26,9 +26,9 @@ test("creates the complete starter block set for a new account", async () => {
     },
   };
 
-  assert.equal(manifests.length, 10);
+  assert.equal(manifests.length, 11);
   assert.deepEqual(await syncBlockManifests(client as unknown as BlockSyncClient, manifests), {
-    created: 10,
+    created: 11,
     updated: 0,
   });
   assert.deepEqual(

@@ -19,7 +19,9 @@ export interface HeadlessBlock {
   variant?: string | null;
   fields: Record<string, unknown>;
   form?: BackstageFormDefinition;
+  menu?: SiteMenu;
   events?: SiteEvent[];
+  eventsIndexPath?: string | null;
   instagramPosts?: SiteInstagramPost[];
   instagramUrl?: string | null;
 }
@@ -327,6 +329,9 @@ const normalizeObject = (value: unknown, context: string): Record<string, unknow
 const optionalString = (value: unknown): string | null =>
   typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 
+const menuSelectionId = (value: unknown): string | null =>
+  optionalString(isRecord(value) ? value.id : value);
+
 const rewritePreviewLinks = (
   value: unknown,
   siteDomain: string | null,
@@ -498,6 +503,41 @@ export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
       : null,
     blocks,
   };
+};
+
+export const attachMenusToBlocks = (pages: HeadlessPage[], menus: SiteMenu[]): void => {
+  const menusById = new Map(menus.map((menu) => [menu.id, menu]));
+
+  for (const page of pages) {
+    for (const block of page.blocks) {
+      if (block.type !== "menu") continue;
+
+      const menuId = menuSelectionId(block.fields.menu_id);
+      if (!menuId) {
+        throw new Error(`Backstage Menu block "${block.id}" on page "${page.slug}" has no selected menu.`);
+      }
+
+      const menu = menusById.get(menuId);
+      if (!menu) {
+        throw new Error(`Backstage Menu block "${block.id}" references menu ${menuId} that was not loaded.`);
+      }
+
+      block.menu = menu;
+    }
+  }
+};
+
+export const attachEventsToBlocks = (pages: HeadlessPage[], events: SiteEvent[], routePaths: string[]): void => {
+  const configuredPath = routePaths.find((path) => path === "/events" || path === "/events/") ?? null;
+  const indexPath = configuredPath && !configuredPath.endsWith("/") ? `${configuredPath}/` : configuredPath;
+
+  for (const page of pages) {
+    for (const block of page.blocks) {
+      if (block.type !== "upcoming-events") continue;
+      block.events = events;
+      block.eventsIndexPath = indexPath;
+    }
+  }
 };
 
 const normalizeNavigationUrl = (value: unknown): string => {
@@ -743,6 +783,11 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     : rawPages;
   const normalizedPages = pagePayloads.map(normalizePage);
   const website = normalizeWebsite(websites[0]);
+  const pageMenuIds = normalizedPages.flatMap((page) => page.blocks.flatMap((block) => {
+    if (block.type !== "menu") return [];
+    const menuId = menuSelectionId(block.fields.menu_id);
+    return menuId ? [menuId] : [];
+  }));
 
   if (legacyPreview) {
     for (const page of normalizedPages) {
@@ -802,7 +847,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
       : [],
   );
   let menuSummaries: unknown[] = [];
-  if (navigationMenuIds.length > 0 || routePaths.some((path) => path === "/menu" || path.startsWith("/menu/"))) {
+  if (navigationMenuIds.length > 0 || pageMenuIds.length > 0 || routePaths.some((path) => path === "/menu" || path.startsWith("/menu/"))) {
     const response: unknown = await client.menus.getMenus();
     if (!Array.isArray(response)) throw new Error("Backstage did not return a menus collection.");
     menuSummaries = response;
@@ -815,7 +860,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
   const indexMenuIds = publicMenuSlugs.size === 0 && routePaths.some((path) => path === "/menu" || path === "/menu/")
     ? locationMenuIds
     : [];
-  const menuIds = [...new Set([...navigationMenuIds, ...routeMenuIds, ...indexMenuIds])];
+  const menuIds = [...new Set([...pageMenuIds, ...navigationMenuIds, ...routeMenuIds, ...indexMenuIds])];
   const rawMenus = await Promise.all(menuIds.map(async (id) => {
     try {
       const response: unknown = await client.menus.getMenu(id);
@@ -826,11 +871,12 @@ const loadSiteContent = async (): Promise<SiteContent> => {
       if (!menu) throw new Error("The linked menu was not found.");
       return menu;
     } catch (error) {
-      throw new Error(`Could not load Backstage menu ${id} linked from navigation.`, { cause: error });
+      throw new Error(`Could not load Backstage menu ${id} linked from a page block or navigation.`, { cause: error });
     }
   }));
   const menuMedia = await loadMenuMedia(client, collectMenuMediaIds(rawMenus));
   const menus = rawMenus.map((menu, index) => normalizeMenu(menu, index, menuMedia));
+  attachMenusToBlocks(normalizedPages, menus);
   const locations = rawLocations.map(normalizeLocation);
 
   const hasPressRoutes = routePaths.some((path) => path === "/press" || path.startsWith("/press/"));
@@ -943,11 +989,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
       ...event,
       publicPath: publicEventPaths.get(event.slug) ?? null,
     }));
-    for (const page of normalizedPages) {
-      for (const block of page.blocks) {
-        if (block.type === "upcoming-events") block.events = events;
-      }
-    }
+    attachEventsToBlocks(normalizedPages, events, routePaths);
   }
 
   const instagramBlocks = normalizedPages.flatMap((page) => page.blocks.filter((block) => block.type === "instagram-feed"));
