@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mediaAltText, previewRouteUrl, safeAltText, safeImageUrl, safeLinkUrl } from "../src/lib/safe-url";
+import { mediaAltText, previewRouteUrl, safeAltText, safeImageUrl, safeLinkUrl, safeVideoUrl } from "../src/lib/safe-url";
 
 test("safe block URLs allow local and supported links but reject unsafe schemes", () => {
   assert.equal(safeLinkUrl("/about/"), "/about/");
@@ -12,6 +12,12 @@ test("safe block URLs allow local and supported links but reject unsafe schemes"
   assert.equal(safeImageUrl("/\\\\evil.example/photo.jpg"), null);
   assert.equal(safeImageUrl({ url: "https://example.com/photo.jpg", alt: "A photo" }), "https://example.com/photo.jpg");
   assert.equal(safeImageUrl("data:image/svg+xml,<svg></svg>"), null);
+  assert.equal(safeVideoUrl("/media/highlights.mp4"), "/media/highlights.mp4");
+  assert.equal(safeVideoUrl({ url: "https://cdn.example.test/media/asset?id=1", file_name: "highlights.webm" }), "https://cdn.example.test/media/asset?id=1");
+  assert.equal(safeVideoUrl({ url: "https://cdn.example.test/media/highlights.ogv?download=1", file_name: "" }), "https://cdn.example.test/media/highlights.ogv?download=1");
+  assert.equal(safeVideoUrl("https://cdn.example.test/media/highlights.jpg"), null);
+  assert.equal(safeVideoUrl({ url: "javascript:alert(1)", file_name: "highlights.mp4" }), null);
+  assert.equal(safeVideoUrl("//cdn.example.test/highlights.mp4"), null);
   assert.equal(mediaAltText({ url: "/photo.jpg", alt: "A photo" }), "A photo");
   assert.equal(mediaAltText({ url: "/photo.jpg", alt: "family-at-the-game.jpg" }), "");
   assert.equal(safeAltText("community-page-picture.png"), "");

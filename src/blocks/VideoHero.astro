@@ -1,0 +1,225 @@
+---
+import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import type { HeadlessBlock } from "../lib/backstage/content";
+import { safeImageUrl, safeLinkUrl, safeVideoUrl } from "../lib/safe-url";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const fields = block.fields;
+const text = (key: string): string => typeof fields[key] === "string" ? (fields[key] as string).trim() : "";
+const eyebrow = text("eyebrow");
+const heading = text("heading");
+const body = text("body") ? sanitizeRichText(text("body")) : "";
+const video = safeVideoUrl(fields.video);
+const poster = safeImageUrl(fields.poster);
+const actions = Array.isArray(fields.actions)
+  ? fields.actions.filter((action): action is Record<string, unknown> =>
+      typeof action === "object" && action !== null && !Array.isArray(action)
+    ).flatMap((action) => {
+      const label = typeof action.label === "string" ? action.label.trim() : "";
+      const href = typeof action.href === "string" ? safeLinkUrl(action.href.trim()) : null;
+      return label && href ? [{ label, href }] : [];
+    })
+  : [];
+
+if (!video) {
+  throw new Error("Video Hero requires a supported MP4, WebM, or Ogg media asset.");
+}
+
+const HeadingTag = isPrimary ? "h1" : "h2";
+---
+
+<section class="video-hero" data-video-hero>
+  <video class="video-hero__media" src={video} poster={poster || undefined} muted loop playsinline preload="none" aria-hidden="true" tabindex="-1" data-video-hero-media></video>
+  <div class="video-hero__shade" aria-hidden="true"></div>
+  <div class="video-hero__content">
+    {eyebrow && <p class="video-hero__eyebrow">{eyebrow}</p>}
+    {heading && <HeadingTag>{heading}</HeadingTag>}
+    {body && <div class="video-hero__body" set:html={body} />}
+    {actions.length > 0 && (
+      <div class="video-hero__actions">
+        {actions.map((action) => <a class="video-hero__action" href={action.href}>{action.label}</a>)}
+      </div>
+    )}
+  </div>
+  <button class="video-hero__motion" type="button" aria-label="Play background video" aria-pressed="false" data-video-hero-toggle>
+    <span data-video-hero-label>Play background video</span>
+  </button>
+</section>
+
+<script>
+  document.querySelectorAll<HTMLElement>("[data-video-hero]").forEach((hero) => {
+    const video = hero.querySelector<HTMLVideoElement>("[data-video-hero-media]");
+    const toggle = hero.querySelector<HTMLButtonElement>("[data-video-hero-toggle]");
+    const label = hero.querySelector<HTMLElement>("[data-video-hero-label]");
+    if (!video || !toggle || !label) return;
+
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updateControl = (playing: boolean) => {
+      const nextLabel = playing ? "Pause background video" : "Play background video";
+      label.textContent = nextLabel;
+      toggle.setAttribute("aria-label", nextLabel);
+      toggle.setAttribute("aria-pressed", String(playing));
+    };
+    const play = async () => {
+      try {
+        await video.play();
+        updateControl(true);
+      } catch {
+        updateControl(false);
+      }
+    };
+    const applyMotionPreference = () => {
+      if (motionPreference.matches) {
+        video.pause();
+        updateControl(false);
+      } else {
+        void play();
+      }
+    };
+
+    toggle.addEventListener("click", () => {
+      if (video.paused) void play();
+      else {
+        video.pause();
+        updateControl(false);
+      }
+    });
+    motionPreference.addEventListener("change", applyMotionPreference);
+    applyMotionPreference();
+  });
+</script>
+
+<style>
+  .video-hero {
+    position: relative;
+    display: flex;
+    min-height: 34rem;
+    align-items: center;
+    overflow: hidden;
+    background: var(--theme-color-foreground, #17221d);
+    color: #fff;
+    isolation: isolate;
+  }
+
+  .video-hero__media,
+  .video-hero__shade {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .video-hero__media {
+    z-index: -2;
+    object-fit: cover;
+  }
+
+  .video-hero__shade {
+    z-index: -1;
+    background: linear-gradient(90deg, rgb(0 0 0 / 72%) 0%, rgb(0 0 0 / 38%) 58%, rgb(0 0 0 / 12%) 100%);
+  }
+
+  .video-hero__content {
+    width: min(100% - 3rem, 76rem);
+    margin-inline: auto;
+    padding-block: 6rem;
+  }
+
+  .video-hero__eyebrow {
+    margin: 0 0 1rem;
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .video-hero h1,
+  .video-hero h2 {
+    max-width: 13ch;
+    margin: 0;
+    font-family: var(--theme-font-heading, inherit);
+    font-size: 3.75rem;
+    font-weight: 600;
+    line-height: 1;
+    text-wrap: balance;
+  }
+
+  .video-hero__body {
+    max-width: 38rem;
+    margin-top: 1.25rem;
+    font-size: 1.125rem;
+    line-height: 1.65;
+  }
+
+  .video-hero__body :global(p) {
+    margin: 0;
+  }
+
+  .video-hero__body :global(p + p) {
+    margin-top: 1rem;
+  }
+
+  .video-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.75rem;
+  }
+
+  .video-hero__action {
+    display: inline-flex;
+    min-height: 3rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.25rem;
+    background: var(--theme-color-action, #245c40);
+    color: var(--theme-color-primary-foreground, #fff);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .video-hero__action:hover {
+    filter: brightness(1.12);
+  }
+
+  .video-hero__motion {
+    position: absolute;
+    right: 1.25rem;
+    bottom: 1.25rem;
+    min-height: 2.75rem;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid rgb(255 255 255 / 72%);
+    background: rgb(0 0 0 / 54%);
+    color: #fff;
+    font: inherit;
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+
+  .video-hero__motion:focus-visible,
+  .video-hero__action:focus-visible {
+    outline: 3px solid var(--theme-color-focus, #fff);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 40rem) {
+    .video-hero {
+      min-height: 30rem;
+    }
+
+    .video-hero__content {
+      width: min(100% - 2rem, 76rem);
+      padding-block: 5rem;
+    }
+
+    .video-hero h1,
+    .video-hero h2 {
+      font-size: 2.75rem;
+    }
+  }
+</style>

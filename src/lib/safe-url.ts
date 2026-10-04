@@ -70,6 +70,26 @@ export const safeImageUrl = (value: unknown): string | null => {
   }
 };
 
+export const safeVideoUrl = (value: unknown): string | null => {
+  const media = isRecord(value) ? value : null;
+  const rawUrl = typeof value === "string" ? value : media?.url;
+  if (typeof rawUrl !== "string" || !rawUrl.trim()) return null;
+
+  const normalized = safeImageUrl(rawUrl.trim());
+  if (!normalized) return null;
+
+  let pathname: string;
+  try {
+    pathname = new URL(normalized, "https://starter.invalid").pathname;
+  } catch {
+    return null;
+  }
+
+  const providedName = typeof media?.file_name === "string" ? media.file_name.trim() : "";
+  const fileName = providedName || pathname.split("/").at(-1) || "";
+  return /\.(?:mp4|webm|ogv|ogg)$/i.test(fileName) ? normalized : null;
+};
+
 export const safeAltText = (value: unknown): string => {
   const alt = typeof value === "string" ? value.trim() : "";
 
