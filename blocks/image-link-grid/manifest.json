@@ -1,0 +1,47 @@
+{
+  "manifest_version": 1,
+  "type": "block",
+  "registry_identity": "starter-astro:image-link-grid@1",
+  "name": "Image Link Grid",
+  "slug": "image-link-grid",
+  "description": "A responsive grid of linked images with accessible link labels.",
+  "schema": {
+    "fields": [
+      { "name": "Heading", "slug": "heading", "type": "text", "order": 0 },
+      {
+        "name": "Columns",
+        "slug": "columns",
+        "type": "select",
+        "placeholder": "Three columns (default)",
+        "options": [
+          { "label": "Two", "value": "2" },
+          { "label": "Three", "value": "3" },
+          { "label": "Four", "value": "4" }
+        ],
+        "order": 1
+      },
+      {
+        "name": "Image fit",
+        "slug": "image_fit",
+        "type": "select",
+        "placeholder": "Show full image (default)",
+        "options": [
+          { "label": "Show full image", "value": "contain" },
+          { "label": "Crop to fill", "value": "cover" }
+        ],
+        "order": 2
+      },
+      {
+        "name": "Image links",
+        "slug": "items",
+        "type": "repeater",
+        "fields": [
+          { "name": "Image", "slug": "image", "type": "image", "required": true, "order": 0 },
+          { "name": "Destination URL", "slug": "link_url", "type": "url", "required": true, "order": 1 },
+          { "name": "Accessible link label", "slug": "link_label", "type": "text", "required": true, "order": 2 }
+        ],
+        "order": 3
+      }
+    ]
+  }
+}

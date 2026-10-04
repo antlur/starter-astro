@@ -1,0 +1,110 @@
+---
+import type { HeadlessBlock } from "../lib/backstage/content";
+import { safeImageUrl, safeLinkUrl } from "../lib/safe-url";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const text = (value: unknown): string => typeof value === "string" ? value.trim() : "";
+const heading = text(block.fields.heading);
+const columns = ["2", "3", "4"].includes(text(block.fields.columns)) ? text(block.fields.columns) : "3";
+const imageFit = text(block.fields.image_fit) === "cover" ? "cover" : "contain";
+const items = Array.isArray(block.fields.items)
+  ? block.fields.items.flatMap((value) => {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
+      const item = value as Record<string, unknown>;
+      const image = safeImageUrl(item.image);
+      const href = safeLinkUrl(item.link_url);
+      const label = text(item.link_label);
+      return image && href && label ? [{ image, href, label }] : [];
+    })
+  : [];
+const HeadingTag = isPrimary ? "h1" : "h2";
+---
+
+{items.length > 0 && (
+  <section class="image-link-grid" aria-label={heading || "Featured links"}>
+    {heading && <HeadingTag class="image-link-grid__heading">{heading}</HeadingTag>}
+    <div class="image-link-grid__items" style={`--image-link-columns: ${columns}`}>
+      {items.map((item) => (
+        <a class:list={["image-link-grid__item", imageFit === "contain" && "image-link-grid__item--contain"]} href={item.href} aria-label={item.label}>
+          <img src={item.image} alt="" loading="lazy" decoding="async" />
+        </a>
+      ))}
+    </div>
+  </section>
+)}
+
+<style>
+  .image-link-grid {
+    padding: clamp(2.5rem, 6vw, 5rem) max(1.25rem, calc((100vw - 74rem) / 2));
+  }
+
+  .image-link-grid__heading {
+    max-width: 54rem;
+    margin: 0 auto 1.5rem;
+    font-family: var(--theme-font-heading);
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+    font-weight: 560;
+    line-height: 1.12;
+    text-wrap: balance;
+  }
+
+  .image-link-grid__items {
+    display: grid;
+    grid-template-columns: repeat(var(--image-link-columns), minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .image-link-grid__item {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--theme-color-border);
+    border-radius: 0.4rem;
+    background: var(--color-surface);
+  }
+
+  .image-link-grid__item:focus-visible {
+    outline: 3px solid var(--theme-color-focus);
+    outline-offset: 3px;
+  }
+
+  .image-link-grid__item img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    transition: transform 180ms ease;
+  }
+
+  .image-link-grid__item--contain img {
+    object-fit: contain;
+  }
+
+  .image-link-grid__item:hover img {
+    transform: scale(1.025);
+  }
+
+  @media (max-width: 760px) {
+    .image-link-grid__items {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+  }
+
+  @media (max-width: 440px) {
+    .image-link-grid__items {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .image-link-grid__item img {
+      transition: none;
+    }
+  }
+</style>
