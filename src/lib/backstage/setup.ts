@@ -2,8 +2,9 @@ import { listRegistryBlocks, type BackstageClient } from "@antlur/backstage";
 import type { BlockManifest, BlockSyncClient } from "./sync-blocks";
 import { syncBlockManifests } from "./sync-blocks";
 import { safeLinkUrl } from "../safe-url";
+import { planStarterSitePages, type StarterSitePagePlan } from "./site-initializer";
 
-export type StarterSetupClient = BlockSyncClient & Pick<BackstageClient, "modules" | "website" | "pages" | "navigation">;
+export type StarterSetupClient = BlockSyncClient & Pick<BackstageClient, "modules" | "website" | "pages" | "navigation" | "forms">;
 
 export type StarterNavigationStatus = "configured" | "single" | "missing" | "selection-required" | "invalid" | "unknown";
 
@@ -25,6 +26,18 @@ export interface StarterSetupReport {
   websiteCtaConfigured: boolean | null;
   blockChanges: { created: number; updated: number } | null;
   warnings: string[];
+}
+
+export interface StarterSiteSetupReport {
+  plan: StarterSitePagePlan | null;
+  blockers: string[];
+  warnings: string[];
+}
+
+export interface StarterSiteSetupOptions {
+  contactFormId?: string;
+  confirmContactFormRecipient?: boolean;
+  sdkRegistry?: readonly Pick<BlockManifest, "registry_identity">[];
 }
 
 export async function inspectStarterSetup(
@@ -143,4 +156,61 @@ export async function inspectStarterSetup(
     blockChanges,
     warnings,
   };
+}
+
+export async function inspectStarterSiteSetup(
+  client: StarterSetupClient,
+  manifests: BlockManifest[],
+  options: StarterSiteSetupOptions = {},
+): Promise<StarterSiteSetupReport> {
+  const [websites, customBlocksEnabled] = await Promise.all([
+    client.website.getWebsites(),
+    client.modules.isEnabled("cms.custom_blocks"),
+  ]);
+  const blockers: string[] = [];
+  const warnings: string[] = [];
+
+  if (!Array.isArray(websites) || websites.length !== 1) {
+    return {
+      plan: null,
+      blockers: [`Starter site setup requires exactly one website; found ${Array.isArray(websites) ? websites.length : "an invalid response"}.`],
+      warnings,
+    };
+  }
+
+  if (!customBlocksEnabled) blockers.push("Enable CMS Custom Blocks before applying starter pages.");
+
+  const registry = options.sdkRegistry ?? listRegistryBlocks();
+  const registryIdentities = new Set(registry.map((block) => block.registry_identity));
+  const missingRegistry = manifests.filter((manifest) => !registryIdentities.has(manifest.registry_identity));
+  if (missingRegistry.length > 0) {
+    blockers.push(`The installed SDK registry is missing Starter contracts: ${missingRegistry.map((manifest) => manifest.slug).join(", ")}.`);
+  }
+
+  const website = websites[0];
+  const [pages, routes] = await Promise.all([
+    client.pages.getHeadlessPages(),
+    client.website.getWebsiteRoutes(website.id),
+  ]);
+  let contactFormId: string | undefined;
+
+  if (options.contactFormId && !options.confirmContactFormRecipient) {
+    warnings.push("Contact page was omitted. Verify the selected form's fields, recipient, and spam/security settings, then rerun with --confirm-contact-form-recipient.");
+  } else if (options.contactFormId) {
+    const form = await client.forms.getFormDefinition(options.contactFormId);
+    if (form.id !== options.contactFormId) {
+      blockers.push("The selected Contact Form response did not match the requested form ID.");
+    } else if (!Array.isArray(form.fields) || form.fields.length === 0) {
+      blockers.push("The selected Contact Form has no configured fields; configure the form in Backstage before applying starter pages.");
+    } else {
+      contactFormId = form.id;
+      warnings.push("The selected form's recipient and delivery behavior cannot be verified by the Starter API check.");
+    }
+  }
+
+  const plan = planStarterSitePages(website, pages, routes, contactFormId);
+  warnings.push(...plan.warnings);
+  if (!plan.canApply) blockers.push("A starter page path is already claimed by a route that is not represented by a CMS page.");
+
+  return { plan, blockers, warnings };
 }
