@@ -29,6 +29,7 @@
         "name": "Form",
         "slug": "form_id",
         "type": "form_select",
+        "required": true,
         "order": 3
       },
       {
