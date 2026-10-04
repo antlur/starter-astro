@@ -40,6 +40,24 @@ export interface StarterSiteSetupOptions {
   sdkRegistry?: readonly Pick<BlockManifest, "registry_identity">[];
 }
 
+export function missingStarterBlockSlugs(
+  manifests: readonly Pick<BlockManifest, "registry_identity" | "slug">[],
+  sdkRegistry: readonly Pick<BlockManifest, "registry_identity">[] = listRegistryBlocks(),
+): string[] {
+  const registryIdentities = new Set(sdkRegistry.map((block) => block.registry_identity));
+  return manifests.filter((manifest) => !registryIdentities.has(manifest.registry_identity)).map(({ slug }) => slug);
+}
+
+export function assertStarterBlockRegistryComplete(
+  manifests: readonly Pick<BlockManifest, "registry_identity" | "slug">[],
+  sdkRegistry: readonly Pick<BlockManifest, "registry_identity">[] = listRegistryBlocks(),
+): void {
+  const missing = missingStarterBlockSlugs(manifests, sdkRegistry);
+  if (missing.length > 0) {
+    throw new Error(`The installed SDK registry is missing Starter block contracts: ${missing.join(", ")}. Use an SDK release that includes the complete Starter registry before syncing.`);
+  }
+}
+
 export async function inspectStarterSetup(
   client: StarterSetupClient,
   manifests: BlockManifest[],
@@ -54,10 +72,7 @@ export async function inspectStarterSetup(
   if (!Array.isArray(navigations)) throw new Error("Backstage returned an invalid navigation collection.");
   const warnings: string[] = [];
   const registryBlocks = options.sdkRegistry ?? listRegistryBlocks();
-  const registryIdentities = new Set(registryBlocks.map((block) => block.registry_identity));
-  const missingRegistrySlugs = manifests
-    .filter((manifest) => !registryIdentities.has(manifest.registry_identity))
-    .map((manifest) => manifest.slug);
+  const missingRegistrySlugs = missingStarterBlockSlugs(manifests, registryBlocks);
   const socialProfileCount = websites.length === 1
     ? (Array.isArray(websites[0].social_links)
       ? websites[0].social_links.filter((link) => safeLinkUrl(link.url)?.startsWith("https://")).length
@@ -181,10 +196,9 @@ export async function inspectStarterSiteSetup(
   if (!customBlocksEnabled) blockers.push("Enable CMS Custom Blocks before applying starter pages.");
 
   const registry = options.sdkRegistry ?? listRegistryBlocks();
-  const registryIdentities = new Set(registry.map((block) => block.registry_identity));
-  const missingRegistry = manifests.filter((manifest) => !registryIdentities.has(manifest.registry_identity));
+  const missingRegistry = missingStarterBlockSlugs(manifests, registry);
   if (missingRegistry.length > 0) {
-    blockers.push(`The installed SDK registry is missing Starter contracts: ${missingRegistry.map((manifest) => manifest.slug).join(", ")}.`);
+    blockers.push(`The installed SDK registry is missing Starter contracts: ${missingRegistry.join(", ")}.`);
   }
 
   const website = websites[0];

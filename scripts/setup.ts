@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { BackstageClient } from "@antlur/backstage";
 import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
-import { inspectStarterSetup, inspectStarterSiteSetup } from "../src/lib/backstage/setup";
+import { assertStarterBlockRegistryComplete, inspectStarterSetup, inspectStarterSiteSetup } from "../src/lib/backstage/setup";
 import { applyStarterSitePages } from "../src/lib/backstage/site-initializer";
 import { syncBlockManifests } from "../src/lib/backstage/sync-blocks";
 
@@ -119,6 +119,8 @@ async function main() {
   if (!report.customBlocksEnabled) {
     throw new Error("No definitions were changed. Enable CMS Custom Blocks and rerun setup.");
   }
+
+  assertStarterBlockRegistryComplete(manifests);
 
   const result = await syncBlockManifests(client, manifests);
   console.log(`Block sync complete: ${result.created} created, ${result.updated} updated.`);

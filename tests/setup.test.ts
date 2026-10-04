@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { BlockManifest } from "../src/lib/backstage/sync-blocks";
 import type { StarterSetupClient } from "../src/lib/backstage/setup";
-import { inspectStarterSetup, inspectStarterSiteSetup } from "../src/lib/backstage/setup";
+import { assertStarterBlockRegistryComplete, inspectStarterSetup, inspectStarterSiteSetup } from "../src/lib/backstage/setup";
 
 const manifest: BlockManifest = {
   manifest_version: 1,
@@ -144,6 +144,11 @@ test("starter site preflight is read-only and refuses an incomplete SDK registry
   assert.equal(report.plan?.actions[1].status, "create");
   assert.ok(report.blockers.some((blocker) => blocker.includes("missing Starter contracts: hero")));
   assert.deepEqual(fake.writes, []);
+});
+
+test("block writes require every local Starter contract in the installed SDK registry", () => {
+  assert.throws(() => assertStarterBlockRegistryComplete([manifest], []), /missing Starter block contracts: hero/);
+  assert.doesNotThrow(() => assertStarterBlockRegistryComplete([manifest], [manifest]));
 });
 
 test("starter site preflight includes a form page only after explicit recipient confirmation", async () => {

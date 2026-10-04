@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { BackstageClient } from "@antlur/backstage";
 import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
+import { assertStarterBlockRegistryComplete } from "../src/lib/backstage/setup";
 import { syncBlockManifests } from "../src/lib/backstage/sync-blocks";
 
 for (const envFile of [".env.development.local", ".env.local", ".env.development", ".env"]) {
@@ -14,6 +15,7 @@ if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") {
 
 const blocksDirectory = fileURLToPath(new URL("../blocks/", import.meta.url));
 const manifests = loadBlockManifests(blocksDirectory);
+assertStarterBlockRegistryComplete(manifests);
 
 const client = new BackstageClient();
 
