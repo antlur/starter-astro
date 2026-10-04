@@ -2,12 +2,20 @@ import type { BackstageClient } from "@antlur/backstage";
 import type { BlockManifest, BlockSyncClient } from "./sync-blocks";
 import { syncBlockManifests } from "./sync-blocks";
 
-export type StarterSetupClient = BlockSyncClient & Pick<BackstageClient, "modules" | "website" | "pages">;
+export type StarterSetupClient = BlockSyncClient & Pick<BackstageClient, "modules" | "website" | "pages" | "navigation">;
+
+export type StarterNavigationStatus = "configured" | "single" | "page-derived" | "selection-required" | "invalid" | "unknown";
+
+export interface StarterSetupOptions {
+  navigationId?: string;
+}
 
 export interface StarterSetupReport {
   websiteCount: number;
   websiteName: string | null;
   customBlocksEnabled: boolean;
+  navigationCount: number | null;
+  navigationStatus: StarterNavigationStatus;
   homepageExists: boolean | null;
   rootRouteExists: boolean | null;
   blockChanges: { created: number; updated: number } | null;
@@ -17,21 +25,44 @@ export interface StarterSetupReport {
 export async function inspectStarterSetup(
   client: StarterSetupClient,
   manifests: BlockManifest[],
+  options: StarterSetupOptions = {},
 ): Promise<StarterSetupReport> {
-  const [websites, customBlocksEnabled] = await Promise.all([
+  const [websites, customBlocksEnabled, navigations] = await Promise.all([
     client.website.getWebsites(),
     client.modules.isEnabled("cms.custom_blocks"),
+    client.navigation.list(),
   ]);
   if (!Array.isArray(websites)) throw new Error("Backstage returned an invalid websites collection.");
+  if (!Array.isArray(navigations)) throw new Error("Backstage returned an invalid navigation collection.");
   const warnings: string[] = [];
   let homepageExists: boolean | null = null;
   let rootRouteExists: boolean | null = null;
+  let navigationStatus: StarterNavigationStatus = "unknown";
 
   warnings.push("Confirm Headless application and Application owned routing in Backstage Settings; the SDK does not expose these setting values.");
 
   if (websites.length !== 1) {
     warnings.push(`This Starter expects exactly one Backstage website; this account has ${websites.length}.`);
   } else {
+    const requestedNavigationId = options.navigationId?.trim() || websites[0].header_navigation_id || null;
+
+    if (requestedNavigationId) {
+      navigationStatus = navigations.some((navigation) => navigation.id === requestedNavigationId)
+        ? "configured"
+        : "invalid";
+
+      if (navigationStatus === "invalid") {
+        warnings.push("The selected header navigation was not found in this account; verify BACKSTAGE_NAVIGATION_ID or the website's Header Navigation setting.");
+      }
+    } else if (navigations.length === 0) {
+      navigationStatus = "page-derived";
+    } else if (navigations.length === 1) {
+      navigationStatus = "single";
+    } else {
+      navigationStatus = "selection-required";
+      warnings.push("This account has multiple navigations but none is selected; set BACKSTAGE_NAVIGATION_ID or choose a Header Navigation in Backstage.");
+    }
+
     try {
       const [pages, routes] = await Promise.all([
         client.pages.getHeadlessPages(),
@@ -59,6 +90,8 @@ export async function inspectStarterSetup(
     websiteCount: websites.length,
     websiteName: websites.length === 1 ? websites[0].app_name : null,
     customBlocksEnabled,
+    navigationCount: websites.length === 1 ? navigations.length : null,
+    navigationStatus,
     homepageExists,
     rootRouteExists,
     blockChanges,

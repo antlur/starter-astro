@@ -23,11 +23,22 @@ async function main() {
   const apply = args.includes("--apply");
   const manifests = loadBlockManifests(fileURLToPath(new URL("../blocks/", import.meta.url)));
   const client = new BackstageClient();
-  const report = await inspectStarterSetup(client, manifests);
+  const report = await inspectStarterSetup(client, manifests, {
+    navigationId: process.env.BACKSTAGE_NAVIGATION_ID,
+  });
 
   console.log("Backstage Astro Starter setup");
   console.log(`Websites: ${report.websiteCount}${report.websiteName ? ` (${report.websiteName})` : ""}`);
   console.log(`CMS Custom Blocks: ${report.customBlocksEnabled ? "enabled" : "disabled"}`);
+  const navigationSummary = {
+    configured: "selected",
+    single: "one saved navigation will be used",
+    "page-derived": "not configured; links are derived from public CMS pages",
+    "selection-required": "multiple saved navigations need a selection",
+    invalid: "selected navigation was not found",
+    unknown: "not verified",
+  }[report.navigationStatus];
+  console.log(`Navigation: ${navigationSummary}${report.navigationCount === null ? "" : ` (${report.navigationCount} saved)`}`);
   console.log(`Home page: ${report.homepageExists === null ? "not verified" : report.homepageExists ? "present" : "missing"}`);
   console.log(`Root route: ${report.rootRouteExists === null ? "not verified" : report.rootRouteExists ? "present" : "missing"}`);
 
