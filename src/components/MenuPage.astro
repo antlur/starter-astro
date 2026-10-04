@@ -56,7 +56,7 @@ const categoryAnchors = menu.categories.map((category, index) => ({
         <div class="menu-category__items">
           {category.items.map((item) => {
             const description = item.description ? sanitizeRichText(item.description) : "";
-            const multiPrice = item.prices.length > 1;
+            const multiPrice = item.priceType === "multiple" || item.prices.length > 1;
             const itemPrice = !item.hiddenPrice && !multiPrice ? item.prices[0]?.value : null;
 
             return (
@@ -67,8 +67,10 @@ const categoryAnchors = menu.categories.map((category, index) => ({
                     {itemPrice && <span class="menu-item__leader" aria-hidden="true" />}
                     {itemPrice && <span class="menu-item__price">{formatPrice(itemPrice)}</span>}
                   </div>
+                  {item.postTitle && <p class="menu-item__post-title">{item.postTitle}</p>}
                   {item.subtitle && <p class="menu-item__subtitle">{item.subtitle}</p>}
                   {description && <div class="menu-item__description" set:html={description} />}
+                  {item.dietaryTags.length > 0 && <p class="menu-item__dietary-tags">Dietary: {item.dietaryTags.join(", ")}</p>}
                   {multiPrice && (
                     <dl class="menu-item__prices">
                       {item.prices.map((price) => (
@@ -320,6 +322,13 @@ const categoryAnchors = menu.categories.map((category, index) => ({
     color: var(--color-accent-strong);
     font-size: 0.88rem;
     font-weight: 650;
+  }
+
+  .menu-item__post-title,
+  .menu-item__dietary-tags {
+    margin: 0.2rem 0 0;
+    color: var(--color-muted);
+    font-size: 0.78rem;
   }
 
   .menu-item__description {
