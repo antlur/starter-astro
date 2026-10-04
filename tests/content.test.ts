@@ -663,7 +663,7 @@ test("validates an application-defined block manifest without a PHP block class"
   }], [manifest]));
 });
 
-test("normalizes the generic Backstage website response", () => {
+test("normalizes website identity while leaving design tokens to the site project", () => {
   const site = normalizeWebsite({
     app_name: "Fieldwork",
     domain: "fieldwork.example.test",
@@ -688,15 +688,12 @@ test("normalizes the generic Backstage website response", () => {
   assert.equal(site.domain, "fieldwork.example.test");
   assert.equal(site.openGraph?.image, "https://example.test/og.jpg");
   assert.equal(site.logo?.width, 180);
-  assert.equal(site.theme.colors.primary, "#c24436");
-  assert.equal(site.theme.colors.header, "#000000");
-  assert.equal(site.theme.fonts.heading, "fresno, sans-serif");
-  assert.deepEqual(site.theme.fontStylesheets, ["https://use.typekit.net/ieq8pyc.css"]);
+  assert.equal("theme" in site, false);
   assert.deepEqual(site.socialLinks, [{ name: "instagram", url: "https://instagram.com/example" }]);
   assert.deepEqual(site.homeCta, { text: "Order Online", url: "https://order.example.test" });
 });
 
-test("ignores unsafe website colors, font definitions, media URLs, and stylesheet URLs", () => {
+test("does not consume website theme and font settings for a custom headless site", () => {
   const site = normalizeWebsite({
     app_name: "Unsafe Site",
     theme: { colors: { primary: "red; background:url(javascript:alert(1))" } },
@@ -706,9 +703,7 @@ test("ignores unsafe website colors, font definitions, media URLs, and styleshee
     favicon_url: "javascript:alert(1)",
   });
 
-  assert.equal(site.theme.colors.primary, "#294c3d");
-  assert.equal(site.theme.fonts.body, 'Inter, "Avenir Next", Avenir, sans-serif');
-  assert.deepEqual(site.theme.fontStylesheets, []);
+  assert.equal("theme" in site, false);
   assert.equal(site.logo, null);
   assert.equal(site.faviconUrl, null);
 });

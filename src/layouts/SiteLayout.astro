@@ -1,7 +1,9 @@
 ---
 import "../styles/global.css";
 import LocationHoursSection from "../components/LocationHoursSection.astro";
+import SiteAlerts from "../components/SiteAlerts.astro";
 import SocialIcon from "../components/SocialIcon.astro";
+import { alertsForPath } from "../lib/backstage/alerts";
 import { richTextToPlainText } from "../lib/sanitize-rich-text";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
 import type { SiteLocation } from "../lib/backstage/locations";
@@ -16,11 +18,13 @@ interface Props {
   pathname: string;
   navigation: SiteNavigationItem[];
   footerNavigation?: SiteNavigationItem[];
+  routePaths: string[];
+  alerts: import("@antlur/backstage").Alert[];
   locations: SiteLocation[];
   showLocationHours?: boolean;
 }
 
-const { page, pageTitle: routeTitle, pageDescription: routeDescription, pageImage, contentType = "website", site, pathname, navigation, footerNavigation = [], locations, showLocationHours = true } = Astro.props;
+const { page, pageTitle: routeTitle, pageDescription: routeDescription, pageImage, contentType = "website", site, pathname, navigation, footerNavigation = [], routePaths, alerts, locations, showLocationHours = true } = Astro.props;
 const siteTitle = site.meta?.title || site.name;
 const pageTitle = routeTitle || page?.meta?.title || page?.title || siteTitle;
 const title = pageTitle === siteTitle || pageTitle.endsWith(" | " + siteTitle)
@@ -41,43 +45,16 @@ const organization = {
 };
 const jsonLd = JSON.stringify(organization).replace(/</g, "\\u003c");
 const firstLocation = locations[0];
+const primaryAction = navigation.find((item) => item.style === "button");
 const topbarCta = site.homeCta && navigation.some((item) => item.style === "button" && item.url === site.homeCta?.url)
   ? null
   : site.homeCta;
+const mobileAction = primaryAction
+  ? { text: primaryAction.text, url: primaryAction.url, newWindow: primaryAction.newWindow }
+  : site.homeCta ? { ...site.homeCta, newWindow: false } : null;
 const showTopbar = Boolean(firstLocation?.phone || firstLocation?.addressLines.length || firstLocation?.mapUrl || topbarCta || site.socialLinks.length);
-const themeStyle = [
-  `--theme-color-background:${site.theme.colors.background}`,
-  `--theme-color-surface:${site.theme.colors.surface}`,
-  `--theme-color-foreground:${site.theme.colors.foreground}`,
-  `--theme-color-muted:${site.theme.colors.mutedForeground}`,
-  `--theme-color-border:${site.theme.colors.border}`,
-  `--theme-color-action:${site.theme.colors.primary}`,
-  `--theme-color-accent:${site.theme.colors.accent}`,
-  `--theme-color-focus:${site.theme.colors.primary}`,
-  `--theme-font-heading:${site.theme.fonts.heading}`,
-  `--theme-font-body:${site.theme.fonts.body}`,
-  // Keep existing block CSS working while the semantic tokens are adopted.
-  `--color-paper:${site.theme.colors.background}`,
-  `--color-ink:${site.theme.colors.foreground}`,
-  `--color-muted:${site.theme.colors.mutedForeground}`,
-  `--color-accent:${site.theme.colors.accent}`,
-  `--color-accent-strong:${site.theme.colors.primary}`,
-  `--color-primary-foreground:${site.theme.colors.primaryForeground}`,
-  `--color-line:${site.theme.colors.border}`,
-  `--color-surface:${site.theme.colors.surface}`,
-  `--color-header:${site.theme.colors.header}`,
-  `--color-header-foreground:${site.theme.colors.headerForeground}`,
-  `--color-topbar:${site.theme.colors.topbar}`,
-  `--color-topbar-foreground:${site.theme.colors.topbarForeground}`,
-  `--color-footer-location:${site.theme.colors.footerLocation}`,
-  `--color-footer-location-foreground:${site.theme.colors.footerLocationForeground}`,
-  `--color-footer:${site.theme.colors.footer}`,
-  `--color-footer-foreground:${site.theme.colors.footerForeground}`,
-  `--font-body:${site.theme.fonts.body}`,
-  `--font-display:${site.theme.fonts.heading}`,
-  `--font-navigation:${site.theme.fonts.navigation}`,
-].join(";");
 const socialLinks = site.socialLinks;
+const visibleAlerts = alertsForPath(alerts, pathname);
 ---
 
 <!doctype html>
@@ -87,10 +64,9 @@ const socialLinks = site.socialLinks;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content={indexable ? "index,follow" : "noindex,nofollow"} />
     <meta name="description" content={description} />
-    <meta name="theme-color" content={site.theme.colors.header} />
+    <meta name="theme-color" content="#294c3d" />
     <link rel="icon" href={site.faviconUrl || "/favicon.svg"} />
     {site.appleIconUrl && <link rel="apple-touch-icon" href={site.appleIconUrl} />}
-    {site.theme.fontStylesheets.map((url) => <link rel="stylesheet" href={url} />)}
     {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
     <meta property="og:type" content={contentType} />
     <meta property="og:site_name" content={siteTitle} />
@@ -102,8 +78,9 @@ const socialLinks = site.socialLinks;
     <title>{title}</title>
     <script type="application/ld+json" set:html={jsonLd} />
   </head>
-  <body class="bg-background text-foreground font-body" style={themeStyle}>
+  <body class:list={["bg-background", "text-foreground", "font-body", mobileAction && "has-mobile-action"]}>
     <a class="skip-link" href="#main-content">Skip to content</a>
+    <SiteAlerts alerts={visibleAlerts} siteDomain={site.domain} routePaths={routePaths} />
     <header class="site-header-shell">
       {showTopbar && (
         <div class="site-topbar">
@@ -200,6 +177,14 @@ const socialLinks = site.socialLinks;
         </div>
       </div>
     </footer>
+    {mobileAction && (
+      <a
+        class="site-mobile-action"
+        href={mobileAction.url}
+        target={mobileAction.newWindow ? "_blank" : undefined}
+        rel={mobileAction.newWindow ? "noopener noreferrer" : undefined}
+      >{mobileAction.text}</a>
+    )}
   </body>
 </html>
 
@@ -213,6 +198,7 @@ const socialLinks = site.socialLinks;
       toggle.setAttribute("aria-expanded", "false");
       toggle.setAttribute("aria-label", "Open navigation");
       navigation.removeAttribute("data-open");
+      document.body.classList.remove("site-navigation-open");
     };
 
     toggle.hidden = false;
@@ -223,6 +209,7 @@ const socialLinks = site.socialLinks;
       toggle.setAttribute("aria-label", isOpen ? "Open navigation" : "Close navigation");
       if (isOpen) navigation.removeAttribute("data-open");
       else navigation.setAttribute("data-open", "");
+      document.body.classList.toggle("site-navigation-open", !isOpen);
     });
 
     navigation.addEventListener("click", (event) => {

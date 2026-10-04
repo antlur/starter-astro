@@ -22,6 +22,8 @@ export const getStaticPaths = async () => {
         pathname: path,
         navigation: routePlan.navigation,
         footerNavigation: routePlan.footerNavigation,
+        routePaths: content.routePaths,
+        alerts: content.alerts,
       },
     }));
 
@@ -36,6 +38,8 @@ export const getStaticPaths = async () => {
         pathname: route.path,
         navigation: routePlan.navigation,
         footerNavigation: routePlan.footerNavigation,
+        routePaths: content.routePaths,
+        alerts: content.alerts,
       },
     }));
 
@@ -49,6 +53,8 @@ export const getStaticPaths = async () => {
       pathname: menuRoute.path,
       navigation: routePlan.navigation,
       footerNavigation: routePlan.footerNavigation,
+      routePaths: content.routePaths,
+      alerts: content.alerts,
     },
   }));
 
@@ -64,6 +70,8 @@ export const getStaticPaths = async () => {
         pathname: path,
         navigation: routePlan.navigation,
         footerNavigation: routePlan.footerNavigation,
+        routePaths: content.routePaths,
+        alerts: content.alerts,
       },
     }] : [];
   });
@@ -78,6 +86,8 @@ export const getStaticPaths = async () => {
       pathname: eventRoute.path,
       navigation: routePlan.navigation,
       footerNavigation: routePlan.footerNavigation,
+      routePaths: content.routePaths,
+      alerts: content.alerts,
     },
   }));
 
@@ -91,6 +101,8 @@ export const getStaticPaths = async () => {
       pathname: locationRoute.path,
       navigation: routePlan.navigation,
       footerNavigation: routePlan.footerNavigation,
+      routePaths: content.routePaths,
+      alerts: content.alerts,
     },
   }));
 
@@ -104,13 +116,15 @@ export const getStaticPaths = async () => {
       pathname: pressRoute.path,
       navigation: routePlan.navigation,
       footerNavigation: routePlan.footerNavigation,
+      routePaths: content.routePaths,
+      alerts: content.alerts,
     },
   }));
 
   return [...cmsPages, ...blueprintPages, ...menuPages, ...menuIndexPages, ...eventPages, ...locationPages, ...pressPages];
 };
 
-const { page, route, menuRoute, menuRoutes, eventRoute, events, locationRoute, pressRoute, pressReleases, site, pathname, navigation, footerNavigation, locations } = Astro.props;
+const { page, route, menuRoute, menuRoutes, eventRoute, events, locationRoute, pressRoute, pressReleases, site, pathname, navigation, footerNavigation, routePaths, alerts, locations } = Astro.props;
 const pageTitle = pressRoute?.kind === "detail"
   ? pressRoute.release.title
   : pressRoute?.kind === "index"
@@ -139,7 +153,7 @@ const pageImage = pressRoute?.kind === "detail"
 const contentType = pressRoute?.kind === "detail" || eventRoute?.kind === "detail" ? "article" : "website";
 ---
 
-<SiteLayout page={page} pageTitle={route?.seoTitle ?? route?.title ?? menuRoute?.menu.title ?? pageTitle} pageDescription={route?.seoDescription ?? menuRoute?.menu.subtitle ?? pageDescription} pageImage={pageImage} contentType={contentType} site={site} pathname={pathname} navigation={navigation} footerNavigation={footerNavigation} locations={locations} showLocationHours={!locationRoute}>
+<SiteLayout page={page} pageTitle={route?.seoTitle ?? route?.title ?? menuRoute?.menu.title ?? pageTitle} pageDescription={route?.seoDescription ?? menuRoute?.menu.subtitle ?? pageDescription} pageImage={pageImage} contentType={contentType} site={site} pathname={pathname} navigation={navigation} footerNavigation={footerNavigation} routePaths={routePaths} alerts={alerts} locations={locations} showLocationHours={!locationRoute}>
   {page
     ? <PageContent page={page} />
     : route

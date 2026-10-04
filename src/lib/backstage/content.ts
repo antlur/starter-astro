@@ -1,5 +1,5 @@
 import { BackstageClient } from "@antlur/backstage";
-import type { AccountBlock, Field } from "@antlur/backstage";
+import type { AccountBlock, Alert, Field } from "@antlur/backstage";
 import { pageLayoutDefinitions } from "../../site/page-layout-definitions";
 import { loadBlockManifests } from "./block-manifests";
 import { attachBackstageForms } from "./forms";
@@ -95,11 +95,6 @@ export interface HeadlessWebsite {
   } | null;
   faviconUrl?: string | null;
   appleIconUrl?: string | null;
-  theme: {
-    colors: Record<string, string>;
-    fonts: { body: string; heading: string; navigation: string };
-    fontStylesheets: string[];
-  };
   socialLinks: Array<{ name: string; url: string }>;
   homeCta: { text: string; url: string } | null;
 }
@@ -110,6 +105,7 @@ export interface SiteContent {
   routePaths: string[];
   navigation: SiteNavigationItem[];
   footerNavigation: SiteNavigationItem[];
+  alerts: Alert[];
   menus: SiteMenu[];
   locations: SiteLocation[];
   events: SiteEvent[];
@@ -606,30 +602,6 @@ export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
   const meta = isRecord(value.meta) ? value.meta : null;
   const openGraph = isRecord(value.open_graph) ? value.open_graph : null;
   const logo = isRecord(value.logo) && safeImageUrl(value.logo.url) ? value.logo : null;
-  const theme = isRecord(value.theme) && isRecord(value.theme.colors) ? value.theme.colors : {};
-  const color = (key: string, fallback: string): string =>
-    typeof theme[key] === "string" && /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(theme[key] as string)
-      ? theme[key] as string
-      : fallback;
-  const fontFamilies = Array.isArray(value.font_families) ? value.font_families : [];
-  const fontFamily = (name: string, fallback: string): string => {
-    const family = fontFamilies.find((candidate) => isRecord(candidate) && candidate.name === name);
-    const normalized = isRecord(family) && typeof family.value === "string" ? family.value.trim() : "";
-    return /^[\w\s.,"'-]+$/.test(normalized) ? normalized : fallback;
-  };
-  const fontStylesheets = Array.isArray(value.font_urls)
-    ? value.font_urls.flatMap((candidate) => {
-        if (typeof candidate !== "string") return [];
-        try {
-          const url = new URL(candidate);
-          return url.protocol === "https:" && ["use.typekit.net", "fonts.googleapis.com"].includes(url.hostname)
-            ? [url.href]
-            : [];
-        } catch {
-          return [];
-        }
-      })
-    : [];
   const socialLinks = Array.isArray(value.social_links)
     ? value.social_links.flatMap((candidate) => {
         if (!isRecord(candidate) || typeof candidate.name !== "string") return [];
@@ -665,33 +637,6 @@ export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
       : null,
     faviconUrl: safeImageUrl(value.favicon_url),
     appleIconUrl: safeImageUrl(value.apple_icon_url),
-    theme: {
-      colors: {
-        background: color("background", "#f5f7f3"),
-        foreground: color("foreground", "#17221d"),
-        mutedForeground: color("mutedForeground", "#536158"),
-        accent: color("tertiary", "#d9ef98"),
-        accentForeground: color("tertiaryForeground", "#17221d"),
-        primary: color("primary", "#294c3d"),
-        primaryForeground: color("primaryForeground", "#ffffff"),
-        header: color("header", "#ffffff"),
-        headerForeground: color("headerForeground", "#17221d"),
-        topbar: color("topbar", "#17221d"),
-        topbarForeground: color("topbarForeground", "#ffffff"),
-        footerLocation: color("footerLocation", "#294c3d"),
-        footerLocationForeground: color("footerLocationForeground", "#ffffff"),
-        footer: color("footer", "#17221d"),
-        footerForeground: color("footerForeground", "#ffffff"),
-        border: color("border", "#d9dfd8"),
-        surface: color("card", "#ffffff"),
-      },
-      fonts: {
-        body: fontFamily("default", 'Inter, "Avenir Next", Avenir, sans-serif'),
-        heading: fontFamily("heading", 'Georgia, "Times New Roman", serif'),
-        navigation: fontFamily("nav-item", fontFamily("default", 'Inter, "Avenir Next", Avenir, sans-serif')),
-      },
-      fontStylesheets,
-    },
     socialLinks,
     homeCta: homeCtaText && homeCtaUrl ? { text: homeCtaText, url: homeCtaUrl } : null,
   };
@@ -758,12 +703,13 @@ const loadSiteContent = async (): Promise<SiteContent> => {
 
   const client = getBackstageClient();
 
-  const [websites, rawPages, routePaths, navigations, rawLocations] = await Promise.all([
+  const [websites, rawPages, routePaths, navigations, rawLocations, alerts] = await Promise.all([
     client.website.getWebsites(),
     legacyPreview ? client.pages.getPages() : client.pages.getHeadlessPages(),
     client.website.routes(),
     client.navigation.list(),
     client.locations.getLocations(),
+    client.alerts.getAlerts(),
   ]);
 
   if (!Array.isArray(websites) || websites.length !== 1) {
@@ -777,6 +723,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
   }
   if (!Array.isArray(routePaths)) throw new Error("Backstage did not return a routes collection.");
   if (!Array.isArray(rawLocations)) throw new Error("Backstage did not return a locations collection.");
+  if (!Array.isArray(alerts)) throw new Error("Backstage did not return an alerts collection.");
 
   const pagePayloads = legacyPreview
     ? normalizeLegacyPreviewPages(rawPages, await loadLegacyPageMedia(client, collectLegacyPageMediaIds(rawPages)))
@@ -1044,6 +991,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
           children: [],
         })),
     footerNavigation,
+    alerts,
   };
 };
 
