@@ -33,7 +33,7 @@ async function main() {
   const navigationSummary = {
     configured: "selected",
     single: "one saved navigation will be used",
-    "page-derived": "not configured; links are derived from public CMS pages",
+    missing: "not configured; the site will show no page links",
     "selection-required": "multiple saved navigations need a selection",
     invalid: "selected navigation was not found",
     unknown: "not verified",

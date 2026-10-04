@@ -4,7 +4,7 @@ import { syncBlockManifests } from "./sync-blocks";
 
 export type StarterSetupClient = BlockSyncClient & Pick<BackstageClient, "modules" | "website" | "pages" | "navigation">;
 
-export type StarterNavigationStatus = "configured" | "single" | "page-derived" | "selection-required" | "invalid" | "unknown";
+export type StarterNavigationStatus = "configured" | "single" | "missing" | "selection-required" | "invalid" | "unknown";
 
 export interface StarterSetupOptions {
   navigationId?: string;
@@ -55,7 +55,8 @@ export async function inspectStarterSetup(
         warnings.push("The selected header navigation was not found in this account; verify BACKSTAGE_NAVIGATION_ID or the website's Header Navigation setting.");
       }
     } else if (navigations.length === 0) {
-      navigationStatus = "page-derived";
+      navigationStatus = "missing";
+      warnings.push("No saved navigation is configured; the site will show no page links until one is created in Backstage.");
     } else if (navigations.length === 1) {
       navigationStatus = "single";
     } else {

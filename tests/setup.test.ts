@@ -49,8 +49,9 @@ test("setup check is read-only and reports a valid home and block plan", async (
   assert.equal(report.websiteCount, 1);
   assert.equal(report.homepageExists, true);
   assert.equal(report.rootRouteExists, true);
-  assert.equal(report.navigationStatus, "page-derived");
+  assert.equal(report.navigationStatus, "missing");
   assert.equal(report.navigationCount, 0);
+  assert.ok(report.warnings.some((warning) => warning.includes("site will show no page links")));
   assert.deepEqual(report.blockChanges, { created: 1, updated: 0 });
   assert.deepEqual(fake.writes, []);
 });
