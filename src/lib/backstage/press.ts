@@ -3,6 +3,7 @@ import { mediaAltText, safeImageUrl } from "../safe-url";
 export interface SitePressRelease {
   id: string;
   slug: string;
+  publicPath: string | null;
   title: string;
   source: string;
   sourceUrl: string | null;
@@ -52,6 +53,7 @@ export const normalizePressRelease = (value: unknown, index = 0): SitePressRelea
   return {
     id: requiredString(value.id, "ID"),
     slug: requiredString(value.slug, "slug"),
+    publicPath: null,
     title: requiredString(value.title, "title"),
     source: requiredString(value.source, "source"),
     sourceUrl: safeSourceUrl(value.url),
@@ -68,20 +70,20 @@ export const normalizePublicPressReleases = (
   values: unknown[],
   routePaths: string[],
 ): SitePressRelease[] => {
-  const publicSlugs = new Set(routePaths.flatMap((path) => {
+  const publicPathsBySlug = new Map(routePaths.flatMap((path) => {
     const match = /^\/press\/([^/]+)\/?$/.exec(path);
     if (!match) return [];
 
     try {
-      return [decodeURIComponent(match[1])];
+      return [[decodeURIComponent(match[1]), path.startsWith("/") ? path : `/${path}`] as const];
     } catch {
       return [];
     }
   }));
 
-  return values.flatMap((item, index) =>
-    isRecord(item) && typeof item.slug === "string" && publicSlugs.has(item.slug)
-      ? [normalizePressRelease(item, index)]
-      : [],
-  );
+  return values.flatMap((item, index) => {
+    if (!isRecord(item) || typeof item.slug !== "string") return [];
+    const publicPath = publicPathsBySlug.get(item.slug);
+    return publicPath ? [{ ...normalizePressRelease(item, index), publicPath }] : [];
+  });
 };

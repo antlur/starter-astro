@@ -2,6 +2,7 @@
 import type { HeadlessBlock } from "../lib/backstage/content";
 import { eventScheduleLabels, selectUpcomingEvents } from "../lib/backstage/events";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import { safeLinkUrl } from "../lib/safe-url";
 
 interface Props {
   block: HeadlessBlock;
@@ -14,6 +15,8 @@ const text = (key: string): string =>
 const eyebrow = text("eyebrow");
 const title = text("title");
 const description = text("description") ? sanitizeRichText(text("description")) : "";
+const viewAllLabel = text("view_all_label") || "View all events";
+const eventsIndexHref = safeLinkUrl(block.eventsIndexPath);
 const events = selectUpcomingEvents(block.events ?? [], block.fields.count);
 const scheduledEvents = events.map((event) => ({ event, schedule: eventScheduleLabels(event) }));
 const HeadingTag = isPrimary ? "h1" : "h2";
@@ -67,6 +70,9 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     </div>
   ) : (
     <p class="upcoming-events__empty">No upcoming events are scheduled right now.</p>
+  )}
+  {events.length > 0 && eventsIndexHref && (
+    <p class="upcoming-events__view-all"><a href={eventsIndexHref}>{viewAllLabel}</a></p>
   )}
 </section>
 
@@ -176,5 +182,15 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   .upcoming-events__empty {
     margin: 0;
     color: var(--color-muted);
+  }
+
+  .upcoming-events__view-all {
+    margin: 1.5rem 0 0;
+  }
+
+  .upcoming-events__view-all a {
+    color: var(--color-accent-strong);
+    font-weight: 750;
+    text-underline-offset: 0.2em;
   }
 </style>

@@ -7,8 +7,18 @@
   --theme-color-action: var(--brand-color-primary);
   --theme-color-accent: var(--brand-color-secondary);
   --theme-color-focus: var(--brand-color-accent);
+  --theme-color-primary-foreground: #fff;
+  --theme-color-header: var(--brand-color-primary);
+  --theme-color-header-foreground: #fff;
+  --theme-color-topbar: var(--theme-color-background);
+  --theme-color-topbar-foreground: var(--theme-color-foreground);
+  --theme-color-footer-location: var(--brand-color-primary);
+  --theme-color-footer-location-foreground: #fff;
+  --theme-color-footer: var(--theme-color-foreground);
+  --theme-color-footer-foreground: var(--theme-color-background);
   --theme-font-heading: var(--brand-font-display);
   --theme-font-body: var(--brand-font-body);
+  --theme-font-navigation: var(--theme-font-body);
 }
 
 @theme inline {
@@ -20,6 +30,15 @@
   --color-action: var(--theme-color-action);
   --color-accent: var(--theme-color-accent);
   --color-focus: var(--theme-color-focus);
+  --color-primary-foreground: var(--theme-color-primary-foreground);
+  --color-header: var(--theme-color-header);
+  --color-header-foreground: var(--theme-color-header-foreground);
+  --color-topbar: var(--theme-color-topbar);
+  --color-topbar-foreground: var(--theme-color-topbar-foreground);
+  --color-footer-location: var(--theme-color-footer-location);
+  --color-footer-location-foreground: var(--theme-color-footer-location-foreground);
+  --color-footer: var(--theme-color-footer);
+  --color-footer-foreground: var(--theme-color-footer-foreground);
   --font-heading: var(--theme-font-heading);
   --font-body: var(--theme-font-body);
 }

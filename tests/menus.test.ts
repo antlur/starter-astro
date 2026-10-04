@@ -94,16 +94,22 @@ test("uses menu placement overrides rather than global catalog item data", () =>
       items: [{
         id: "placement-1",
         title: "Local title",
+        post_title: "Local display title",
         description: "Local description",
+        price_type: "single",
         price: "21.00",
         prices: null,
+        dietary_tags: ["vegan"],
         image: null,
         has_hidden_price: false,
         menu_item: {
           title: "Global title",
+          post_title: "Global display title",
           description: "Global description",
+          price_type: "multiple",
           price: "99.00",
           prices: [{ label: "Large", value: "99.00" }],
+          dietary_tags: ["vegetarian"],
           image: { url: "https://cdn.example.test/global.jpg", alt: "Global image" },
         },
       }],
@@ -112,9 +118,80 @@ test("uses menu placement overrides rather than global catalog item data", () =>
 
   const item = menu.categories[0].items[0];
   assert.equal(item.title, "Local title");
+  assert.equal(item.postTitle, "Local display title");
   assert.equal(item.description, "Local description");
+  assert.equal(item.priceType, "single");
+  assert.deepEqual(item.dietaryTags, ["vegan"]);
   assert.deepEqual(item.prices, [{ label: "", value: "21.00" }]);
   assert.equal(item.imageUrl, null);
+});
+
+test("inherits global display fields and scalar prices when a placement has no overrides", () => {
+  const menu = normalizeMenu({
+    id: "menu-1",
+    title: "Dinner",
+    slug: "dinner",
+    categories: [{
+      title: "Entrees",
+      items: [{
+        id: "placement-1",
+        title: null,
+        post_title: null,
+        subtitle: "",
+        description: null,
+        price_type: null,
+        price: null,
+        price2: null,
+        prices: [],
+        dietary_tags: null,
+        menu_item: {
+          title: "Roasted salmon",
+          post_title: "Line-caught",
+          subtitle: "Dinner favorite",
+          description: "Served with seasonal vegetables.",
+          price_type: "multiple",
+          price: "24.00",
+          price2: "32.00",
+          prices: null,
+          dietary_tags: ["gluten-free", "dairy-free"],
+        },
+      }],
+    }],
+  });
+
+  const item = menu.categories[0].items[0];
+  assert.equal(item.title, "Roasted salmon");
+  assert.equal(item.postTitle, "Line-caught");
+  assert.equal(item.subtitle, "Dinner favorite");
+  assert.equal(item.description, "Served with seasonal vegetables.");
+  assert.equal(item.priceType, "multiple");
+  assert.deepEqual(item.dietaryTags, ["gluten-free", "dairy-free"]);
+  assert.deepEqual(item.prices, [
+    { label: "", value: "24.00" },
+    { label: "", value: "32.00" },
+  ]);
+});
+
+test("hides prices when the effective Backstage price type is hidden", () => {
+  const menu = normalizeMenu({
+    id: "menu-1",
+    title: "Dinner",
+    slug: "dinner",
+    categories: [{
+      title: "Entrees",
+      items: [{
+        title: "Market fish",
+        price_type: "hidden",
+        has_hidden_price: false,
+        price: "28.00",
+      }],
+    }],
+  });
+
+  const item = menu.categories[0].items[0];
+  assert.equal(item.priceType, "hidden");
+  assert.equal(item.hiddenPrice, true);
+  assert.deepEqual(item.prices, []);
 });
 
 test("resolves menu image IDs while respecting a placement-level image override", () => {

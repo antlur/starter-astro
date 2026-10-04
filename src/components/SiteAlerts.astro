@@ -1,0 +1,72 @@
+---
+import type { Alert } from "@antlur/backstage";
+import { safeAltText, safeImageUrl, safeLinkUrl } from "../lib/safe-url";
+import { sanitizeRichText } from "../lib/sanitize-rich-text";
+
+interface Props {
+  alerts: Alert[];
+  siteDomain: string | null;
+  routePaths: string[];
+}
+
+const { alerts, siteDomain, routePaths } = Astro.props;
+const banners = alerts.filter((alert) => alert.type !== "popup");
+const popups = alerts.filter((alert) => alert.type === "popup");
+---
+
+{banners.length > 0 && (
+  <section class="site-alerts" aria-label="Site announcements">
+    {banners.map((alert) => {
+      const content = alert.content ? sanitizeRichText(alert.content, { siteDomain, routePaths }) : "";
+      const imageUrl = safeImageUrl(alert.media);
+      const imageAlt = safeAltText(alert.media?.alt);
+      const ctaUrl = safeLinkUrl(alert.cta_url);
+
+      return (
+        <article class="site-alert" aria-label={alert.title || "Announcement"}>
+          <div class="site-alert__content">
+            {imageUrl && <img src={imageUrl} alt={imageAlt} width="96" height="72" loading="lazy" />}
+            <div>
+              {alert.title && <h2>{alert.title}</h2>}
+              {content && <div class="site-alert__body" set:html={content} />}
+            </div>
+          </div>
+          {alert.cta_label && ctaUrl && <a class="site-alert__action" href={ctaUrl}>{alert.cta_label}</a>}
+        </article>
+      );
+    })}
+  </section>
+)}
+
+{popups.map((alert) => {
+  const content = alert.content ? sanitizeRichText(alert.content, { siteDomain, routePaths }) : "";
+  const imageUrl = safeImageUrl(alert.media);
+  const imageAlt = safeAltText(alert.media?.alt);
+  const ctaUrl = safeLinkUrl(alert.cta_url);
+
+  return (
+    <dialog class="site-alert site-alert--popup" data-site-alert-popup data-site-alert-position={alert.position === "bottom-right" ? "bottom-right" : "center"} aria-label={alert.title || "Announcement"}>
+      <form method="dialog"><button class="site-alert__close" type="submit" aria-label="Close announcement">&times;</button></form>
+      <div class="site-alert__content">
+        {imageUrl && <img src={imageUrl} alt={imageAlt} width="96" height="72" loading="lazy" />}
+        <div>
+          {alert.title && <h2>{alert.title}</h2>}
+          {content && <div class="site-alert__body" set:html={content} />}
+        </div>
+      </div>
+      {alert.cta_label && ctaUrl && <a class="site-alert__action" href={ctaUrl}>{alert.cta_label}</a>}
+    </dialog>
+  );
+})}
+
+<script>
+  const dialogs = Array.from(document.querySelectorAll<HTMLDialogElement>("[data-site-alert-popup]"));
+  let nextDialog = 0;
+  const showNextDialog = () => {
+    const dialog = dialogs[nextDialog++];
+    if (!dialog) return;
+    dialog.addEventListener("close", showNextDialog, { once: true });
+    dialog.showModal();
+  };
+  showNextDialog();
+</script>

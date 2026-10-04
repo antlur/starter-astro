@@ -8,10 +8,13 @@ export interface SiteMenuPrice {
 export interface SiteMenuItem {
   id: string;
   title: string;
+  postTitle: string | null;
   subtitle: string | null;
   description: string | null;
+  priceType: string | null;
   price: string | null;
   prices: SiteMenuPrice[];
+  dietaryTags: string[];
   imageUrl: string | null;
   imageAlt: string;
   hiddenPrice: boolean;
@@ -56,6 +59,15 @@ const optionalString = (value: unknown): string | null => {
   return normalized || null;
 };
 
+const normalizeDietaryTags = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((tag) => {
+    const normalized = optionalString(tag);
+    return normalized ? [normalized] : [];
+  });
+};
+
 const safeDocumentUrl = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
 
@@ -88,7 +100,9 @@ const localValue = (
   item: Record<string, unknown>,
   globalItem: Record<string, unknown>,
   key: string,
-): unknown => item[key] !== undefined ? item[key] : globalItem[key];
+): unknown => item[key] === undefined || item[key] === null || item[key] === ""
+  ? globalItem[key]
+  : item[key];
 
 const mediaValue = (
   item: Record<string, unknown>,
@@ -111,24 +125,28 @@ const normalizeMenuItem = (
   const title = optionalString(localValue(value, globalItem, "title"));
   const description = localValue(value, globalItem, "description");
   const subtitle = localValue(value, globalItem, "subtitle");
-  const localPrice = optionalString(value.price);
-  const localPrice2 = optionalString(value.price2);
-  const hiddenPrice = value.has_hidden_price === true
+  const priceType = optionalString(localValue(value, globalItem, "price_type"));
+  const hiddenPrice = priceType === "hidden"
+    || value.has_hidden_price === true
     || (value.has_hidden_price === undefined && globalItem.has_hidden_price === true);
-  const localPrices = normalizePrices(value.prices);
-  const globalPrices = normalizePrices(globalItem.prices);
+  const hasLocalPriceOverride = (Array.isArray(value.prices) && value.prices.length > 0)
+    || optionalString(value.price) !== null
+    || optionalString(value.price2) !== null;
+  const priceSource = hasLocalPriceOverride ? value : globalItem;
+  const structuredPrices = normalizePrices(priceSource.prices);
+  const scalarPrice = optionalString(priceSource.price);
+  const scalarPrice2 = optionalString(priceSource.price2);
+  const scalarPrices = splitPrice(scalarPrice);
   const prices = hiddenPrice
     ? []
-    : localPrices.length > 0
-      ? localPrices
-      : splitPrice(localPrice).length > 0
-        ? splitPrice(localPrice)
-        : localPrice || localPrice2
-          ? [
-              ...(localPrice ? [{ label: "", value: localPrice }] : []),
-              ...(localPrice2 ? [{ label: "", value: localPrice2 }] : []),
-            ]
-          : globalPrices;
+    : structuredPrices.length > 0
+      ? structuredPrices
+      : scalarPrices.length > 0
+        ? scalarPrices
+        : [
+            ...(scalarPrice ? [{ label: "", value: scalarPrice }] : []),
+            ...(scalarPrice2 ? [{ label: "", value: scalarPrice2 }] : []),
+          ];
   const hasLocalImageOverride = value.image !== undefined || value.image_id !== undefined;
   const imageValue = mediaValue(hasLocalImageOverride ? value : globalItem, mediaById);
   const imageUrl = safeImageUrl(imageValue);
@@ -139,10 +157,13 @@ const normalizeMenuItem = (
   return {
     id: optionalString(value.id) ?? `${title}-${index}`,
     title,
+    postTitle: optionalString(localValue(value, globalItem, "post_title")),
     subtitle: optionalString(subtitle),
     description: typeof description === "string" ? description : null,
+    priceType,
     price: prices.length > 1 ? null : prices[0]?.value ?? null,
     prices,
+    dietaryTags: normalizeDietaryTags(localValue(value, globalItem, "dietary_tags")),
     imageUrl,
     imageAlt,
     hiddenPrice,

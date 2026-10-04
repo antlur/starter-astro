@@ -1,5 +1,5 @@
 import { BackstageClient } from "@antlur/backstage";
-import type { AccountBlock, Field } from "@antlur/backstage";
+import type { AccountBlock, Alert, Field } from "@antlur/backstage";
 import { pageLayoutDefinitions } from "../../site/page-layout-definitions";
 import { loadBlockManifests } from "./block-manifests";
 import { attachBackstageForms } from "./forms";
@@ -19,7 +19,9 @@ export interface HeadlessBlock {
   variant?: string | null;
   fields: Record<string, unknown>;
   form?: BackstageFormDefinition;
+  menu?: SiteMenu;
   events?: SiteEvent[];
+  eventsIndexPath?: string | null;
   instagramPosts?: SiteInstagramPost[];
   instagramUrl?: string | null;
 }
@@ -93,11 +95,6 @@ export interface HeadlessWebsite {
   } | null;
   faviconUrl?: string | null;
   appleIconUrl?: string | null;
-  theme: {
-    colors: Record<string, string>;
-    fonts: { body: string; heading: string; navigation: string };
-    fontStylesheets: string[];
-  };
   socialLinks: Array<{ name: string; url: string }>;
   homeCta: { text: string; url: string } | null;
 }
@@ -108,6 +105,7 @@ export interface SiteContent {
   routePaths: string[];
   navigation: SiteNavigationItem[];
   footerNavigation: SiteNavigationItem[];
+  alerts: Alert[];
   menus: SiteMenu[];
   locations: SiteLocation[];
   events: SiteEvent[];
@@ -327,6 +325,9 @@ const normalizeObject = (value: unknown, context: string): Record<string, unknow
 const optionalString = (value: unknown): string | null =>
   typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 
+const menuSelectionId = (value: unknown): string | null =>
+  optionalString(isRecord(value) ? value.id : value);
+
 const rewritePreviewLinks = (
   value: unknown,
   siteDomain: string | null,
@@ -500,6 +501,41 @@ export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
   };
 };
 
+export const attachMenusToBlocks = (pages: HeadlessPage[], menus: SiteMenu[]): void => {
+  const menusById = new Map(menus.map((menu) => [menu.id, menu]));
+
+  for (const page of pages) {
+    for (const block of page.blocks) {
+      if (block.type !== "menu") continue;
+
+      const menuId = menuSelectionId(block.fields.menu_id);
+      if (!menuId) {
+        throw new Error(`Backstage Menu block "${block.id}" on page "${page.slug}" has no selected menu.`);
+      }
+
+      const menu = menusById.get(menuId);
+      if (!menu) {
+        throw new Error(`Backstage Menu block "${block.id}" references menu ${menuId} that was not loaded.`);
+      }
+
+      block.menu = menu;
+    }
+  }
+};
+
+export const attachEventsToBlocks = (pages: HeadlessPage[], events: SiteEvent[], routePaths: string[]): void => {
+  const configuredPath = routePaths.find((path) => path === "/events" || path === "/events/") ?? null;
+  const indexPath = configuredPath && !configuredPath.endsWith("/") ? `${configuredPath}/` : configuredPath;
+
+  for (const page of pages) {
+    for (const block of page.blocks) {
+      if (block.type !== "upcoming-events") continue;
+      block.events = events;
+      block.eventsIndexPath = indexPath;
+    }
+  }
+};
+
 const normalizeNavigationUrl = (value: unknown): string => {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error("Backstage navigation contains an item without a URL.");
@@ -566,30 +602,6 @@ export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
   const meta = isRecord(value.meta) ? value.meta : null;
   const openGraph = isRecord(value.open_graph) ? value.open_graph : null;
   const logo = isRecord(value.logo) && safeImageUrl(value.logo.url) ? value.logo : null;
-  const theme = isRecord(value.theme) && isRecord(value.theme.colors) ? value.theme.colors : {};
-  const color = (key: string, fallback: string): string =>
-    typeof theme[key] === "string" && /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(theme[key] as string)
-      ? theme[key] as string
-      : fallback;
-  const fontFamilies = Array.isArray(value.font_families) ? value.font_families : [];
-  const fontFamily = (name: string, fallback: string): string => {
-    const family = fontFamilies.find((candidate) => isRecord(candidate) && candidate.name === name);
-    const normalized = isRecord(family) && typeof family.value === "string" ? family.value.trim() : "";
-    return /^[\w\s.,"'-]+$/.test(normalized) ? normalized : fallback;
-  };
-  const fontStylesheets = Array.isArray(value.font_urls)
-    ? value.font_urls.flatMap((candidate) => {
-        if (typeof candidate !== "string") return [];
-        try {
-          const url = new URL(candidate);
-          return url.protocol === "https:" && ["use.typekit.net", "fonts.googleapis.com"].includes(url.hostname)
-            ? [url.href]
-            : [];
-        } catch {
-          return [];
-        }
-      })
-    : [];
   const socialLinks = Array.isArray(value.social_links)
     ? value.social_links.flatMap((candidate) => {
         if (!isRecord(candidate) || typeof candidate.name !== "string") return [];
@@ -625,33 +637,6 @@ export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
       : null,
     faviconUrl: safeImageUrl(value.favicon_url),
     appleIconUrl: safeImageUrl(value.apple_icon_url),
-    theme: {
-      colors: {
-        background: color("background", "#f5f7f3"),
-        foreground: color("foreground", "#17221d"),
-        mutedForeground: color("mutedForeground", "#536158"),
-        accent: color("tertiary", "#d9ef98"),
-        accentForeground: color("tertiaryForeground", "#17221d"),
-        primary: color("primary", "#294c3d"),
-        primaryForeground: color("primaryForeground", "#ffffff"),
-        header: color("header", "#ffffff"),
-        headerForeground: color("headerForeground", "#17221d"),
-        topbar: color("topbar", "#17221d"),
-        topbarForeground: color("topbarForeground", "#ffffff"),
-        footerLocation: color("footerLocation", "#294c3d"),
-        footerLocationForeground: color("footerLocationForeground", "#ffffff"),
-        footer: color("footer", "#17221d"),
-        footerForeground: color("footerForeground", "#ffffff"),
-        border: color("border", "#d9dfd8"),
-        surface: color("card", "#ffffff"),
-      },
-      fonts: {
-        body: fontFamily("default", 'Inter, "Avenir Next", Avenir, sans-serif'),
-        heading: fontFamily("heading", 'Georgia, "Times New Roman", serif'),
-        navigation: fontFamily("nav-item", fontFamily("default", 'Inter, "Avenir Next", Avenir, sans-serif')),
-      },
-      fontStylesheets,
-    },
     socialLinks,
     homeCta: homeCtaText && homeCtaUrl ? { text: homeCtaText, url: homeCtaUrl } : null,
   };
@@ -718,12 +703,13 @@ const loadSiteContent = async (): Promise<SiteContent> => {
 
   const client = getBackstageClient();
 
-  const [websites, rawPages, routePaths, navigations, rawLocations] = await Promise.all([
+  const [websites, rawPages, routePaths, navigations, rawLocations, alerts] = await Promise.all([
     client.website.getWebsites(),
     legacyPreview ? client.pages.getPages() : client.pages.getHeadlessPages(),
     client.website.routes(),
     client.navigation.list(),
     client.locations.getLocations(),
+    client.alerts.getAlerts(),
   ]);
 
   if (!Array.isArray(websites) || websites.length !== 1) {
@@ -737,12 +723,18 @@ const loadSiteContent = async (): Promise<SiteContent> => {
   }
   if (!Array.isArray(routePaths)) throw new Error("Backstage did not return a routes collection.");
   if (!Array.isArray(rawLocations)) throw new Error("Backstage did not return a locations collection.");
+  if (!Array.isArray(alerts)) throw new Error("Backstage did not return an alerts collection.");
 
   const pagePayloads = legacyPreview
     ? normalizeLegacyPreviewPages(rawPages, await loadLegacyPageMedia(client, collectLegacyPageMediaIds(rawPages)))
     : rawPages;
   const normalizedPages = pagePayloads.map(normalizePage);
   const website = normalizeWebsite(websites[0]);
+  const pageMenuIds = normalizedPages.flatMap((page) => page.blocks.flatMap((block) => {
+    if (block.type !== "menu") return [];
+    const menuId = menuSelectionId(block.fields.menu_id);
+    return menuId ? [menuId] : [];
+  }));
 
   if (legacyPreview) {
     for (const page of normalizedPages) {
@@ -802,7 +794,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
       : [],
   );
   let menuSummaries: unknown[] = [];
-  if (navigationMenuIds.length > 0 || routePaths.some((path) => path === "/menu" || path.startsWith("/menu/"))) {
+  if (navigationMenuIds.length > 0 || pageMenuIds.length > 0 || routePaths.some((path) => path === "/menu" || path.startsWith("/menu/"))) {
     const response: unknown = await client.menus.getMenus();
     if (!Array.isArray(response)) throw new Error("Backstage did not return a menus collection.");
     menuSummaries = response;
@@ -815,7 +807,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
   const indexMenuIds = publicMenuSlugs.size === 0 && routePaths.some((path) => path === "/menu" || path === "/menu/")
     ? locationMenuIds
     : [];
-  const menuIds = [...new Set([...navigationMenuIds, ...routeMenuIds, ...indexMenuIds])];
+  const menuIds = [...new Set([...pageMenuIds, ...navigationMenuIds, ...routeMenuIds, ...indexMenuIds])];
   const rawMenus = await Promise.all(menuIds.map(async (id) => {
     try {
       const response: unknown = await client.menus.getMenu(id);
@@ -826,11 +818,12 @@ const loadSiteContent = async (): Promise<SiteContent> => {
       if (!menu) throw new Error("The linked menu was not found.");
       return menu;
     } catch (error) {
-      throw new Error(`Could not load Backstage menu ${id} linked from navigation.`, { cause: error });
+      throw new Error(`Could not load Backstage menu ${id} linked from a page block or navigation.`, { cause: error });
     }
   }));
   const menuMedia = await loadMenuMedia(client, collectMenuMediaIds(rawMenus));
   const menus = rawMenus.map((menu, index) => normalizeMenu(menu, index, menuMedia));
+  attachMenusToBlocks(normalizedPages, menus);
   const locations = rawLocations.map(normalizeLocation);
 
   const hasPressRoutes = routePaths.some((path) => path === "/press" || path.startsWith("/press/"));
@@ -943,11 +936,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
       ...event,
       publicPath: publicEventPaths.get(event.slug) ?? null,
     }));
-    for (const page of normalizedPages) {
-      for (const block of page.blocks) {
-        if (block.type === "upcoming-events") block.events = events;
-      }
-    }
+    attachEventsToBlocks(normalizedPages, events, routePaths);
   }
 
   const instagramBlocks = normalizedPages.flatMap((page) => page.blocks.filter((block) => block.type === "instagram-feed"));
@@ -992,16 +981,9 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     locations,
     events,
     pressReleases,
-    navigation: navigation.length > 0
-      ? navigation
-      : normalizedPages.map((page) => ({
-          id: page.id,
-          text: page.title,
-          url: normalizeNavigationUrl(page.pathname),
-          newWindow: false,
-          children: [],
-        })),
+    navigation,
     footerNavigation,
+    alerts,
   };
 };
 
