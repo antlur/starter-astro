@@ -37,5 +37,6 @@ test("brand, semantic theme, and UI tokens retain distinct ownership", async () 
   assert.match(ui, /--ui-container-width/);
   assert.match(ui, /--ui-page-gutter/);
   assert.match(ui, /--ui-radius-md/);
-  assert.match(layout, /bg-background text-foreground font-body/);
+  assert.match(layout, /class:list=\{\["bg-background", "text-foreground", "font-body"/);
+  assert.doesNotMatch(layout, /style=\{themeStyle\}/);
 });

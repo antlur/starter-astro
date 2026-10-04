@@ -6,22 +6,25 @@ import { safeLinkUrl } from "../lib/safe-url";
 interface Props {
   menu: SiteMenu;
   menuRoutes: Array<{ path: string; label: string; menu: SiteMenu }>;
+  isEmbedded?: boolean;
 }
 
-const { menu, menuRoutes } = Astro.props;
+const { menu, menuRoutes, isEmbedded = false } = Astro.props;
 const formatPrice = (value: string): string => {
   return value.trim().replace(/^\$\s*/, "");
 };
 const pdfUrl = safeLinkUrl(menu.pdfUrl);
 const categoryAnchors = menu.categories.map((category, index) => ({
-  id: `menu-category-${index}`,
+  id: `menu-category-${menu.id}-${index}`,
   title: category.title,
 }));
 ---
 
-<div class="menu-page">
+<section class:list={["menu-page", isEmbedded && "menu-page--embedded"]} aria-labelledby={`menu-title-${menu.id}`}>
   <header class="menu-page__header">
-    <h1 class="sr-only">{menu.title}</h1>
+    {isEmbedded
+      ? <h2 class="menu-page__title" id={`menu-title-${menu.id}`}>{menu.title}</h2>
+      : <h1 class="sr-only" id={`menu-title-${menu.id}`}>{menu.title}</h1>}
     {menu.subtitle && <p class="menu-page__subtitle">{menu.subtitle}</p>}
     {pdfUrl && <a class="menu-page__download" href={pdfUrl} target="_blank" rel="noopener noreferrer">Download Menu</a>}
   </header>
@@ -44,26 +47,30 @@ const categoryAnchors = menu.categories.map((category, index) => ({
     {menu.categories.map((category, index) => (
       <section class="menu-category" id={categoryAnchors[index].id} aria-labelledby={`${categoryAnchors[index].id}-title`} style={`--category-columns: ${category.columns ?? 2}`}>
         <header class="menu-category__header">
-          <h2 id={`${categoryAnchors[index].id}-title`}>{category.title}</h2>
+          {isEmbedded
+            ? <h3 class="menu-category__title" id={`${categoryAnchors[index].id}-title`}>{category.title}</h3>
+            : <h2 class="menu-category__title" id={`${categoryAnchors[index].id}-title`}>{category.title}</h2>}
           {category.subtitle && <p class="menu-category__subtitle">{category.subtitle}</p>}
           {category.description && <div class="menu-category__description" set:html={sanitizeRichText(category.description)} />}
         </header>
         <div class="menu-category__items">
           {category.items.map((item) => {
             const description = item.description ? sanitizeRichText(item.description) : "";
-            const multiPrice = item.prices.length > 1;
+            const multiPrice = item.priceType === "multiple" || item.prices.length > 1;
             const itemPrice = !item.hiddenPrice && !multiPrice ? item.prices[0]?.value : null;
 
             return (
               <article class:list={["menu-item", item.imageUrl && "menu-item--with-image"]}>
                 <div class="menu-item__content">
                   <div class="menu-item__topline">
-                    <h3>{item.title}</h3>
+                    {isEmbedded ? <h4 class="menu-item__title">{item.title}</h4> : <h3 class="menu-item__title">{item.title}</h3>}
                     {itemPrice && <span class="menu-item__leader" aria-hidden="true" />}
                     {itemPrice && <span class="menu-item__price">{formatPrice(itemPrice)}</span>}
                   </div>
+                  {item.postTitle && <p class="menu-item__post-title">{item.postTitle}</p>}
                   {item.subtitle && <p class="menu-item__subtitle">{item.subtitle}</p>}
                   {description && <div class="menu-item__description" set:html={description} />}
+                  {item.dietaryTags.length > 0 && <p class="menu-item__dietary-tags">Dietary: {item.dietaryTags.join(", ")}</p>}
                   {multiPrice && (
                     <dl class="menu-item__prices">
                       {item.prices.map((price) => (
@@ -84,7 +91,7 @@ const categoryAnchors = menu.categories.map((category, index) => ({
       </section>
     ))}
   </div>
-</div>
+</section>
 
 <style>
   .menu-page {
@@ -93,12 +100,30 @@ const categoryAnchors = menu.categories.map((category, index) => ({
     padding: 1rem 0 2rem;
   }
 
+  .menu-page--embedded {
+    width: calc(100% - 3rem);
+    padding: clamp(2rem, 4vw, 3rem) 0;
+  }
+
   .menu-page__header {
     display: flex;
     min-height: 2.25rem;
     align-items: center;
     justify-content: flex-end;
     gap: 1rem;
+  }
+
+  .menu-page--embedded .menu-page__header {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .menu-page__title {
+    width: 100%;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 2.4vw, 2rem);
+    line-height: 1.1;
   }
 
   .menu-page__subtitle {
@@ -179,12 +204,17 @@ const categoryAnchors = menu.categories.map((category, index) => ({
     padding-top: clamp(2.5rem, 5vw, 4rem);
   }
 
+  .menu-page--embedded .menu-page__categories {
+    gap: clamp(2rem, 4vw, 3rem);
+    padding-top: 1.5rem;
+  }
+
   .menu-category__header {
     max-width: 50rem;
     margin-bottom: 1.1rem;
   }
 
-  .menu-category h2 {
+  .menu-category__title {
     margin: 0;
     font-family: var(--font-display);
     font-size: clamp(1.6rem, 2.4vw, 2rem);
@@ -263,7 +293,7 @@ const categoryAnchors = menu.categories.map((category, index) => ({
     gap: 0.55rem;
   }
 
-  .menu-item h3 {
+  .menu-item__title {
     flex: 0 1 auto;
     margin: 0;
     font-size: 1rem;
@@ -292,6 +322,13 @@ const categoryAnchors = menu.categories.map((category, index) => ({
     color: var(--color-accent-strong);
     font-size: 0.88rem;
     font-weight: 650;
+  }
+
+  .menu-item__post-title,
+  .menu-item__dietary-tags {
+    margin: 0.2rem 0 0;
+    color: var(--color-muted);
+    font-size: 0.78rem;
   }
 
   .menu-item__description {

@@ -9,7 +9,7 @@ const { content, routePlan } = await getSiteBuild();
 const page = getHomePage(content.pages);
 ---
 
-<SiteLayout page={page} site={content.site} pathname="/" navigation={routePlan.navigation} footerNavigation={routePlan.footerNavigation} locations={content.locations} showLocationHours={false}>
+<SiteLayout page={page} site={content.site} pathname="/" navigation={routePlan.navigation} footerNavigation={routePlan.footerNavigation} routePaths={content.routePaths} alerts={content.alerts} locations={content.locations} showLocationHours={false}>
   <PageContent page={page} />
   {content.locations.length > 0 && <LocationHoursSection locations={content.locations} />}
 </SiteLayout>

@@ -1,3 +1,4 @@
+import { decodeHTML } from "entities";
 import sanitizeHtml from "sanitize-html";
 import { previewRouteUrl } from "./safe-url";
 
@@ -10,6 +11,9 @@ const allowImportant = (pattern: RegExp): RegExp =>
 const lengthValue = allowImportant(new RegExp(`^-?${length}$`));
 const marginValue = allowImportant(new RegExp(`^(?:auto|-?${length})$`));
 const spacingValue = allowImportant(spacing);
+
+export const richTextToPlainText = (value: string): string =>
+  decodeHTML(sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} })).replace(/\s+/g, " ").trim();
 
 export const sanitizeRichText = (
   value: string,

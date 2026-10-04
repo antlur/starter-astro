@@ -5,7 +5,7 @@ import { fixtureContent } from "../src/fixtures/content";
 import { fixtureRouteResolutions } from "../src/fixtures/routes";
 import { fixtureSiteContent } from "../src/fixtures/site-content";
 import { resolveBlueprintRoutes } from "../src/site/blueprint-routes";
-import { buildSiteRoutePlan, normalizeRoutePath, pageForCanonicalRoute, reportUnhandledRoutes, resolveCanonicalPageRoutes } from "../src/site/routes";
+import { addResolvedModuleContent, buildSiteRoutePlan, normalizeRoutePath, pageForCanonicalRoute, reportUnhandledRoutes, resolveCanonicalPageRoutes } from "../src/site/routes";
 
 test("uses a Backstage canonical route only when it resolves to the existing page ID", async () => {
   const sourcePage = {
@@ -152,6 +152,76 @@ test("generates Press index and detail routes from the Backstage route graph", (
   assert.ok(plan.applicationPaths.includes("/press/community-supper-in-the-neighborhood/"));
   assert.ok(!plan.unhandledPaths.includes("/press/"));
   assert.ok(!plan.unhandledPaths.includes("/press/community-supper-in-the-neighborhood/"));
+});
+
+test("resolves module routes using Backstage canonical paths instead of fixed slugs", async () => {
+  const paths = [
+    "/happenings/",
+    "/happenings/community-dinner/",
+    "/dinner/",
+    "/visit/",
+    "/find-us/",
+    "/news/",
+    "/news/neighborhood-award/",
+  ];
+  const event = {
+    id: "event-custom",
+    slug: "community-dinner",
+    title: "Community dinner",
+    start_time: "2027-04-10T18:00:00-05:00",
+    end_time: null,
+  };
+  const menu = {
+    id: "menu-custom",
+    title: "Dinner",
+    slug: "dinner",
+    categories: [],
+  };
+  const location = { id: "location-custom", slug: "downtown", name: "Downtown" };
+  const pressRelease = {
+    id: "press-custom",
+    slug: "neighborhood-award",
+    title: "Neighborhood award",
+    source: "Neighborhood Journal",
+    published_at: "2026-09-01T00:00:00Z",
+  };
+  const resolutions: Record<string, unknown> = {
+    "/happenings/": { type: "events", data: [event], meta: { id: null, type: "events", path: "/happenings/" } },
+    "/happenings/community-dinner/": { type: "event", data: event, meta: { id: event.id, type: "event", path: "/happenings/community-dinner/" } },
+    "/dinner/": { type: "menu", data: menu, meta: { id: menu.id, type: "menu", path: "/dinner/" } },
+    "/visit/": { type: "location", data: location, meta: { id: location.id, type: "location", path: "/visit/" } },
+    "/find-us/": { type: "locations", data: [location], meta: { id: null, type: "locations", path: "/find-us/" } },
+    "/news/": { type: "presses", data: [pressRelease], meta: { id: null, type: "presses", path: "/news/" } },
+    "/news/neighborhood-award/": { type: "press", data: pressRelease, meta: { id: pressRelease.id, type: "press", path: "/news/neighborhood-award/" } },
+  };
+  const unresolved = await resolveCanonicalPageRoutes(paths, fixtureContent.pages, async (path) => resolutions[path]);
+  const content = addResolvedModuleContent({
+    ...fixtureSiteContent,
+    routePaths: ["/", "/about", ...paths],
+    events: [],
+    menus: [],
+    locations: [],
+    pressReleases: [],
+  }, unresolved.resolutions);
+  const plan = buildSiteRoutePlan(content, [], [], unresolved.resolutions);
+
+  assert.deepEqual(unresolved.unhandledPaths, paths);
+  assert.deepEqual(plan.eventRoutes.map(({ path, kind }) => [path, kind]), [
+    ["/happenings/", "index"],
+    ["/happenings/community-dinner/", "detail"],
+  ]);
+  assert.deepEqual(plan.menuRoutes.map(({ path, menu: resolvedMenu }) => [path, resolvedMenu.id]), [["/dinner/", "menu-custom"]]);
+  assert.deepEqual(plan.locationRoutes.map(({ path, location: resolvedLocation }) => [path, resolvedLocation.id]), [["/visit/", "location-custom"]]);
+  assert.deepEqual(plan.locationIndexPaths, ["/find-us/"]);
+  assert.deepEqual(plan.pressRoutes.map(({ path, kind }) => [path, kind]), [
+    ["/news/", "index"],
+    ["/news/neighborhood-award/", "detail"],
+  ]);
+  assert.deepEqual(plan.unhandledPaths, []);
+  assert.equal(content.events[0].publicPath, "/happenings/community-dinner/");
+  assert.equal(content.pressReleases[0].publicPath, "/news/neighborhood-award/");
+  assert.equal(content.events[0].title, "Community dinner");
+  assert.equal(content.pressReleases[0].title, "Neighborhood award");
 });
 
 test("keeps generated Press paths unhandled when the canonical record is missing", () => {

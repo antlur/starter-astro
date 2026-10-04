@@ -12,6 +12,7 @@ const text = (value: unknown): string => typeof value === "string" ? value.trim(
 const eyebrow = text(block.fields.eyebrow);
 const heading = text(block.fields.heading);
 const columns = ["2", "3", "4"].includes(text(block.fields.columns)) ? text(block.fields.columns) : "3";
+const imageFit = text(block.fields.image_fit) === "contain" ? "contain" : "cover";
 const images = Array.isArray(block.fields.images)
   ? block.fields.images.flatMap((value) => {
       if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
@@ -31,7 +32,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
         {heading && <HeadingTag>{heading}</HeadingTag>}
       </header>
     )}
-    <div class="image-gallery__grid" style={`--gallery-columns: ${columns}`}>
+    <div class:list={["image-gallery__grid", imageFit === "contain" && "image-gallery__grid--contain"]} style={`--gallery-columns: ${columns}`}>
       {images.map((item) => (
         <figure>
           <img src={item.src} alt={item.alt} loading="lazy" decoding="async" />
@@ -90,8 +91,18 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     transition: transform 220ms ease;
   }
 
-  figure:hover img {
+  .image-gallery__grid:not(.image-gallery__grid--contain) figure:hover img {
     transform: scale(1.025);
+  }
+
+  .image-gallery__grid--contain figure {
+    align-self: start;
+    background: var(--color-surface);
+  }
+
+  .image-gallery__grid--contain img {
+    aspect-ratio: auto;
+    object-fit: contain;
   }
 
   figcaption {

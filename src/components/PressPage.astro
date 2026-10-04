@@ -6,9 +6,10 @@ interface Props {
   kind: "index" | "detail";
   releases: SitePressRelease[];
   release?: SitePressRelease;
+  indexPath?: string | null;
 }
 
-const { kind, releases, release } = Astro.props;
+const { kind, releases, release, indexPath = null } = Astro.props;
 const dateLabel = (value: string): string => new Intl.DateTimeFormat("en-US", {
   month: "long",
   day: "numeric",
@@ -33,7 +34,7 @@ const content = release?.content ? sanitizeRichText(release.content) : "";
               {item.imageUrl && <img src={item.imageUrl} alt={item.imageAlt || item.title} loading="lazy" decoding="async" />}
               <div class="press-item__content">
                 <p class="press-item__meta">{item.source} <span aria-hidden="true">·</span> <time datetime={item.publishedAt}>{dateLabel(item.publishedAt)}</time></p>
-                <h2><a href={`/press/${encodeURIComponent(item.slug)}/`}>{item.title}</a></h2>
+                <h2>{item.publicPath ? <a href={item.publicPath}>{item.title}</a> : item.title}</h2>
                 {item.excerpt && <p>{item.excerpt}</p>}
               </div>
             </article>
@@ -45,7 +46,7 @@ const content = release?.content ? sanitizeRichText(release.content) : "";
     </>
   ) : release ? (
     <article class="press-detail">
-      <a class="press-detail__back" href="/press/">All press</a>
+      {indexPath && <a class="press-detail__back" href={indexPath}>All press</a>}
       <header class="press-detail__header">
         <p class="press-item__meta">{release.source} <span aria-hidden="true">·</span> <time datetime={release.publishedAt}>{dateLabel(release.publishedAt)}</time></p>
         <h1 id="press-title">{release.title}</h1>

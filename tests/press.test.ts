@@ -40,5 +40,7 @@ test("only normalizes press records with a canonical public detail route", () =>
     ["/", "/press", "/press/community-supper/"],
   );
 
-  assert.deepEqual(releases.map(({ slug }) => slug), ["community-supper"]);
+  assert.deepEqual(releases.map(({ slug, publicPath }) => [slug, publicPath]), [
+    ["community-supper", "/press/community-supper/"],
+  ]);
 });

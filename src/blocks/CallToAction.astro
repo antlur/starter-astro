@@ -14,8 +14,22 @@ const text = (key: string): string =>
 const eyebrow = text("eyebrow");
 const heading = text("heading");
 const body = text("body") ? sanitizeRichText(text("body")) : "";
-const buttonLabel = text("button_label");
-const buttonUrl = safeLinkUrl(block.fields.button_url);
+const actions = Array.isArray(block.fields.actions)
+  ? block.fields.actions.flatMap((value) => {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
+      const action = value as Record<string, unknown>;
+      const label = typeof action.label === "string" ? action.label.trim() : "";
+      const href = safeLinkUrl(action.href);
+      return label && href ? [{ label, href }] : [];
+    })
+  : [];
+const legacyLabel = text("button_label");
+const legacyHref = safeLinkUrl(block.fields.button_url);
+const actionLinks = actions.length > 0
+  ? actions
+  : legacyLabel && legacyHref
+    ? [{ label: legacyLabel, href: legacyHref }]
+    : [];
 const HeadingTag = isPrimary ? "h1" : "h2";
 ---
 
@@ -26,7 +40,13 @@ const HeadingTag = isPrimary ? "h1" : "h2";
       {heading && <HeadingTag>{heading}</HeadingTag>}
       {body && <div class="call-to-action__body" set:html={body} />}
     </div>
-    {buttonLabel && buttonUrl && <a class="call-to-action__button" href={buttonUrl}>{buttonLabel}</a>}
+    {actionLinks.length > 0 && (
+      <div class="call-to-action__actions">
+        {actionLinks.map((action, index) => (
+          <a class:list={["call-to-action__button", index > 0 && "call-to-action__button--secondary"]} href={action.href}>{action.label}</a>
+        ))}
+      </div>
+    )}
   </div>
 </section>
 
@@ -97,8 +117,26 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     text-decoration: none;
   }
 
+  .call-to-action__actions {
+    display: flex;
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+
+  .call-to-action__button--secondary {
+    border: 1px solid rgb(255 255 255 / 0.5);
+    background: transparent;
+    color: var(--color-paper);
+  }
+
   .call-to-action__button:hover {
     background: white;
+    color: var(--color-ink);
+  }
+
+  .call-to-action__button--secondary:hover {
+    border-color: white;
   }
 
   @media (max-width: 700px) {

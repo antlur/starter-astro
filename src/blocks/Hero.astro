@@ -44,7 +44,7 @@ const fullBleed = variant === "full-bleed-image" || imageOnly;
 const HeadingTag = isPrimary ? "h1" : "h2";
 ---
 
-<section class:list={["hero", fullBleed && "hero--full-bleed", imageOnly && "hero--image-only"]}>
+<section class:list={["hero", fullBleed && "hero--full-bleed", imageOnly && "hero--image-only", !heroImages.length && !fullBleed && "hero--text-only"]}>
   <div class="hero__copy">
     {logoSrc && <img class="hero__logo" src={logoSrc} alt={logoAlt} width="480" height="180" />}
     {eyebrow && <p class="eyebrow">{eyebrow}</p>}
@@ -139,6 +139,21 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     min-height: 31rem;
     padding: clamp(3.5rem, 8vw, 7.5rem) max(1.5rem, calc((100vw - 74rem) / 2));
     overflow: hidden;
+  }
+
+  .hero--text-only {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero--text-only .hero__copy {
+    width: 100%;
+    max-width: 54rem;
+    margin-inline: auto;
+  }
+
+  .hero--text-only h1,
+  .hero--text-only h2 {
+    max-width: 16ch;
   }
 
   .hero__copy {
