@@ -32,7 +32,7 @@ function client(options: {
         async getWebsiteRoutes() { return options.routes ?? ["/"]; },
       },
       navigation: { async list() { return options.navigations ?? []; } },
-      pages: { async getHeadlessPages() { return options.pages ?? [{ id: "home", title: "Home", slug: "/", pathname: "/", is_home: true }]; } },
+      pages: { async getHeadlessPages() { return options.pages ?? [{ id: "home", title: "Home", slug: "/", pathname: "/", is_home: true, blocks: [] }]; } },
       blocks: {
         async list() { return []; },
         async create() { writes.push("create"); },
@@ -111,4 +111,11 @@ test("setup check reports missing homepage and root route", async () => {
   assert.equal(report.rootRouteExists, false);
   assert.ok(report.warnings.some((warning) => warning.includes("No Home page")));
   assert.ok(report.warnings.some((warning) => warning.includes("no root route")));
+});
+
+test("setup check warns when a page uses a block without a local renderer", async () => {
+  const fake = client({ pages: [{ blocks: [{ type: "video-hero" }] }] });
+  const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest]);
+
+  assert.ok(report.warnings.some((warning) => warning.includes("video-hero") && warning.includes("local Starter manifest/renderer")));
 });

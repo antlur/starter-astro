@@ -69,11 +69,16 @@ export async function inspectStarterSetup(
         client.pages.getHeadlessPages(),
         client.website.getWebsiteRoutes(websites[0].id),
       ]);
+      const unsupportedBlockTypes = [...new Set(pages.flatMap((page) => page.blocks.map((block) => block.type)))]
+        .filter((type) => !manifests.some((manifest) => manifest.slug === type));
       homepageExists = pages.some((page) => page.is_home || page.pathname === "/" || page.slug === "/");
       rootRouteExists = routes.some((route) => route === "/");
 
       if (!homepageExists) warnings.push("No Home page is configured; create one in Backstage before an API-backed site build.");
       if (!rootRouteExists) warnings.push("The website route graph has no root route; verify its Home page and routing settings.");
+      if (unsupportedBlockTypes.length > 0) {
+        warnings.push(`Pages use block types without a local Starter manifest/renderer: ${unsupportedBlockTypes.join(", ")}. Add support before building.`);
+      }
     } catch {
       warnings.push("Could not verify Headless pages and routes; confirm Headless rendering and Application owned routing in Backstage.");
     }
