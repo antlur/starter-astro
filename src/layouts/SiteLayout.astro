@@ -52,7 +52,7 @@ const topbarCta = site.homeCta && navigation.some((item) => item.style === "butt
 const mobileAction = primaryAction
   ? { text: primaryAction.text, url: primaryAction.url, newWindow: primaryAction.newWindow }
   : site.homeCta ? { ...site.homeCta, newWindow: false } : null;
-const showTopbar = Boolean(firstLocation?.phone || firstLocation?.addressLines.length || firstLocation?.mapUrl || topbarCta || site.socialLinks.length);
+const showTopbar = Boolean(firstLocation?.phone || firstLocation?.addressLines.length || firstLocation?.mapUrl || topbarCta);
 const socialLinks = site.socialLinks;
 const visibleAlerts = alertsForPath(alerts, pathname);
 ---
@@ -85,16 +85,6 @@ const visibleAlerts = alertsForPath(alerts, pathname);
       {showTopbar && (
         <div class="site-topbar">
           <div class="site-topbar__inner">
-            {socialLinks.length > 0 && (
-              <nav class="site-topbar__social" aria-label="Social media">
-                {socialLinks.map((link) => (
-                  <a href={link.url} target="_blank" rel="noopener noreferrer">
-                    <SocialIcon name={link.name} />
-                    <span class="sr-only">{link.name} (opens in a new tab)</span>
-                  </a>
-                ))}
-              </nav>
-            )}
             <div class="site-topbar__details">
               {firstLocation?.addressLines.length && firstLocation.mapUrl
                 ? <a class="site-topbar__address" href={firstLocation.mapUrl} target="_blank" rel="noopener noreferrer" aria-label={`Directions to ${firstLocation.name}`}>{firstLocation.addressLines.map((line) => <span>{line}</span>)}</a>
@@ -171,6 +161,15 @@ const visibleAlerts = alertsForPath(alerts, pathname);
           {footerNavigation.length > 0 && (
             <nav aria-label="Footer navigation">
               {footerNavigation.map((item) => <a href={item.url} target={item.newWindow ? "_blank" : undefined} rel={item.newWindow ? "noopener noreferrer" : undefined}>{item.text}</a>)}
+            </nav>
+          )}
+          {socialLinks.length > 0 && (
+            <nav class="site-footer__social" aria-label="Social media">
+              {socialLinks.map((link) => (
+                <a href={link.url} target="_blank" rel="noopener noreferrer" aria-label={`${link.name} (opens in a new tab)`}>
+                  <SocialIcon name={link.name} />
+                </a>
+              ))}
             </nav>
           )}
           <small>© {new Date().getFullYear()} {site.name}</small>

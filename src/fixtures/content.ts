@@ -21,7 +21,7 @@ export const fixtureContent: SiteContent = {
     logo: null,
     faviconUrl: null,
     appleIconUrl: null,
-    socialLinks: [],
+    socialLinks: [{ name: "Instagram", url: "https://social.example.test/instagram" }],
     homeCta: null,
   },
   pages: [

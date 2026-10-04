@@ -22,7 +22,7 @@ Set BACKSTAGE_SOURCE=api, BACKSTAGE_API_KEY, BACKSTAGE_ACCOUNT_ID, and optionall
 
 The starter reads the generic Websites, Pages, route graph, and Navigation APIs through @antlur/backstage. It does not use Frontstage endpoints. For now, an account must have exactly one website because the SDK Pages method does not yet filter pages by website. Page blocks must use the Headless shape with id, type, optional variant, and fields. A mismatch stops the build with an actionable error rather than silently dropping content.
 
-Social profiles are website-level settings, not page blocks. Social icons render in the header utility area only for links with a valid HTTPS URL configured in Backstage. A platform name without a URL is omitted rather than shown as a nonfunctional link.
+Social profiles are website-level settings, not page blocks. Configured social links render as accessible icon links in the global footer only when Backstage provides a valid HTTPS URL. A platform name without a URL is omitted rather than shown as a nonfunctional link.
 
 Published Backstage alerts render only when their schedule and route targeting match the current page. Banners appear above the site header; pop-ups use an accessible dialog and honor the center or bottom-right position. Alert publication, schedule, and route visibility are evaluated at build time, so changes appear with the next build/deploy. On small screens, the first navigation item styled as a button becomes the persistent action; the website CTA is used only when no navigation button exists.
 
