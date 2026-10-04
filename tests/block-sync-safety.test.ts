@@ -7,7 +7,7 @@ const manifest = JSON.parse(
   readFileSync(new URL("../blocks/hero/manifest.json", import.meta.url), "utf8"),
 ) as BlockManifest;
 
-test("skips a matching account block definition", async () => {
+test("preserves unspecified block ancestry when the definition already matches", async () => {
   const calls: string[] = [];
   const client = {
     blocks: {
@@ -18,7 +18,7 @@ test("skips a matching account block definition", async () => {
           slug: manifest.slug,
           description: manifest.description,
           registry_identity: manifest.registry_identity,
-          derived_from: manifest.derived_from,
+          derived_from: "backstage:hero@1",
           schema: manifest.schema,
         }];
       },

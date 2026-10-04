@@ -178,7 +178,7 @@ function matchesManifest(existing: RegisteredBlock, manifest: BlockManifest): bo
     && (existing.description ?? null) === (manifest.description ?? null)
     && existing.slug === manifest.slug
     && (existing.registry_identity ?? null) === manifest.registry_identity
-    && (existing.derived_from ?? null) === (manifest.derived_from ?? null)
+    && (manifest.derived_from === undefined || (existing.derived_from ?? null) === manifest.derived_from)
     && JSON.stringify(normalizedFields(existing.schema?.fields ?? []))
       === JSON.stringify(normalizedFields(manifest.schema.fields));
 }
