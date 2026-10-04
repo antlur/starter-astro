@@ -1,6 +1,6 @@
 import { getSiteContent, resolveBackstageRoute } from "../lib/backstage/content";
 import { resolveBlueprintRoutes } from "./blueprint-routes";
-import { applicationRoutePaths, buildSiteRoutePlan, reportUnhandledRoutes, resolveCanonicalPageRoutes } from "./routes";
+import { addResolvedModuleContent, applicationRoutePaths, buildSiteRoutePlan, reportUnhandledRoutes, resolveCanonicalPageRoutes } from "./routes";
 
 let siteBuildPromise: ReturnType<typeof buildSite> | undefined;
 
@@ -19,19 +19,20 @@ const buildSite = async () => {
   };
   const resolvedPages = canResolveRoutes && initialPlan.unhandledPaths.length > 0
     ? await resolveCanonicalPageRoutes(initialPlan.unhandledPaths, content.pages, cachedResolver)
-    : { pages: [], unhandledPaths: initialPlan.unhandledPaths };
-  const routedContent = resolvedPages.pages.length > 0
+    : { pages: [], unhandledPaths: initialPlan.unhandledPaths, resolutions: [] };
+  const pagesContent = resolvedPages.pages.length > 0
     ? { ...content, pages: [...content.pages, ...resolvedPages.pages] }
     : content;
-  const pageResolvedPlan = buildSiteRoutePlan(routedContent, applicationRoutePaths);
+  const routedContent = addResolvedModuleContent(pagesContent, resolvedPages.resolutions);
+  const pageResolvedPlan = buildSiteRoutePlan(routedContent, applicationRoutePaths, [], resolvedPages.resolutions);
   const resolved = canResolveRoutes && pageResolvedPlan.unhandledPaths.length > 0
     ? await resolveBlueprintRoutes(pageResolvedPlan.unhandledPaths, cachedResolver)
     : { routes: [], unhandledPaths: pageResolvedPlan.unhandledPaths };
-  const routePlan = buildSiteRoutePlan(routedContent, applicationRoutePaths, resolved.routes);
+  const routePlan = buildSiteRoutePlan(routedContent, applicationRoutePaths, resolved.routes, resolvedPages.resolutions);
 
   reportUnhandledRoutes(routePlan.unhandledPaths, import.meta.env.SITE_INDEXABLE === "true");
 
-  return { content, routePlan };
+  return { content: routedContent, routePlan };
 };
 
 export const getSiteBuild = () => {

@@ -1,8 +1,8 @@
 import type { HeadlessPage, SiteContent, SiteNavigationItem } from "../lib/backstage/content";
-import type { SiteEvent } from "../lib/backstage/events";
-import type { SiteLocation } from "../lib/backstage/locations";
-import type { SiteMenu } from "../lib/backstage/menus";
-import type { SitePressRelease } from "../lib/backstage/press";
+import { normalizeEvent, type SiteEvent } from "../lib/backstage/events";
+import { normalizeLocation, type SiteLocation } from "../lib/backstage/locations";
+import { normalizeMenu, type SiteMenu } from "../lib/backstage/menus";
+import { normalizePressRelease, type SitePressRelease } from "../lib/backstage/press";
 import type { BlueprintRoute } from "./blueprint-routes";
 
 export interface CmsPageRoute {
@@ -18,6 +18,7 @@ export interface SiteRoutePlan {
   menuIndexPaths: string[];
   eventRoutes: Array<{ path: string; kind: "index" } | { path: string; kind: "detail"; event: SiteEvent }>;
   locationRoutes: Array<{ path: string; location: SiteLocation }>;
+  locationIndexPaths: string[];
   pressRoutes: Array<
     | { path: string; kind: "index" }
     | { path: string; kind: "detail"; release: SitePressRelease }
@@ -25,6 +26,11 @@ export interface SiteRoutePlan {
   unhandledPaths: string[];
   navigation: SiteNavigationItem[];
   footerNavigation: SiteNavigationItem[];
+}
+
+export interface ResolvedSiteRoute {
+  path: string;
+  value: unknown;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -54,7 +60,7 @@ export const resolveCanonicalPageRoutes = async (
   paths: readonly string[],
   pages: HeadlessPage[],
   resolver: (path: string) => Promise<unknown>,
-): Promise<{ pages: HeadlessPage[]; unhandledPaths: string[] }> => {
+): Promise<{ pages: HeadlessPage[]; unhandledPaths: string[]; resolutions: ResolvedSiteRoute[] }> => {
   const resolved = await Promise.all(paths.map(async (path) => ({ path, value: await resolver(path) })));
   const routedPages: HeadlessPage[] = [];
   const unhandledPaths: string[] = [];
@@ -65,7 +71,96 @@ export const resolveCanonicalPageRoutes = async (
     else unhandledPaths.push(path);
   }
 
-  return { pages: routedPages, unhandledPaths };
+  return { pages: routedPages, unhandledPaths, resolutions: resolved };
+};
+
+export const addResolvedModuleContent = (
+  content: SiteContent,
+  resolutions: readonly ResolvedSiteRoute[],
+): SiteContent => {
+  const menus = [...content.menus];
+  const locations = [...content.locations];
+  const events = [...content.events];
+  const pressReleases = [...content.pressReleases];
+  const detailPaths = new Map<string, string>();
+
+  for (const entry of resolutions) {
+    if (!isRecord(entry.value) || !isRecord(entry.value.meta)) continue;
+    const { type, id, path } = entry.value.meta;
+    if ((type === "event" || type === "press") && (typeof id === "string" || typeof id === "number") && typeof path === "string") {
+      detailPaths.set(`${type}:${id}`, normalizeRoutePath(path));
+    }
+  }
+
+  const replaceOrAppend = <T extends { id: string }>(items: T[], item: T): void => {
+    const index = items.findIndex((candidate) => candidate.id === item.id);
+    if (index === -1) items.push(item);
+    else items[index] = item;
+  };
+
+  for (const entry of resolutions) {
+    if (!isRecord(entry.value) || !isRecord(entry.value.meta)) continue;
+    const path = normalizeRoutePath(entry.path);
+    if (typeof entry.value.meta.path !== "string" || normalizeRoutePath(entry.value.meta.path) !== path) {
+      throw new Error(`Backstage resolved ${path} to a different canonical route path.`);
+    }
+
+    const type = entry.value.meta.type;
+    const id = entry.value.meta.id;
+    const data = entry.value.data;
+
+    if (type === "events" && Array.isArray(data)) {
+      for (const [index, value] of data.entries()) {
+        const event = normalizeEvent(value, index);
+        replaceOrAppend(events, {
+          ...event,
+          publicPath: detailPaths.get(`event:${event.id}`) ?? event.publicPath,
+        });
+      }
+      continue;
+    }
+
+    if (type === "presses" && Array.isArray(data)) {
+      for (const [index, value] of data.entries()) {
+        const release = normalizePressRelease(value, index);
+        replaceOrAppend(pressReleases, {
+          ...release,
+          publicPath: detailPaths.get(`press:${release.id}`) ?? release.publicPath,
+        });
+      }
+      continue;
+    }
+
+    if (type === "locations" && Array.isArray(data)) {
+      for (const [index, value] of data.entries()) {
+        replaceOrAppend(locations, normalizeLocation(value, index));
+      }
+      continue;
+    }
+
+    if (typeof id !== "string" && typeof id !== "number") continue;
+    const recordId = String(id);
+
+    if (type === "menu" && !menus.some((menu) => menu.id === recordId)) {
+      const menu = normalizeMenu(data);
+      if (menu.id !== recordId) throw new Error(`Backstage resolved ${path} to a different menu ID.`);
+      menus.push(menu);
+    } else if (type === "location") {
+      const location = normalizeLocation(data);
+      if (location.id !== recordId) throw new Error(`Backstage resolved ${path} to a different location ID.`);
+      replaceOrAppend(locations, location);
+    } else if (type === "event") {
+      const event = normalizeEvent(data);
+      if (event.id !== recordId) throw new Error(`Backstage resolved ${path} to a different event ID.`);
+      replaceOrAppend(events, { ...event, publicPath: path });
+    } else if (type === "press") {
+      const release = normalizePressRelease(data);
+      if (release.id !== recordId) throw new Error(`Backstage resolved ${path} to a different press ID.`);
+      replaceOrAppend(pressReleases, { ...release, publicPath: path });
+    }
+  }
+
+  return { ...content, menus, locations, events, pressReleases };
 };
 
 // Add paths backed by Astro-owned route files, such as a custom /private-events/ page.
@@ -130,6 +225,7 @@ export const buildSiteRoutePlan = (
   content: SiteContent,
   applicationPaths: readonly string[] = applicationRoutePaths,
   blueprintRoutes: readonly BlueprintRoute[] = [],
+  resolvedRoutes: readonly ResolvedSiteRoute[] = [],
 ): SiteRoutePlan => {
   const normalizedRoutePaths = content.routePaths.map(normalizeRoutePath);
   const routeCounts = new Map<string, number>();
@@ -174,12 +270,37 @@ export const buildSiteRoutePlan = (
     const menu = menuBySlug.get(decodeURIComponent(match[1]));
     if (menu && !menuRoutesByPath.has(path)) menuRoutesByPath.set(path, { path, label: menu.title, menu });
   }
+  for (const entry of resolvedRoutes) {
+    if (!isRecord(entry.value) || !isRecord(entry.value.meta) || typeof entry.value.meta.type !== "string") continue;
+    const path = normalizeRoutePath(entry.path);
+    if (typeof entry.value.meta.path !== "string" || normalizeRoutePath(entry.value.meta.path) !== path) {
+      throw new Error(`Backstage resolved ${path} to a different canonical route path.`);
+    }
+
+    const type = entry.value.meta.type;
+    const id = entry.value.meta.id;
+    if (type === "events" && !eventRoutes.some((route) => route.path === path)) {
+      eventRoutes.push({ path, kind: "index" });
+    } else if (type === "event" && (typeof id === "string" || typeof id === "number")) {
+      const event = content.events.find((candidate) => candidate.id === String(id));
+      if (event && !eventRoutes.some((route) => route.path === path)) {
+        eventRoutes.push({ path, kind: "detail", event: { ...event, publicPath: path } });
+      }
+    } else if (type === "menu" && (typeof id === "string" || typeof id === "number")) {
+      const menu = menusById.get(String(id));
+      if (menu && !menuRoutesByPath.has(path)) {
+        const navigationItem = flattenNavigation(content.navigation).find((item) => navigationPath(item.url) === path && item.menuId === String(id));
+        menuRoutesByPath.set(path, { path, label: navigationItem?.text ?? menu.title, menu });
+      }
+    }
+  }
   const menuRoutes = [...menuRoutesByPath.values()];
   const menuIndexPaths = routePaths.filter((path) =>
     path === "/menu/" && !cmsPagePaths.has(path) && menuRoutes.length > 0
       && !menuRoutes.some((route) => route.path === path),
   );
   const locationRoutes: SiteRoutePlan["locationRoutes"] = [];
+  const locationIndexPaths: string[] = [];
   if (content.locations.length === 1 && routePaths.includes("/location/") && !cmsPagePaths.has("/location/")) {
     locationRoutes.push({ path: "/location/", location: content.locations[0] });
   }
@@ -188,6 +309,20 @@ export const buildSiteRoutePlan = (
     if (path.startsWith("/events/") || path.startsWith("/menu/") || path.startsWith("/press/")) continue;
     const location = content.locations.find((candidate) => candidate.slug && path.split("/").filter(Boolean).at(-1) === candidate.slug);
     if (location && !cmsPagePaths.has(path)) locationRoutes.push({ path, location });
+  }
+  for (const entry of resolvedRoutes) {
+    if (!isRecord(entry.value) || !isRecord(entry.value.meta)) continue;
+    const path = normalizeRoutePath(entry.path);
+    if (entry.value.meta.type === "locations") {
+      if (!locationIndexPaths.includes(path)) locationIndexPaths.push(path);
+      continue;
+    }
+    if (entry.value.meta.type !== "location") continue;
+    const id = entry.value.meta.id;
+    const location = (typeof id === "string" || typeof id === "number")
+      ? content.locations.find((candidate) => candidate.id === String(id))
+      : undefined;
+    if (location && !locationRoutes.some((route) => route.path === path)) locationRoutes.push({ path, location });
   }
 
   const pressBySlug = new Map(content.pressReleases.map((release) => [release.slug, release]));
@@ -203,11 +338,26 @@ export const buildSiteRoutePlan = (
     const release = pressBySlug.get(slug);
     if (release) pressRoutes.push({ path, kind: "detail", release });
   }
+  for (const entry of resolvedRoutes) {
+    if (!isRecord(entry.value) || !isRecord(entry.value.meta) || typeof entry.value.meta.type !== "string") continue;
+    const path = normalizeRoutePath(entry.path);
+    const type = entry.value.meta.type;
+    const id = entry.value.meta.id;
+    if (type === "presses" && !pressRoutes.some((route) => route.path === path)) {
+      pressRoutes.push({ path, kind: "index" });
+    } else if (type === "press" && (typeof id === "string" || typeof id === "number")) {
+      const release = content.pressReleases.find((candidate) => candidate.id === String(id));
+      if (release && !pressRoutes.some((route) => route.path === path)) {
+        pressRoutes.push({ path, kind: "detail", release: { ...release, publicPath: path } });
+      }
+    }
+  }
   const generatedRoutes = [
     ...menuRoutes.map(({ path }) => path),
     ...menuIndexPaths,
     ...eventRoutes.map(({ path }) => path),
     ...locationRoutes.map(({ path }) => path),
+    ...locationIndexPaths,
     ...pressRoutes.map(({ path }) => path),
   ];
   const duplicatePaths = [...routeCounts].filter(([, count]) => count > 1).map(([path]) => path);
@@ -287,6 +437,7 @@ export const buildSiteRoutePlan = (
     menuIndexPaths,
     eventRoutes,
     locationRoutes,
+    locationIndexPaths,
     pressRoutes,
     unhandledPaths,
     navigation: filterNavigation(content.navigation, availablePaths),

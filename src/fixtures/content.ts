@@ -298,6 +298,7 @@ export const fixtureContent: SiteContent = {
     {
       id: "fixture-press-community-supper",
       slug: "community-supper-in-the-neighborhood",
+      publicPath: "/press/community-supper-in-the-neighborhood/",
       title: "Fieldwork brings neighbors together around the table",
       source: "Fieldwork Coffee",
       sourceUrl: null,

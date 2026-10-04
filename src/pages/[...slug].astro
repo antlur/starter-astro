@@ -3,6 +3,7 @@ import PageContent from "../components/PageContent.astro";
 import BlueprintRouteContent from "../components/BlueprintRouteContent.astro";
 import EventPage from "../components/EventPage.astro";
 import LocationPage from "../components/LocationPage.astro";
+import LocationDirectoryPage from "../components/LocationDirectoryPage.astro";
 import MenuPage from "../components/MenuPage.astro";
 import PressPage from "../components/PressPage.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
@@ -80,6 +81,7 @@ export const getStaticPaths = async () => {
     params: { slug: eventRoute.path.replace(/^\/+|\/+$/g, "") },
     props: {
       eventRoute,
+      eventIndexPath: routePlan.eventRoutes.find(({ kind }) => kind === "index")?.path ?? null,
       events: content.events,
       locations: content.locations,
       site: content.site,
@@ -106,10 +108,26 @@ export const getStaticPaths = async () => {
     },
   }));
 
+  const locationIndexPages = routePlan.locationIndexPaths.map((path) => ({
+    params: { slug: path.replace(/^\/+|\/+$/g, "") },
+    props: {
+      locationIndexPath: path,
+      locationRoutes: routePlan.locationRoutes,
+      site: content.site,
+      locations: content.locations,
+      pathname: path,
+      navigation: routePlan.navigation,
+      footerNavigation: routePlan.footerNavigation,
+      routePaths: content.routePaths,
+      alerts: content.alerts,
+    },
+  }));
+
   const pressPages = routePlan.pressRoutes.map((pressRoute) => ({
     params: { slug: pressRoute.path.replace(/^\/|\/$/g, "") },
     props: {
       pressRoute,
+      pressIndexPath: routePlan.pressRoutes.find(({ kind }) => kind === "index")?.path ?? null,
       pressReleases: content.pressReleases,
       site: content.site,
       locations: content.locations,
@@ -121,25 +139,29 @@ export const getStaticPaths = async () => {
     },
   }));
 
-  return [...cmsPages, ...blueprintPages, ...menuPages, ...menuIndexPages, ...eventPages, ...locationPages, ...pressPages];
+  return [...cmsPages, ...blueprintPages, ...menuPages, ...menuIndexPages, ...eventPages, ...locationPages, ...locationIndexPages, ...pressPages];
 };
 
-const { page, route, menuRoute, menuRoutes, eventRoute, events, locationRoute, pressRoute, pressReleases, site, pathname, navigation, footerNavigation, routePaths, alerts, locations } = Astro.props;
+const { page, route, menuRoute, menuRoutes, eventRoute, eventIndexPath, events, locationRoute, locationIndexPath, locationRoutes, pressRoute, pressIndexPath, pressReleases, site, pathname, navigation, footerNavigation, routePaths, alerts, locations } = Astro.props;
 const pageTitle = pressRoute?.kind === "detail"
   ? pressRoute.release.title
   : pressRoute?.kind === "index"
     ? "Press"
     : eventRoute?.kind === "detail"
       ? eventRoute.event.title
-      : eventRoute?.kind === "index"
-        ? "Events"
+        : eventRoute?.kind === "index"
+          ? "Events"
+        : locationIndexPath
+          ? "Our locations"
         : locationRoute
           ? `Visit ${locationRoute.location.name}`
           : null;
 const pageDescription = pressRoute?.kind === "detail"
   ? pressRoute.release.excerpt ?? pressRoute.release.title
-  : eventRoute?.kind === "detail"
-    ? eventRoute.event.shortDescription ?? eventRoute.event.title
+      : eventRoute?.kind === "detail"
+        ? eventRoute.event.shortDescription ?? eventRoute.event.title
+    : locationIndexPath
+      ? "Find a location, get directions, and plan your visit."
     : locationRoute
       ? locationRoute.location.description
       : null;
@@ -161,8 +183,10 @@ const contentType = pressRoute?.kind === "detail" || eventRoute?.kind === "detai
       : menuRoute
         ? <MenuPage menu={menuRoute.menu} menuRoutes={menuRoutes} />
         : eventRoute
-          ? <EventPage kind={eventRoute.kind} event={eventRoute.kind === "detail" ? eventRoute.event : undefined} events={events} locations={locations} />
-          : locationRoute
-            ? <LocationPage location={locationRoute.location} menuRoutes={menuRoutes.map(({ path, label }) => ({ path, label }))} />
-            : pressRoute && <PressPage kind={pressRoute.kind} release={pressRoute.kind === "detail" ? pressRoute.release : undefined} releases={pressReleases} />}
+          ? <EventPage kind={eventRoute.kind} event={eventRoute.kind === "detail" ? eventRoute.event : undefined} events={events} locations={locations} indexPath={eventIndexPath} />
+        : locationIndexPath
+          ? <LocationDirectoryPage locations={locationRoutes} />
+        : locationRoute
+          ? <LocationPage location={locationRoute.location} menuRoutes={menuRoutes.map(({ path, label }) => ({ path, label }))} />
+            : pressRoute && <PressPage kind={pressRoute.kind} release={pressRoute.kind === "detail" ? pressRoute.release : undefined} releases={pressReleases} indexPath={pressIndexPath} />}
 </SiteLayout>

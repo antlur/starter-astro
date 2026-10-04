@@ -8,9 +8,10 @@ interface Props {
   events: SiteEvent[];
   event?: SiteEvent;
   locations: SiteLocation[];
+  indexPath?: string | null;
 }
 
-const { kind, events, event, locations } = Astro.props;
+const { kind, events, event, locations, indexPath = null } = Astro.props;
 const location = locations[0];
 const sortedUpcoming = [...events]
   .filter((candidate) => Date.parse(candidate.endTime ?? candidate.startTime) >= Date.now())
@@ -72,7 +73,7 @@ const eventDescription = event?.description ? sanitizeRichText(event.description
     </>
   ) : event && details ? (
     <article class="event-detail">
-      <a class="event-detail__back" href="/events/">All events</a>
+      {indexPath && <a class="event-detail__back" href={indexPath}>All events</a>}
       {event.imageUrl && <img class="event-detail__image" src={event.imageUrl} alt={event.imageAlt || event.title} fetchpriority="high" />}
       <header class="event-detail__header">
         <p class="event-page__eyebrow">{details.startDate}{details.endDate ? ` - ${details.endDate}` : ""}</p>
