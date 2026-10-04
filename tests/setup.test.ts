@@ -44,16 +44,29 @@ function client(options: {
 
 test("setup check is read-only and reports a valid home and block plan", async () => {
   const fake = client();
-  const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest]);
+  const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [manifest] });
 
   assert.equal(report.websiteCount, 1);
   assert.equal(report.homepageExists, true);
   assert.equal(report.rootRouteExists, true);
+  assert.deepEqual(report.sdkRegistry, { registered: 1, total: 1, missingSlugs: [] });
+  assert.equal(report.socialProfileCount, 0);
+  assert.equal(report.websiteCtaConfigured, false);
   assert.equal(report.navigationStatus, "missing");
   assert.equal(report.navigationCount, 0);
   assert.ok(report.warnings.some((warning) => warning.includes("site will show no page links")));
   assert.deepEqual(report.blockChanges, { created: 1, updated: 0 });
   assert.deepEqual(fake.writes, []);
+});
+
+test("setup check reports outdated SDK block contracts and missing optional site links", async () => {
+  const fake = client();
+  const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.deepEqual(report.sdkRegistry, { registered: 0, total: 1, missingSlugs: ["hero"] });
+  assert.ok(report.warnings.some((warning) => warning.includes("SDK registry is missing Starter block contracts")));
+  assert.ok(report.warnings.some((warning) => warning.includes("social icons")));
+  assert.ok(report.warnings.some((warning) => warning.includes("website-level CTA")));
 });
 
 test("setup check reports account prerequisites without writing", async () => {

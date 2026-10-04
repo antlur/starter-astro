@@ -1,6 +1,7 @@
-import type { BackstageClient } from "@antlur/backstage";
+import { listRegistryBlocks, type BackstageClient } from "@antlur/backstage";
 import type { BlockManifest, BlockSyncClient } from "./sync-blocks";
 import { syncBlockManifests } from "./sync-blocks";
+import { safeLinkUrl } from "../safe-url";
 
 export type StarterSetupClient = BlockSyncClient & Pick<BackstageClient, "modules" | "website" | "pages" | "navigation">;
 
@@ -8,6 +9,7 @@ export type StarterNavigationStatus = "configured" | "single" | "missing" | "sel
 
 export interface StarterSetupOptions {
   navigationId?: string;
+  sdkRegistry?: readonly Pick<BlockManifest, "registry_identity">[];
 }
 
 export interface StarterSetupReport {
@@ -18,6 +20,9 @@ export interface StarterSetupReport {
   navigationStatus: StarterNavigationStatus;
   homepageExists: boolean | null;
   rootRouteExists: boolean | null;
+  sdkRegistry: { registered: number; total: number; missingSlugs: string[] };
+  socialProfileCount: number | null;
+  websiteCtaConfigured: boolean | null;
   blockChanges: { created: number; updated: number } | null;
   warnings: string[];
 }
@@ -35,11 +40,39 @@ export async function inspectStarterSetup(
   if (!Array.isArray(websites)) throw new Error("Backstage returned an invalid websites collection.");
   if (!Array.isArray(navigations)) throw new Error("Backstage returned an invalid navigation collection.");
   const warnings: string[] = [];
+  const registryBlocks = options.sdkRegistry ?? listRegistryBlocks();
+  const registryIdentities = new Set(registryBlocks.map((block) => block.registry_identity));
+  const missingRegistrySlugs = manifests
+    .filter((manifest) => !registryIdentities.has(manifest.registry_identity))
+    .map((manifest) => manifest.slug);
+  const socialProfileCount = websites.length === 1
+    ? (Array.isArray(websites[0].social_links)
+      ? websites[0].social_links.filter((link) => safeLinkUrl(link.url)?.startsWith("https://")).length
+      : 0)
+    : null;
+  const websiteCtaConfigured = websites.length === 1
+    ? Boolean(websites[0].home_cta_text?.trim() && safeLinkUrl(websites[0].home_cta_url))
+    : null;
   let homepageExists: boolean | null = null;
   let rootRouteExists: boolean | null = null;
   let navigationStatus: StarterNavigationStatus = "unknown";
 
   warnings.push("Confirm Headless application and Application owned routing in Backstage Settings; the SDK does not expose these setting values.");
+
+  if (missingRegistrySlugs.length > 0) {
+    warnings.push(
+      `The installed SDK registry is missing Starter block contracts: ${missingRegistrySlugs.join(", ")}. ` +
+      "Use an SDK release that includes the complete Starter registry before treating a fresh account as ready.",
+    );
+  }
+
+  if (socialProfileCount === 0) {
+    warnings.push("No valid HTTPS social profile URLs are configured; the shared footer intentionally hides social icons until they are added in Backstage.");
+  }
+
+  if (websiteCtaConfigured === false) {
+    warnings.push("No website-level CTA is configured; this is optional when a navigation item is styled as a button.");
+  }
 
   if (websites.length !== 1) {
     warnings.push(`This Starter expects exactly one Backstage website; this account has ${websites.length}.`);
@@ -100,6 +133,13 @@ export async function inspectStarterSetup(
     navigationStatus,
     homepageExists,
     rootRouteExists,
+    sdkRegistry: {
+      registered: manifests.length - missingRegistrySlugs.length,
+      total: manifests.length,
+      missingSlugs: missingRegistrySlugs,
+    },
+    socialProfileCount,
+    websiteCtaConfigured,
     blockChanges,
     warnings,
   };
