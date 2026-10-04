@@ -245,6 +245,7 @@ test("Video Hero has a distinct accessible video contract and renderer", () => {
   assert.match(videoHeroRendererSource, /prefers-reduced-motion: reduce/);
   assert.match(videoHeroRendererSource, /Pause background video/);
   assert.match(videoHeroRendererSource, /aria-hidden="true"/);
+  assert.match(videoHeroRendererSource, /rgb\(0 0 0 \/ (?:5[4-9]|[6-9]\d)%\) 100%\)/);
 });
 
 test("every block manifest has a registered Astro renderer", () => {
