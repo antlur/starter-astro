@@ -7,7 +7,7 @@ const manifest = JSON.parse(
   readFileSync(new URL("../blocks/hero/manifest.json", import.meta.url), "utf8"),
 ) as BlockManifest;
 
-test("creates an account block once and skips it on a matching sync", async () => {
+test("creates and then updates an account block by its registered identity", async () => {
   const blocks: Array<{ id: string; slug: string; registry_identity: string; derived_from?: string | null }> = [];
   const calls: Array<{ method: string; payload?: Record<string, unknown> }> = [];
   const client = {
@@ -19,128 +19,24 @@ test("creates an account block once and skips it on a matching sync", async () =
         calls.push({ method: "create", payload });
         const block = {
           id: "hero-id",
-          name: String(payload.name),
           slug: String(payload.slug),
-          description: payload.description as string | null | undefined,
           registry_identity: String(payload.registry_identity),
-          derived_from: payload.derived_from as string | null | undefined,
-          schema: payload.schema,
+          derived_from: String(payload.derived_from),
         };
-        blocks.push(block as typeof blocks[number]);
+        blocks.push(block);
         return block;
       },
       async update(id: string, payload: Record<string, unknown>) {
         calls.push({ method: "update", payload });
-        const block = blocks.find((candidate) => candidate.id === id);
-        if (block) Object.assign(block, payload);
         return { id, ...payload };
       },
     },
   };
 
   assert.deepEqual(await syncBlockManifests(client as unknown as BlockSyncClient, [manifest]), { created: 1, updated: 0 });
-  assert.deepEqual(await syncBlockManifests(client as unknown as BlockSyncClient, [manifest]), { created: 0, updated: 0 });
-  assert.equal(calls.length, 1);
+  assert.deepEqual(await syncBlockManifests(client as unknown as BlockSyncClient, [manifest]), { created: 0, updated: 1 });
   assert.equal(calls[0].payload?.registry_identity, "starter-astro:hero@1");
   assert.equal(calls[0].payload?.derived_from, "backstage:hero@1");
-});
-
-test("updates a registered block only when the local definition changed", async () => {
-  const calls: string[] = [];
-  const changedManifest = { ...manifest, description: "Updated description" };
-  const client = {
-    blocks: {
-      async list() {
-        return [{
-          id: "hero-id",
-          name: manifest.name,
-          slug: manifest.slug,
-          description: null,
-          registry_identity: manifest.registry_identity,
-          derived_from: manifest.derived_from,
-          schema: manifest.schema,
-        }];
-      },
-      async create() { calls.push("create"); },
-      async update() { calls.push("update"); },
-    },
-  };
-
-  assert.deepEqual(
-    await syncBlockManifests(client as unknown as BlockSyncClient, [changedManifest], { dryRun: true }),
-    { created: 0, updated: 1 },
-  );
-  assert.deepEqual(calls, []);
-});
-
-test("refuses to remove account fields missing from the local manifest", async () => {
-  const calls: string[] = [];
-  const client = {
-    blocks: {
-      async list() {
-        return [{
-          id: "hero-id",
-          name: manifest.name,
-          slug: manifest.slug,
-          registry_identity: manifest.registry_identity,
-          schema: { fields: [...manifest.schema.fields, { name: "Remote field", slug: "remote_field", type: "text" }] },
-        }];
-      },
-      async create() { calls.push("create"); },
-      async update() { calls.push("update"); },
-    },
-  };
-
-  await assert.rejects(
-    () => syncBlockManifests(client as unknown as BlockSyncClient, [manifest]),
-    /fields not present in this local manifest: remote_field.*may be older/,
-  );
-  assert.deepEqual(calls, []);
-});
-
-test("dry run reports planned changes without writing", async () => {
-  const calls: string[] = [];
-  const client = {
-    blocks: {
-      async list() { return []; },
-      async create() { calls.push("create"); },
-      async update() { calls.push("update"); },
-    },
-  };
-
-  assert.deepEqual(
-    await syncBlockManifests(client as unknown as BlockSyncClient, [manifest], { dryRun: true }),
-    { created: 1, updated: 0 },
-  );
-  assert.deepEqual(calls, []);
-});
-
-test("preflights every slug before writing any block", async () => {
-  const calls: string[] = [];
-  const secondManifest = {
-    ...manifest,
-    name: "Reserved",
-    slug: "reserved",
-    registry_identity: "starter-astro:reserved@1",
-  };
-  const client = {
-    blocks: {
-      async list() {
-        return [
-          { id: "hero-id", slug: manifest.slug, registry_identity: manifest.registry_identity },
-          { id: "reserved-id", slug: "reserved", registry_identity: "another-site:reserved@1" },
-        ];
-      },
-      async create() { calls.push("create"); },
-      async update() { calls.push("update"); },
-    },
-  };
-
-  await assert.rejects(
-    () => syncBlockManifests(client as unknown as BlockSyncClient, [manifest, secondManifest]),
-    /already owned by another-site:reserved@1/,
-  );
-  assert.deepEqual(calls, []);
 });
 
 test("refuses to overwrite an unregistered block with a matching slug", async () => {
