@@ -102,50 +102,54 @@ const visibleAlerts = alertsForPath(alerts, pathname);
             ? <img src={site.logo.url} alt="" width={site.logo.width || 160} height={site.logo.height || 48} />
             : <span>{site.name}</span>}
         </a>
-        <button
-          class="site-menu-toggle"
-          type="button"
-          aria-label="Open navigation"
-          aria-expanded="false"
-          aria-controls="site-primary-navigation"
-          hidden
-        >
-          <span aria-hidden="true"></span>
-          <span aria-hidden="true"></span>
-          <span aria-hidden="true"></span>
-        </button>
-        <nav class="site-header__navigation" id="site-primary-navigation" aria-label="Primary navigation">
-          <ul class="site-nav">
-            {navigation.map((item) => (
-              <li class="site-nav-item">
-                <a
-                  class={item.style === "button" ? "site-nav-link site-nav-link--button" : "site-nav-link"}
-                  href={item.url}
-                  target={item.newWindow ? "_blank" : undefined}
-                  rel={item.newWindow ? "noopener noreferrer" : undefined}
-                  aria-current={pathname === item.url ? "page" : undefined}
-                >{item.text}</a>
-                {item.children.length > 0 && (
-                  <details class="site-nav-menu">
-                    <summary aria-label={`Show ${item.text} pages`}><span aria-hidden="true"></span></summary>
-                    <ul class="site-nav-children" aria-label={item.text + " links"}>
-                      {item.children.map((child) => (
-                        <li>
-                          <a
-                            href={child.url}
-                            target={child.newWindow ? "_blank" : undefined}
-                            rel={child.newWindow ? "noopener noreferrer" : undefined}
-                            aria-current={pathname === child.url ? "page" : undefined}
-                          >{child.text}</a>
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-              </li>
-            ))}
-          </ul>
-        </nav>
+        {navigation.length > 0 && (
+          <>
+            <button
+              class="site-menu-toggle"
+              type="button"
+              aria-label="Open navigation"
+              aria-expanded="false"
+              aria-controls="site-primary-navigation"
+              hidden
+            >
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+            </button>
+            <nav class="site-header__navigation" id="site-primary-navigation" aria-label="Primary navigation">
+              <ul class="site-nav">
+                {navigation.map((item) => (
+                  <li class="site-nav-item">
+                    <a
+                      class={item.style === "button" ? "site-nav-link site-nav-link--button" : "site-nav-link"}
+                      href={item.url}
+                      target={item.newWindow ? "_blank" : undefined}
+                      rel={item.newWindow ? "noopener noreferrer" : undefined}
+                      aria-current={pathname === item.url ? "page" : undefined}
+                    >{item.text}</a>
+                    {item.children.length > 0 && (
+                      <details class="site-nav-menu">
+                        <summary aria-label={`Show ${item.text} pages`}><span aria-hidden="true"></span></summary>
+                        <ul class="site-nav-children" aria-label={item.text + " links"}>
+                          {item.children.map((child) => (
+                            <li>
+                              <a
+                                href={child.url}
+                                target={child.newWindow ? "_blank" : undefined}
+                                rel={child.newWindow ? "noopener noreferrer" : undefined}
+                                aria-current={pathname === child.url ? "page" : undefined}
+                              >{child.text}</a>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </>
+        )}
       </div>
     </header>
     <main id="main-content" tabindex="-1">

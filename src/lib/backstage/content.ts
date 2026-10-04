@@ -981,15 +981,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     locations,
     events,
     pressReleases,
-    navigation: navigation.length > 0
-      ? navigation
-      : normalizedPages.map((page) => ({
-          id: page.id,
-          text: page.title,
-          url: normalizeNavigationUrl(page.pathname),
-          newWindow: false,
-          children: [],
-        })),
+    navigation,
     footerNavigation,
     alerts,
   };
