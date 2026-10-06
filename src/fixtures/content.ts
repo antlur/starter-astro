@@ -54,6 +54,19 @@ export const fixtureContent: SiteContent = {
           },
         },
         {
+          id: "fixture-home-image-links",
+          type: "image-link-grid",
+          fields: {
+            heading: "Explore Fieldwork",
+            columns: "2",
+            image_fit: "cover",
+            items: [
+              { image: { url: tableImage }, link_url: "/menu/", link_label: "View the all-day menu" },
+              { image: { url: cafeImage }, link_url: "/events/", link_label: "Explore upcoming gatherings" },
+            ],
+          },
+        },
+        {
           id: "fixture-home-events",
           type: "upcoming-events",
           fields: {
