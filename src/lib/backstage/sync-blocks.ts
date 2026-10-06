@@ -15,7 +15,11 @@ export interface BlockManifest {
 interface RegisteredBlock {
   id: string;
   slug: string;
+  name?: string;
+  description?: string | null;
   registry_identity?: string | null;
+  derived_from?: string | null;
+  schema?: AccountBlockSchema;
 }
 
 type SyncPayload = {
@@ -31,6 +35,7 @@ export type BlockSyncClient = Pick<BackstageClient, "blocks">;
 
 export interface BlockSyncOptions {
   adoptUnregisteredSlugs?: string[];
+  dryRun?: boolean;
 }
 
 const identityPattern = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*@[1-9][0-9]*$/;
@@ -132,6 +137,52 @@ function validateSchemaFields(fields: unknown[], blockSlug: string, parent = "sc
   }
 }
 
+function accountOnlyFields(localFields: readonly Field[], accountFields: readonly Field[], parent = ""): string[] {
+  const localBySlug = new Map(localFields.map((field) => [field.slug, field]));
+  return accountFields.flatMap((accountField) => {
+    const path = parent ? `${parent}.${accountField.slug}` : accountField.slug;
+    const localField = localBySlug.get(accountField.slug);
+    if (!localField) return [path];
+    return accountOnlyFields(localField.fields ?? [], accountField.fields ?? [], path);
+  });
+}
+
+type NormalizedField = {
+  name: string;
+  slug: string;
+  type: Field["type"];
+  description: string | null;
+  placeholder: string | null;
+  order: number | null;
+  options: Array<{ label: string; value: unknown }>;
+  is_multiple: boolean;
+  fields: NormalizedField[];
+};
+
+function normalizedFields(fields: readonly Field[]): NormalizedField[] {
+  return fields.map((field) => ({
+    name: field.name,
+    slug: field.slug,
+    type: field.type,
+    description: field.description ?? null,
+    placeholder: field.placeholder ?? null,
+    order: field.order ?? null,
+    options: (field.options ?? []).map(({ label, value }) => ({ label, value })),
+    is_multiple: Boolean(field.is_multiple),
+    fields: normalizedFields(field.fields ?? []),
+  }));
+}
+
+function matchesManifest(existing: RegisteredBlock, manifest: BlockManifest): boolean {
+  return existing.name === manifest.name
+    && (existing.description ?? null) === (manifest.description ?? null)
+    && existing.slug === manifest.slug
+    && (existing.registry_identity ?? null) === manifest.registry_identity
+    && (manifest.derived_from === undefined || (existing.derived_from ?? null) === manifest.derived_from)
+    && JSON.stringify(normalizedFields(existing.schema?.fields ?? []))
+      === JSON.stringify(normalizedFields(manifest.schema.fields));
+}
+
 export function validateBlockManifests(manifests: unknown[]): asserts manifests is BlockManifest[] {
   if (manifests.length === 0) throw new Error("No block manifests were found.");
 
@@ -211,9 +262,25 @@ export async function syncBlockManifests(
     return existing;
   };
 
+  // Validate every manifest against the account before the first write.
+  const planned = manifests.map((manifest) => {
+    const existing = findExisting(manifest);
+    const extraFields = existing
+      ? accountOnlyFields(manifest.schema.fields, existing.schema?.fields ?? [])
+      : [];
+
+    if (extraFields.length > 0) {
+      throw new Error(
+        `Backstage block "${manifest.slug}" has fields not present in this local manifest: ${extraFields.join(", ")}. ` +
+        "The local Starter definition may be older; update it before syncing to avoid removing account fields.",
+      );
+    }
+
+    return { manifest, existing };
+  });
   const result = { created: 0, updated: 0 };
 
-  for (const manifest of manifests) {
+  for (const { manifest, existing } of planned) {
     const payload: SyncPayload = {
       name: manifest.name,
       slug: manifest.slug,
@@ -222,17 +289,19 @@ export async function syncBlockManifests(
       registry_identity: manifest.registry_identity,
       ...(manifest.derived_from !== undefined ? { derived_from: manifest.derived_from } : {}),
     };
-    const existing = findExisting(manifest);
 
     if (existing) {
-      await client.blocks.update(existing.id, payload);
+      if (matchesManifest(existing, manifest)) continue;
       result.updated += 1;
+      if (!options.dryRun) await client.blocks.update(existing.id, payload);
       continue;
     }
 
+    result.created += 1;
+    if (options.dryRun) continue;
+
     try {
       await client.blocks.create(payload);
-      result.created += 1;
     } catch (error) {
       if (statusOf(error) !== 409) throw error;
 
@@ -244,6 +313,7 @@ export async function syncBlockManifests(
       }
 
       await client.blocks.update(racedBlock.id, payload);
+      result.created -= 1;
       result.updated += 1;
     }
   }
