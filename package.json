@@ -13,12 +13,13 @@
     "check": "astro check",
     "build": "npm run check && astro build",
     "preview": "astro preview",
+    "setup": "tsx scripts/setup.ts",
     "sync:blocks": "tsx scripts/sync-blocks.ts",
     "sync:layouts": "backstage sync layouts",
     "astro": "astro"
   },
   "dependencies": {
-    "@antlur/backstage": "^1.17.1",
+    "@antlur/backstage": "^1.18.0",
     "entities": "^8.1.0",
     "sanitize-html": "^2.17.7"
   },

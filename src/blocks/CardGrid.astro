@@ -45,7 +45,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
             <div class="card-grid__copy">
               {title && <h3>{title}</h3>}
               {body && <div class="card-grid__body" set:html={body} />}
-              {href && <a href={href}>{linkLabel}</a>}
+              {href && <a class="card-grid__action" href={href}>{linkLabel}</a>}
             </div>
           </article>
         );
@@ -141,12 +141,24 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     margin-top: 0.75rem;
   }
 
-  a {
-    display: inline-block;
+  .card-grid__action {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
     margin-top: 1rem;
-    color: var(--color-accent-strong);
+    padding: 0.65rem 1rem;
+    border-radius: 0.4rem;
+    background: var(--theme-color-action);
+    color: var(--theme-color-primary-foreground);
     font-weight: 700;
-    text-underline-offset: 0.2em;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .card-grid__action:focus-visible {
+    outline: 3px solid var(--theme-color-focus);
+    outline-offset: 3px;
   }
 
   @media (max-width: 850px) {

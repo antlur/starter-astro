@@ -36,6 +36,7 @@ const cardGridManifest = blockManifest("card-grid");
 const callToActionManifest = blockManifest("call-to-action");
 const mediaWithTextManifest = blockManifest("media-with-text");
 const imageGalleryManifest = blockManifest("image-gallery");
+const imageLinkGridManifest = blockManifest("image-link-grid");
 const upcomingEventsManifest = blockManifest("upcoming-events");
 const instagramFeedManifest = blockManifest("instagram-feed");
 const videoHeroManifest = blockManifest("video-hero");
@@ -82,6 +83,7 @@ test("starter block identities align with the SDK registry namespace", () => {
     "starter-astro:contact-form@1",
     "starter-astro:hero@1",
     "starter-astro:image-gallery@1",
+    "starter-astro:image-link-grid@1",
     "starter-astro:image@1",
     "starter-astro:instagram-feed@1",
     "starter-astro:media-with-text@1",
@@ -114,6 +116,7 @@ test("Contact Form manifest selects an existing Backstage form instead of defini
   assert.ok(formField);
   assert.equal(contactFormManifest.registry_identity, "starter-astro:contact-form@1");
   assert.equal(formField.type, "form_select");
+  assert.equal(formField.required, true);
   assert.equal(fields.some((field: { slug: string }) => field.slug === "fields"), false);
 });
 
@@ -166,6 +169,18 @@ test("media with text and image gallery cover reusable editorial layouts", () =>
   assert.deepEqual(images.fields?.map((field) => field.slug), ["image", "imageAlt", "caption"]);
   assert.deepEqual(imageGalleryManifest.schema.fields.find((field) => field.slug === "columns")?.options?.map((option) => option.value), ["2", "3", "4"]);
   assert.deepEqual(imageGalleryManifest.schema.fields.find((field) => field.slug === "image_fit")?.options?.map((option) => option.value), ["cover", "contain"]);
+});
+
+test("Image Link Grid provides accessible linked-image fields and a local renderer", () => {
+  const items = imageLinkGridManifest.schema.fields.find((field) => field.slug === "items");
+
+  assert.equal(imageLinkGridManifest.registry_identity, "starter-astro:image-link-grid@1");
+  assert.deepEqual(items?.fields?.map(({ slug, type, required }) => [slug, type, required]), [
+    ["image", "image", true],
+    ["link_url", "url", true],
+    ["link_label", "text", true],
+  ]);
+  assert.match(blockRendererSource, /"image-link-grid": ImageLinkGrid/);
 });
 
 test("upcoming events block uses a small editable schema backed by the Events module", () => {
