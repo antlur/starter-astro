@@ -111,6 +111,7 @@ test("Contact Form manifest selects an existing Backstage form instead of defini
   assert.ok(formField);
   assert.equal(contactFormManifest.registry_identity, "starter-astro:contact-form@1");
   assert.equal(formField.type, "form_select");
+  assert.equal(formField.required, true);
   assert.equal(fields.some((field: { slug: string }) => field.slug === "fields"), false);
 });
 
