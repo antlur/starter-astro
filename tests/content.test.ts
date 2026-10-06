@@ -39,7 +39,9 @@ const imageGalleryManifest = blockManifest("image-gallery");
 const imageLinkGridManifest = blockManifest("image-link-grid");
 const upcomingEventsManifest = blockManifest("upcoming-events");
 const instagramFeedManifest = blockManifest("instagram-feed");
+const videoHeroManifest = blockManifest("video-hero");
 const blockRendererSource = readFileSync(new URL("../src/components/BlockRenderer.astro", import.meta.url), "utf8");
+const videoHeroRendererSource = readFileSync(new URL("../src/blocks/VideoHero.astro", import.meta.url), "utf8");
 const pageLayoutRendererSource = readFileSync(new URL("../src/components/PageLayoutRenderer.astro", import.meta.url), "utf8");
 const localLayoutFields = () => pageLayoutDefinitions[0].schema.fields.map(({ slug, type, options }) => ({
   slug,
@@ -88,6 +90,7 @@ test("starter block identities align with the SDK registry namespace", () => {
     "starter-astro:menu@1",
     "starter-astro:rich-text@1",
     "starter-astro:upcoming-events@1",
+    "starter-astro:video-hero@1",
   ]);
 
   assert.equal(blockManifests.length, canonicalIdentities.size);
@@ -240,6 +243,24 @@ test("connects Upcoming Events blocks to the generated events index only when th
 test("Instagram Feed block uses connected public posts and a compact editable schema", () => {
   assert.deepEqual(instagramFeedManifest.schema.fields.map((field) => field.slug), ["eyebrow", "heading", "count"]);
   assert.equal(instagramFeedManifest.registry_identity, "starter-astro:instagram-feed@1");
+});
+
+test("Video Hero has a distinct accessible video contract and renderer", () => {
+  assert.deepEqual(videoHeroManifest.schema.fields.map((field) => field.slug), [
+    "eyebrow",
+    "heading",
+    "body",
+    "video",
+    "poster",
+    "actions",
+  ]);
+  assert.equal(videoHeroManifest.registry_identity, "starter-astro:video-hero@1");
+  assert.equal(videoHeroManifest.schema.fields.find((field) => field.slug === "video")?.type, "media");
+  assert.equal(videoHeroManifest.schema.fields.find((field) => field.slug === "video")?.required, true);
+  assert.match(videoHeroRendererSource, /prefers-reduced-motion: reduce/);
+  assert.match(videoHeroRendererSource, /Pause background video/);
+  assert.match(videoHeroRendererSource, /aria-hidden="true"/);
+  assert.match(videoHeroRendererSource, /rgb\(0 0 0 \/ (?:5[4-9]|[6-9]\d)%\) 100%\)/);
 });
 
 test("every block manifest has a registered Astro renderer", () => {

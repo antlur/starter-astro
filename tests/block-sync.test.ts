@@ -27,6 +27,7 @@ test("creates the complete starter block set for a new account", async () => {
   };
 
   assert.ok(manifests.some(({ registry_identity }) => registry_identity === "starter-astro:image-link-grid@1"));
+  assert.ok(manifests.some(({ registry_identity }) => registry_identity === "starter-astro:video-hero@1"));
   assert.deepEqual(await syncBlockManifests(client as unknown as BlockSyncClient, manifests), {
     created: manifests.length,
     updated: 0,
