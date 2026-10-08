@@ -68,6 +68,8 @@ For a new account, set Headless rendering and Application owned routing, enable 
 
 To use a Contact Form block, create and configure its fields in Backstage, sync the block manifest, then select the existing form in the block editor. Older forms without configured fields need field definitions before they can be rendered. The public reCAPTCHA site key is read from Backstage; register each production hostname with the matching reCAPTCHA configuration. The secret API token is only used during the build and is never sent to site visitors.
 
+Form submissions are disabled in `astro dev`, Netlify Deploy Previews, and Netlify branch deploys. Preview forms show a notice, have disabled fields, and contain no action or form-specific submission wiring. Netlify production builds enable submissions. For a non-Netlify production build, set `BACKSTAGE_FORM_SUBMISSIONS_ENABLED=true`; it is false by default. This is a build-time setting, so rebuild after changing it. Do not enable the flag for a preview build.
+
 ## Search indexing
 
 The default build is noindex and robots.txt disallows crawling. This is suitable for local previews and unpublished environments.

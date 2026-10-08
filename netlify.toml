@@ -1,7 +1,12 @@
+[context.production.environment]
+BACKSTAGE_FORM_SUBMISSIONS_ENABLED = "true"
+
 [context.deploy-preview.environment]
 BACKSTAGE_SOURCE = "fixture"
 SITE_INDEXABLE = "false"
+BACKSTAGE_FORM_SUBMISSIONS_ENABLED = "false"
 
 [context.branch-deploy.environment]
 BACKSTAGE_SOURCE = "fixture"
 SITE_INDEXABLE = "false"
+BACKSTAGE_FORM_SUBMISSIONS_ENABLED = "false"
