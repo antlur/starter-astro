@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeLocation } from "../src/lib/backstage/locations";
+import { locationSchemaUrl, normalizeLocation } from "../src/lib/backstage/locations";
+
+test("builds a location-specific structured-data URL when the site origin is configured", () => {
+  const site = new URL("https://fieldwork.example.test");
+
+  assert.equal(locationSchemaUrl(site, "/locations/north/"), "https://fieldwork.example.test/locations/north/");
+  assert.equal(locationSchemaUrl(site, "/locations/south/"), "https://fieldwork.example.test/locations/south/");
+  assert.equal(locationSchemaUrl(undefined, "/locations/north/"), undefined);
+});
 
 test("normalizes grouped Backstage hours and collapses adjacent matching days", () => {
   const location = normalizeLocation({
