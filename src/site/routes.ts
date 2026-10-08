@@ -3,6 +3,7 @@ import { normalizeEvent, type SiteEvent } from "../lib/backstage/events";
 import { normalizeLocation, type SiteLocation } from "../lib/backstage/locations";
 import { normalizeMenu, type SiteMenu } from "../lib/backstage/menus";
 import { normalizePressRelease, type SitePressRelease } from "../lib/backstage/press";
+import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "../lib/backstage/concurrency";
 import type { BlueprintRoute } from "./blueprint-routes";
 
 export interface CmsPageRoute {
@@ -61,7 +62,7 @@ export const resolveCanonicalPageRoutes = async (
   pages: HeadlessPage[],
   resolver: (path: string) => Promise<unknown>,
 ): Promise<{ pages: HeadlessPage[]; unhandledPaths: string[]; resolutions: ResolvedSiteRoute[] }> => {
-  const resolved = await Promise.all(paths.map(async (path) => ({ path, value: await resolver(path) })));
+  const resolved = await mapWithConcurrency(paths, BACKSTAGE_REQUEST_CONCURRENCY, async (path) => ({ path, value: await resolver(path) }));
   const routedPages: HeadlessPage[] = [];
   const unhandledPaths: string[] = [];
 
