@@ -98,7 +98,11 @@ export const fixtureSiteContent: SiteContent = {
       imageUrl: null,
       imageAlt: "",
       loyaltyUrl: null,
-      hours: [],
+      hours: [
+        { day: "Mon-Thu", value: "7 AM - 4 PM", order: 0 },
+        { day: "Fri-Sat", value: "8 AM - 8 PM", order: 4 },
+        { day: "Sun", value: "8 AM - 2 PM", order: 6 },
+      ],
     },
   ],
   pages: [
