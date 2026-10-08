@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { eventScheduleLabels, normalizeEvent, resolveEventTimezone, selectUpcomingEvents } from "../src/lib/backstage/events";
+import { eventScheduleLabels, normalizeEvent, resolveEventTimezone, resolveUnambiguousEventLocation, selectUpcomingEvents } from "../src/lib/backstage/events";
+import { normalizeLocation } from "../src/lib/backstage/locations";
 
 const event = (id: string, startTime: string, endTime: string | null = null) => normalizeEvent({
   id,
@@ -91,6 +92,15 @@ test("uses an event timezone before a shared location timezone and avoids ambigu
   assert.equal(resolveEventTimezone(null, ["America/Chicago", "America/Los_Angeles"]), null);
   assert.equal(resolveEventTimezone(null, ["America/Chicago", null]), null);
   assert.equal(resolveEventTimezone(null, []), null);
+});
+
+test("uses an account location for event venue details only when it is unambiguous", () => {
+  const first = normalizeLocation({ id: "location-1", name: "Main Street" });
+  const second = normalizeLocation({ id: "location-2", name: "Lake Street" });
+
+  assert.equal(resolveUnambiguousEventLocation([]), null);
+  assert.equal(resolveUnambiguousEventLocation([first]), first);
+  assert.equal(resolveUnambiguousEventLocation([first, second]), null);
 });
 
 test("formats missing or invalid event timezones in UTC instead of the process timezone", () => {

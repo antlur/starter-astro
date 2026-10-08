@@ -1,5 +1,5 @@
 ---
-import { eventScheduleLabels, type SiteEvent } from "../lib/backstage/events";
+import { eventScheduleLabels, resolveUnambiguousEventLocation, type SiteEvent } from "../lib/backstage/events";
 import type { SiteLocation } from "../lib/backstage/locations";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 
@@ -12,7 +12,7 @@ interface Props {
 }
 
 const { kind, events, event, locations, indexPath = null } = Astro.props;
-const location = locations[0];
+const location = resolveUnambiguousEventLocation(locations);
 const sortedUpcoming = [...events]
   .filter((candidate) => Date.parse(candidate.endTime ?? candidate.startTime) >= Date.now())
   .sort((left, right) => Date.parse(left.startTime) - Date.parse(right.startTime));

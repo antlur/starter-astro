@@ -1,4 +1,5 @@
 import { mediaAltText, mediaDimensions, safeImageUrl, safeSiteLinkUrl } from "../safe-url";
+import type { SiteLocation } from "./locations";
 
 export interface SiteEvent {
   id: string;
@@ -23,6 +24,9 @@ export interface EventScheduleLabels {
   startTime: string;
   endTime: string | null;
 }
+
+export const resolveUnambiguousEventLocation = (locations: readonly SiteLocation[]): SiteLocation | null =>
+  locations.length === 1 ? locations[0] : null;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
