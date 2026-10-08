@@ -53,7 +53,7 @@ const eventDescription = event?.description ? sanitizeRichText(event.description
             const schedule = eventScheduleLabels(item);
             return (
               <article class="event-list__item">
-                {item.imageUrl && <img src={item.imageUrl} alt={item.imageAlt || item.title} loading="lazy" decoding="async" />}
+                {item.imageUrl && <img src={item.imageUrl} alt={item.imageAlt || item.title} width={item.imageWidth ?? 1200} height={item.imageHeight ?? 900} loading="lazy" decoding="async" />}
                 <div class="event-list__date">
                   <time datetime={item.startTime}>{schedule.startDate}</time>
                   <span>{schedule.startTime}{schedule.endTime ? ` - ${schedule.endTime}` : ""}</span>
@@ -74,7 +74,7 @@ const eventDescription = event?.description ? sanitizeRichText(event.description
   ) : event && details ? (
     <article class="event-detail">
       {indexPath && <a class="event-detail__back" href={indexPath}>All events</a>}
-      {event.imageUrl && <img class="event-detail__image" src={event.imageUrl} alt={event.imageAlt || event.title} fetchpriority="high" />}
+      {event.imageUrl && <img class="event-detail__image" src={event.imageUrl} alt={event.imageAlt || event.title} width={event.imageWidth ?? 1600} height={event.imageHeight ?? 800} fetchpriority="high" />}
       <header class="event-detail__header">
         <p class="event-page__eyebrow">{details.startDate}{details.endDate ? ` - ${details.endDate}` : ""}</p>
         <h1 id="event-page-title">{event.title}</h1>

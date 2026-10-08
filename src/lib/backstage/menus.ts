@@ -1,4 +1,4 @@
-import { safeAltText, safeImageUrl } from "../safe-url";
+import { mediaDimensions, safeAltText, safeImageUrl } from "../safe-url";
 
 export interface SiteMenuPrice {
   label: string;
@@ -17,6 +17,8 @@ export interface SiteMenuItem {
   dietaryTags: string[];
   imageUrl: string | null;
   imageAlt: string;
+  imageWidth?: number;
+  imageHeight?: number;
   hiddenPrice: boolean;
 }
 
@@ -151,6 +153,7 @@ const normalizeMenuItem = (
   const imageValue = mediaValue(hasLocalImageOverride ? value : globalItem, mediaById);
   const imageUrl = safeImageUrl(imageValue);
   const imageAlt = safeAltText(isRecord(imageValue) ? imageValue.alt : "");
+  const imageDimensions = mediaDimensions(imageValue);
 
   if (!title) throw new Error(`Backstage menu item at index ${index} has no title.`);
 
@@ -166,6 +169,8 @@ const normalizeMenuItem = (
     dietaryTags: normalizeDietaryTags(localValue(value, globalItem, "dietary_tags")),
     imageUrl,
     imageAlt,
+    imageWidth: imageDimensions?.width,
+    imageHeight: imageDimensions?.height,
     hiddenPrice,
   };
 };

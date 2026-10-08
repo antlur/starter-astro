@@ -1,6 +1,6 @@
 ---
 import type { HeadlessBlock } from "../lib/backstage/content";
-import { safeImageUrl, safeLinkUrl } from "../lib/safe-url";
+import { mediaDimensions, safeImageUrl, safeLinkUrl } from "../lib/safe-url";
 
 interface Props {
   block: HeadlessBlock;
@@ -17,9 +17,10 @@ const items = Array.isArray(block.fields.items)
       if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
       const item = value as Record<string, unknown>;
       const image = safeImageUrl(item.image);
+      const dimensions = mediaDimensions(item.image) ?? { width: 1200, height: 900 };
       const href = safeLinkUrl(item.link_url);
       const label = text(item.link_label);
-      return image && href && label ? [{ image, href, label }] : [];
+      return image && href && label ? [{ image, href, label, ...dimensions }] : [];
     })
   : [];
 const HeadingTag = isPrimary ? "h1" : "h2";
@@ -31,7 +32,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     <div class="image-link-grid__items" style={`--image-link-columns: ${columns}`}>
       {items.map((item) => (
         <a class:list={["image-link-grid__item", imageFit === "contain" && "image-link-grid__item--contain"]} href={item.href} aria-label={item.label}>
-          <img src={item.image} alt="" loading="lazy" decoding="async" />
+          <img src={item.image} alt="" width={item.width} height={item.height} loading="lazy" decoding="async" />
         </a>
       ))}
     </div>

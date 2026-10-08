@@ -30,7 +30,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     <div class="instagram-feed__grid">
       {posts.map((post) => (
         <a class="instagram-feed__post" href={post.permalink} target="_blank" rel="noopener noreferrer" aria-label={post.caption || "View Instagram post (opens in a new tab)"}>
-          <img src={post.imageUrl} alt="" loading="lazy" decoding="async" />
+          <img src={post.imageUrl} alt="" width="640" height="640" loading="lazy" decoding="async" />
           {post.caption && <span class="instagram-feed__caption">{post.caption}</span>}
         </a>
       ))}

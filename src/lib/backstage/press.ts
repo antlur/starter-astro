@@ -1,4 +1,4 @@
-import { mediaAltText, safeImageUrl } from "../safe-url";
+import { mediaAltText, mediaDimensions, safeImageUrl } from "../safe-url";
 
 export interface SitePressRelease {
   id: string;
@@ -12,6 +12,8 @@ export interface SitePressRelease {
   content: string | null;
   imageUrl: string | null;
   imageAlt: string;
+  imageWidth?: number;
+  imageHeight?: number;
   featured: boolean;
 }
 
@@ -49,6 +51,7 @@ export const normalizePressRelease = (value: unknown, index = 0): SitePressRelea
   }
 
   const featuredMedia = isRecord(value.featured_media) ? value.featured_media : null;
+  const dimensions = mediaDimensions(featuredMedia);
 
   return {
     id: requiredString(value.id, "ID"),
@@ -62,6 +65,8 @@ export const normalizePressRelease = (value: unknown, index = 0): SitePressRelea
     content: optionalString(value.content),
     imageUrl: safeImageUrl(featuredMedia),
     imageAlt: mediaAltText(featuredMedia),
+    imageWidth: dimensions?.width,
+    imageHeight: dimensions?.height,
     featured: value.is_featured === true,
   };
 };

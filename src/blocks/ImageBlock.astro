@@ -17,7 +17,7 @@ const caption = typeof block.fields.caption === "string" ? block.fields.caption.
 {src && (
   <section class="image-block">
     <figure>
-      <img src={src} alt={imageAlt} width={dimensions?.width} height={dimensions?.height} loading="lazy" decoding="async" />
+      <img src={src} alt={imageAlt} width={dimensions?.width ?? 1200} height={dimensions?.height ?? 900} loading="lazy" decoding="async" />
       {caption && <figcaption>{caption}</figcaption>}
     </figure>
   </section>

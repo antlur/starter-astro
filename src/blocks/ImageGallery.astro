@@ -36,7 +36,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     <div class:list={["image-gallery__grid", imageFit === "contain" && "image-gallery__grid--contain"]} style={`--gallery-columns: ${columns}`}>
       {images.map((item) => (
         <figure>
-          <img src={item.src} alt={item.alt} width={item.width} height={item.height} loading="lazy" decoding="async" />
+          <img src={item.src} alt={item.alt} width={item.width ?? 1200} height={item.height ?? 900} loading="lazy" decoding="async" />
           {item.caption && <figcaption>{item.caption}</figcaption>}
         </figure>
       ))}
