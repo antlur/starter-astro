@@ -133,6 +133,34 @@ test("compares object-valued field options without depending on key order", asyn
   assert.deepEqual(calls, []);
 });
 
+test("does not repeatedly update fields whose required metadata Backstage omits", async () => {
+  const accountFields = structuredClone(manifest.schema.fields);
+  const omitRequired = (fields: readonly Field[]) => {
+    for (const field of fields) {
+      delete field.required;
+      if (field.fields) omitRequired(field.fields);
+    }
+  };
+  omitRequired(accountFields);
+  const calls: string[] = [];
+  const client = clientFor({
+    id: "hero-id",
+    name: manifest.name,
+    slug: manifest.slug,
+    description: manifest.description,
+    registry_identity: manifest.registry_identity,
+    derived_from: manifest.derived_from,
+    schema: { fields: accountFields },
+  }, calls);
+
+  const result = await syncBlockManifests(client, [manifest]);
+
+  assert.equal(result.created, 0);
+  assert.equal(result.updated, 0);
+  assert.ok(result.warnings?.some((warning) => warning.includes("actions.label")));
+  assert.deepEqual(calls, []);
+});
+
 test("requires boolean values for primary and list visibility metadata", () => {
   for (const property of ["is_primary", "show_in_list"]) {
     const malformed = withFieldMetadata("heading", { [property]: "yes" });
