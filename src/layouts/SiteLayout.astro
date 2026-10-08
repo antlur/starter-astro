@@ -87,7 +87,7 @@ const visibleAlerts = alertsForPath(alerts, pathname);
           <div class="site-topbar__inner">
             <div class="site-topbar__details">
               {firstLocation?.addressLines.length && firstLocation.mapUrl
-                ? <a class="site-topbar__address" href={firstLocation.mapUrl} target="_blank" rel="noopener noreferrer" aria-label={`Directions to ${firstLocation.name}`}>{firstLocation.addressLines.map((line) => <span>{line}</span>)}</a>
+                ? <a class="site-topbar__address" href={firstLocation.mapUrl} target="_blank" rel="noopener noreferrer">{firstLocation.addressLines.map((line) => <span>{line}</span>)}</a>
                 : firstLocation?.addressLines.length ? <span>{firstLocation.addressLines.join(", ")}</span> : null}
               {firstLocation?.phone && <a href={`tel:${firstLocation.phone.replace(/[^\d+]/g, "")}`}>{firstLocation.phone}</a>}
               {!firstLocation?.addressLines.length && firstLocation?.mapUrl && <a href={firstLocation.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {firstLocation.name}</span></a>}
@@ -179,15 +179,15 @@ const visibleAlerts = alertsForPath(alerts, pathname);
           <small>© {new Date().getFullYear()} {site.name}</small>
         </div>
       </div>
+      {mobileAction && (
+        <a
+          class="site-mobile-action"
+          href={mobileAction.url}
+          target={mobileAction.newWindow ? "_blank" : undefined}
+          rel={mobileAction.newWindow ? "noopener noreferrer" : undefined}
+        >{mobileAction.text}</a>
+      )}
     </footer>
-    {mobileAction && (
-      <a
-        class="site-mobile-action"
-        href={mobileAction.url}
-        target={mobileAction.newWindow ? "_blank" : undefined}
-        rel={mobileAction.newWindow ? "noopener noreferrer" : undefined}
-      >{mobileAction.text}</a>
-    )}
   </body>
 </html>
 
