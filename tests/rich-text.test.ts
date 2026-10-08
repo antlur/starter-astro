@@ -16,3 +16,17 @@ test("normalizes internal rich-text route links and preserves download paths", (
   assert.match(html, /href="\/menu\/\?source=story#dinner"/);
   assert.match(html, /href="\/menus\/dinner\.pdf"/);
 });
+
+test("removes unsupported rich-text hrefs while keeping supported links", () => {
+  const html = sanitizeRichText(
+    '<a href="//external.example/path">Unsupported</a> '
+      + '<a href="javascript:alert(1)">Unsafe</a> '
+      + '<a href="https://example.test/menu">External</a> '
+      + '<a href="#hours">Hours</a>',
+  );
+
+  assert.doesNotMatch(html, /href="\/\//);
+  assert.doesNotMatch(html, /href="javascript:/i);
+  assert.match(html, /href="https:\/\/example\.test\/menu"/);
+  assert.match(html, /href="#hours"/);
+});

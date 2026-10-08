@@ -1,6 +1,6 @@
 import { decodeHTML } from "entities";
 import sanitizeHtml from "sanitize-html";
-import { previewRouteUrl, safeSiteLinkUrl } from "./safe-url";
+import { previewRouteUrl, safeLinkUrl, safeSiteLinkUrl } from "./safe-url";
 
 const length = "(?:0|(?:\\d+(?:\\.\\d+)?)(?:px|rem|em|%))";
 const spacing = new RegExp(`^(?:auto|-?${length})(?:\\s+(?:auto|-?${length})){0,3}$`, "i");
@@ -66,10 +66,19 @@ export const sanitizeRichText = (
         return { tagName: "h2", attribs: attributes };
       },
       a: (tagName: string, attributes: Record<string, string>) => {
+        const originalHref = attributes.href;
+        if (!originalHref) return { tagName, attribs: attributes };
+
         const href = (preview
-          ? previewRouteUrl(attributes.href, preview.siteDomain, preview.routePaths)
-          : null) ?? (attributes.href?.startsWith("/") ? safeSiteLinkUrl(attributes.href) : null);
-        return { tagName, attribs: href ? { ...attributes, href } : attributes };
+          ? previewRouteUrl(originalHref, preview.siteDomain, preview.routePaths)
+          : null) ?? (originalHref.startsWith("/")
+          ? safeSiteLinkUrl(originalHref)
+          : safeLinkUrl(originalHref));
+
+        if (href) return { tagName, attribs: { ...attributes, href } };
+
+        const { href: _unsafeHref, ...safeAttributes } = attributes;
+        return { tagName, attribs: safeAttributes };
       },
     },
   });
