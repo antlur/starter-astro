@@ -1,6 +1,5 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import { isBackstageFormSubmissionEnabled } from "../lib/backstage/form-submission-policy";
 import type { BackstageFormField, HeadlessBlock } from "../lib/backstage/content";
 
 interface Props {
@@ -22,11 +21,9 @@ const heading = text("heading") || form.title;
 const body = text("body") ? sanitizeRichText(text("body")) : "";
 const submitLabel = text("submit_label") || "Send message";
 const hasFileField = form.fields.some((field) => field.type === "file");
-const submissionsDisabled = !isBackstageFormSubmissionEnabled({
-  isDevelopment: import.meta.env.DEV,
-  isLegacyPreview: import.meta.env.BACKSTAGE_PAGE_MODE === "legacy-preview",
-  isEnabled: import.meta.env.BACKSTAGE_FORM_SUBMISSIONS_ENABLED === "true",
-});
+const submissionsDisabled = import.meta.env.DEV
+  || import.meta.env.BACKSTAGE_PAGE_MODE === "legacy-preview"
+  || import.meta.env.BACKSTAGE_FORM_SUBMISSIONS_ENABLED !== "true";
 const HeadingTag = isPrimary ? "h1" : "h2";
 const inputType = (type: BackstageFormField["type"]): "text" | "email" | "tel" | "date" | "time" | "number" | "checkbox" | "file" | "url" => {
   switch (type) {
