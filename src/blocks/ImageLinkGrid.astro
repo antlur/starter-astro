@@ -1,6 +1,6 @@
 ---
 import type { HeadlessBlock } from "../lib/backstage/content";
-import { mediaDimensions, safeImageUrl, safeLinkUrl } from "../lib/safe-url";
+import { mediaDimensions, safeImageUrl, safeSiteLinkUrl } from "../lib/safe-url";
 
 interface Props {
   block: HeadlessBlock;
@@ -18,7 +18,7 @@ const items = Array.isArray(block.fields.items)
       const item = value as Record<string, unknown>;
       const image = safeImageUrl(item.image);
       const dimensions = mediaDimensions(item.image) ?? { width: 1200, height: 900 };
-      const href = safeLinkUrl(item.link_url);
+      const href = safeSiteLinkUrl(item.link_url);
       const label = text(item.link_label);
       return image && href && label ? [{ image, href, label, ...dimensions }] : [];
     })

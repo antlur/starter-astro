@@ -2,7 +2,7 @@
 import type { HeadlessBlock } from "../lib/backstage/content";
 import { eventScheduleLabels, selectUpcomingEvents } from "../lib/backstage/events";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import { safeLinkUrl } from "../lib/safe-url";
+import { safeSiteLinkUrl } from "../lib/safe-url";
 
 interface Props {
   block: HeadlessBlock;
@@ -16,7 +16,7 @@ const eyebrow = text("eyebrow");
 const title = text("title");
 const description = text("description") ? sanitizeRichText(text("description")) : "";
 const viewAllLabel = text("view_all_label") || "View all events";
-const eventsIndexHref = safeLinkUrl(block.eventsIndexPath);
+const eventsIndexHref = safeSiteLinkUrl(block.eventsIndexPath);
 const events = selectUpcomingEvents(block.events ?? [], block.fields.count);
 const scheduledEvents = events.map((event) => ({ event, schedule: eventScheduleLabels(event) }));
 const HeadingTag = isPrimary ? "h1" : "h2";

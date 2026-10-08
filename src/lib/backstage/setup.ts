@@ -1,7 +1,7 @@
 import { listRegistryBlocks, type BackstageClient } from "@antlur/backstage";
 import type { BlockManifest, BlockSyncClient } from "./sync-blocks";
 import { syncBlockManifests } from "./sync-blocks";
-import { safeLinkUrl } from "../safe-url";
+import { safeLinkUrl, safeSiteLinkUrl } from "../safe-url";
 import { planStarterSitePages, type StarterSitePagePlan } from "./site-initializer";
 
 export type StarterSetupClient = BlockSyncClient & Pick<BackstageClient, "modules" | "website" | "pages" | "navigation" | "forms">;
@@ -79,7 +79,7 @@ export async function inspectStarterSetup(
       : 0)
     : null;
   const websiteCtaConfigured = websites.length === 1
-    ? Boolean(websites[0].home_cta_text?.trim() && safeLinkUrl(websites[0].home_cta_url))
+    ? Boolean(websites[0].home_cta_text?.trim() && safeSiteLinkUrl(websites[0].home_cta_url))
     : null;
   let homepageExists: boolean | null = null;
   let rootRouteExists: boolean | null = null;

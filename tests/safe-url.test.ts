@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mediaAltText, mediaDimensions, previewRouteUrl, safeAltText, safeImageUrl, safeLinkUrl, safeVideoUrl } from "../src/lib/safe-url";
+import { mediaAltText, mediaDimensions, previewRouteUrl, safeAltText, safeImageUrl, safeLinkUrl, safeSiteLinkUrl, safeVideoUrl } from "../src/lib/safe-url";
 
 test("safe block URLs allow local and supported links but reject unsafe schemes", () => {
   assert.equal(safeLinkUrl("/about/"), "/about/");
@@ -22,6 +22,19 @@ test("safe block URLs allow local and supported links but reject unsafe schemes"
   assert.equal(mediaAltText({ url: "/photo.jpg", alt: "family-at-the-game.jpg" }), "");
   assert.equal(safeAltText("community-page-picture.png"), "");
   assert.equal(safeAltText("People celebrating a win"), "People celebrating a win");
+});
+
+test("normalizes local site routes without changing files or external links", () => {
+  assert.equal(safeSiteLinkUrl("/menu"), "/menu/");
+  assert.equal(safeSiteLinkUrl("/menu?source=home#lunch"), "/menu/?source=home#lunch");
+  assert.equal(safeSiteLinkUrl("/menu/"), "/menu/");
+  assert.equal(safeSiteLinkUrl("/"), "/");
+  assert.equal(safeSiteLinkUrl("/news/2026.09"), "/news/2026.09/");
+  assert.equal(safeSiteLinkUrl("/downloads/menu.pdf?download=1"), "/downloads/menu.pdf?download=1");
+  assert.equal(safeSiteLinkUrl("https://example.test/menu"), "https://example.test/menu");
+  assert.equal(safeSiteLinkUrl("mailto:hello@example.com"), "mailto:hello@example.com");
+  assert.equal(safeSiteLinkUrl("#hours"), "#hours");
+  assert.equal(safeSiteLinkUrl("//example.test/menu"), null);
 });
 
 test("preview route URLs localize only known paths on the configured website domain", () => {

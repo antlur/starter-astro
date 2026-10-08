@@ -1,7 +1,7 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import type { HeadlessBlock } from "../lib/backstage/content";
-import { safeLinkUrl } from "../lib/safe-url";
+import { safeSiteLinkUrl } from "../lib/safe-url";
 
 interface Props {
   block: HeadlessBlock;
@@ -19,12 +19,12 @@ const actions = Array.isArray(block.fields.actions)
       if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
       const action = value as Record<string, unknown>;
       const label = typeof action.label === "string" ? action.label.trim() : "";
-      const href = safeLinkUrl(action.href);
+      const href = safeSiteLinkUrl(action.href);
       return label && href ? [{ label, href }] : [];
     })
   : [];
 const legacyLabel = text("button_label");
-const legacyHref = safeLinkUrl(block.fields.button_url);
+const legacyHref = safeSiteLinkUrl(block.fields.button_url);
 const actionLinks = actions.length > 0
   ? actions
   : legacyLabel && legacyHref

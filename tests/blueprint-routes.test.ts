@@ -53,7 +53,7 @@ const entryResponse = {
       story: '<p>Welcome.</p><script>alert("x")</script><a href="javascript:alert(1)">Unsafe link</a>',
       photo: { url: "javascript:alert(1)", file_name: "bad.jpg" },
       attachment: { url: "https://cdn.example.test/private-events.pdf", file_name: "Private events details.pdf" },
-      registration: "/private-events/?source=happening",
+      registration: "/private-events?source=happening",
     },
   },
 };
@@ -110,7 +110,7 @@ test("sanitizes rich text and excludes unsafe media URLs from blueprint details"
   });
   assert.deepEqual(entry.fields.find(({ slug }) => slug === "registration")?.value, {
     kind: "text",
-    text: "/private-events/?source=happening",
+    text: "/private-events?source=happening",
     href: "/private-events/?source=happening",
   });
   assert.equal(entry.seoTitle, "Join us for supper");

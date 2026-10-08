@@ -1,5 +1,5 @@
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import { mediaDimensions, safeAltText } from "../lib/safe-url";
+import { mediaDimensions, safeAltText, safeSiteLinkUrl } from "../lib/safe-url";
 import { normalizeRoutePath } from "./routes";
 
 interface BlueprintField {
@@ -131,23 +131,6 @@ const safeWebUrl = (value: unknown): string | null => {
   }
 };
 
-const safeLinkUrl = (value: string): string | undefined => {
-  const candidate = value.trim();
-  if (candidate.startsWith("#")) return candidate;
-
-  if (candidate.startsWith("/") && !candidate.startsWith("//") && !candidate.includes("\\")) {
-    const url = new URL(candidate, "https://backstage.invalid");
-    return url.pathname + url.search + url.hash;
-  }
-
-  try {
-    const url = new URL(candidate);
-    return ["http:", "https:", "mailto:", "tel:"].includes(url.protocol) ? url.href : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
 const presentValue = (field: BlueprintField, value: unknown): PresentedValue | null => {
   if (value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) {
     return null;
@@ -186,7 +169,7 @@ const presentValue = (field: BlueprintField, value: unknown): PresentedValue | n
   const text = plainText(value);
   if (!text) return null;
 
-  const href = field.type === "url" ? safeLinkUrl(text) : undefined;
+  const href = field.type === "url" ? safeSiteLinkUrl(text) ?? undefined : undefined;
   return { kind: "text", text, href };
 };
 

@@ -10,7 +10,7 @@ import { normalizeEvent, type SiteEvent } from "./events";
 import { normalizeInstagramPosts, type SiteInstagramPost } from "./instagram";
 import { assertLegacyPreviewConfiguration, collectLegacyPageMediaIds, normalizeLegacyPreviewPages } from "./legacy-page-preview";
 import { validateBlockManifests, type BlockManifest } from "./sync-blocks";
-import { previewRouteUrl, safeImageUrl, safeLinkUrl } from "../safe-url";
+import { previewRouteUrl, safeImageUrl, safeLinkUrl, safeSiteLinkUrl } from "../safe-url";
 import { sanitizeRichText } from "../sanitize-rich-text";
 
 export interface HeadlessBlock {
@@ -537,29 +537,11 @@ export const attachEventsToBlocks = (pages: HeadlessPage[], events: SiteEvent[],
 };
 
 const normalizeNavigationUrl = (value: unknown): string => {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error("Backstage navigation contains an item without a URL.");
-  }
+  const url = typeof value === "string" ? value.trim() : "";
+  const normalized = safeSiteLinkUrl(url);
+  if (normalized) return normalized;
 
-  const url = value.trim();
-
-  if (url.startsWith("#")) return url;
-
-  if (url.startsWith("/") && !url.startsWith("//")) {
-    const parsed = new URL(url, "https://backstage.invalid");
-    const path = parsed.pathname === "/" ? "/" : `/${parsed.pathname.split("/").filter(Boolean).join("/")}/`;
-
-    return path + parsed.search + parsed.hash;
-  }
-
-  try {
-    const parsed = new URL(url);
-
-    if (["http:", "https:", "mailto:", "tel:"].includes(parsed.protocol)) return url;
-  } catch {
-    // Invalid URL values are rejected by the common error below.
-  }
-
+  if (!url) throw new Error("Backstage navigation contains an item without a URL.");
   throw new Error("Backstage navigation contains an unsupported URL: " + url);
 };
 
@@ -610,7 +592,7 @@ export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
       })
     : [];
   const homeCtaText = optionalString(value.home_cta_text);
-  const homeCtaUrl = safeLinkUrl(value.home_cta_url);
+  const homeCtaUrl = safeSiteLinkUrl(value.home_cta_url);
 
   return {
     name: optionalString(account?.name) ?? optionalString(value.app_name) ?? "Website",
