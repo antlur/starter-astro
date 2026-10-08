@@ -22,7 +22,9 @@ const heading = text("heading") || form.title;
 const body = text("body") ? sanitizeRichText(text("body")) : "";
 const submitLabel = text("submit_label") || "Send message";
 const hasFileField = form.fields.some((field) => field.type === "file");
-const submissionsDisabled = import.meta.env.BACKSTAGE_PAGE_MODE === "legacy-preview";
+const submissionsDisabled = import.meta.env.DEV
+  || import.meta.env.BACKSTAGE_PAGE_MODE === "legacy-preview"
+  || import.meta.env.BACKSTAGE_FORM_SUBMISSIONS_ENABLED !== "true";
 const HeadingTag = isPrimary ? "h1" : "h2";
 const inputType = (type: BackstageFormField["type"]): "text" | "email" | "tel" | "date" | "time" | "number" | "checkbox" | "file" | "url" => {
   switch (type) {

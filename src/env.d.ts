@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly BACKSTAGE_SOURCE?: "api" | "fixture";
+  readonly BACKSTAGE_FORM_SUBMISSIONS_ENABLED?: string;
   readonly BACKSTAGE_API_URL?: string;
   readonly BACKSTAGE_API_KEY?: string;
   readonly BACKSTAGE_ACCOUNT_ID?: string;
