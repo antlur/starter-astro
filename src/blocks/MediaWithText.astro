@@ -1,7 +1,7 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import type { HeadlessBlock } from "../lib/backstage/content";
-import { mediaAltText, safeAltText, safeImageUrl, safeSiteLinkUrl } from "../lib/safe-url";
+import { mediaAltText, mediaDimensions, safeAltText, safeImageUrl, safeSiteLinkUrl } from "../lib/safe-url";
 
 interface Props {
   block: HeadlessBlock;
@@ -16,6 +16,7 @@ const heading = text("heading");
 const subheading = text("subheading");
 const body = text("body") ? sanitizeRichText(text("body")) : "";
 const image = safeImageUrl(block.fields.image);
+const dimensions = mediaDimensions(block.fields.image) ?? { width: 1200, height: 900 };
 const imageAlt = safeAltText(text("imageAlt")) || mediaAltText(block.fields.image);
 const actionLabel = text("cta_label");
 const actionHref = safeSiteLinkUrl(block.fields.cta_url);
@@ -28,7 +29,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   <div class="media-text__inner">
     {image && (
       <figure class="media-text__media">
-        <img src={image} alt={imageAlt} loading="lazy" decoding="async" />
+        <img src={image} alt={imageAlt} width={dimensions.width} height={dimensions.height} loading="lazy" decoding="async" />
       </figure>
     )}
     <div class="media-text__copy">

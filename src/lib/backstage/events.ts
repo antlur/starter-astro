@@ -1,4 +1,4 @@
-import { mediaAltText, safeImageUrl, safeSiteLinkUrl } from "../safe-url";
+import { mediaAltText, mediaDimensions, safeImageUrl, safeSiteLinkUrl } from "../safe-url";
 
 export interface SiteEvent {
   id: string;
@@ -12,6 +12,8 @@ export interface SiteEvent {
   description: string | null;
   imageUrl: string | null;
   imageAlt: string;
+  imageWidth?: number;
+  imageHeight?: number;
   ticketUrl: string | null;
 }
 
@@ -47,6 +49,7 @@ export const normalizeEvent = (value: unknown, index = 0): SiteEvent => {
   }
 
   const coverMedia = isRecord(value.cover_media) ? value.cover_media : null;
+  const dimensions = mediaDimensions(coverMedia);
 
   return {
     id: String(value.id),
@@ -60,6 +63,8 @@ export const normalizeEvent = (value: unknown, index = 0): SiteEvent => {
     description: optionalText(value.description),
     imageUrl: safeImageUrl(coverMedia),
     imageAlt: mediaAltText(coverMedia),
+    imageWidth: dimensions?.width,
+    imageHeight: dimensions?.height,
     ticketUrl: safeSiteLinkUrl(value.ticket_uri),
   };
 };

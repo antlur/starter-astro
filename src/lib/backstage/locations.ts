@@ -1,4 +1,4 @@
-import { mediaAltText, safeImageUrl, safeSiteLinkUrl } from "../safe-url";
+import { mediaAltText, mediaDimensions, safeImageUrl, safeSiteLinkUrl } from "../safe-url";
 
 export interface SiteLocationHours {
   day: string;
@@ -20,6 +20,8 @@ export interface SiteLocation {
   longitude: number | null;
   imageUrl: string | null;
   imageAlt: string;
+  imageWidth?: number;
+  imageHeight?: number;
   loyaltyUrl: string | null;
   hours: SiteLocationHours[];
 }
@@ -148,6 +150,7 @@ const locationAddressLines = (value: Record<string, unknown>): string[] => {
 
 export const normalizeLocation = (value: unknown, index = 0): SiteLocation => {
   if (!isRecord(value)) throw new Error(`Backstage returned an invalid location at index ${index}.`);
+  const dimensions = mediaDimensions(value.featured_media);
 
   return {
     id: optionalString(value.id) ?? `location-${index}`,
@@ -163,6 +166,8 @@ export const normalizeLocation = (value: unknown, index = 0): SiteLocation => {
     longitude: coordinate(value.longitude),
     imageUrl: safeImageUrl(value.featured_media),
     imageAlt: mediaAltText(value.featured_media),
+    imageWidth: dimensions?.width,
+    imageHeight: dimensions?.height,
     loyaltyUrl: safeSiteLinkUrl(value.loyalty_url),
     hours: normalizeLocationHours(value.hours),
   };

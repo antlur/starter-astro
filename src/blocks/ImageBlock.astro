@@ -1,6 +1,6 @@
 ---
 import type { HeadlessBlock } from "../lib/backstage/content";
-import { mediaAltText, safeAltText, safeImageUrl } from "../lib/safe-url";
+import { mediaAltText, mediaDimensions, safeAltText, safeImageUrl } from "../lib/safe-url";
 
 interface Props {
   block: HeadlessBlock;
@@ -9,6 +9,7 @@ interface Props {
 const { block } = Astro.props;
 const media = block.fields.image;
 const src = safeImageUrl(media);
+const dimensions = mediaDimensions(media);
 const imageAlt = safeAltText(block.fields.imageAlt) || mediaAltText(media);
 const caption = typeof block.fields.caption === "string" ? block.fields.caption.trim() : "";
 ---
@@ -16,7 +17,7 @@ const caption = typeof block.fields.caption === "string" ? block.fields.caption.
 {src && (
   <section class="image-block">
     <figure>
-      <img src={src} alt={imageAlt} loading="lazy" decoding="async" />
+      <img src={src} alt={imageAlt} width={dimensions?.width ?? 1200} height={dimensions?.height ?? 900} loading="lazy" decoding="async" />
       {caption && <figcaption>{caption}</figcaption>}
     </figure>
   </section>

@@ -1,5 +1,5 @@
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import { safeAltText, safeSiteLinkUrl } from "../lib/safe-url";
+import { mediaDimensions, safeAltText, safeSiteLinkUrl } from "../lib/safe-url";
 import { normalizeRoutePath } from "./routes";
 
 interface BlueprintField {
@@ -21,6 +21,8 @@ interface BlueprintBase {
 export interface PresentedImage {
   src: string;
   alt: string;
+  width?: number;
+  height?: number;
 }
 
 export type PresentedValue =
@@ -158,7 +160,7 @@ const presentValue = (field: BlueprintField, value: unknown): PresentedValue | n
       const src = safeWebUrl(candidate.url);
       if (!src) return [];
 
-      return [{ src, alt: safeAltText(candidate.alt) || field.name }];
+      return [{ src, alt: safeAltText(candidate.alt) || field.name, ...mediaDimensions(candidate) }];
     });
 
     return images.length > 0 ? { kind: "images", images } : null;

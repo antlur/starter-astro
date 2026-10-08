@@ -117,6 +117,25 @@ test("sanitizes rich text and excludes unsafe media URLs from blueprint details"
   assert.equal(entry.seoDescription, "A shared meal at Fieldwork.");
 });
 
+test("preserves intrinsic dimensions for safe blueprint images", async () => {
+  const response = structuredClone(entryResponse);
+  response.data.unstable_data.photo = {
+    url: "https://cdn.example.test/community-supper.jpg",
+    file_name: "community-supper.jpg",
+  };
+  Object.assign(response.data.unstable_data.photo, { width: 1600, height: 900 });
+
+  const resolved = await resolveBlueprintRoutes(["/locations/tampa/community-supper/"], async () => response);
+  const entry = resolved.routes[0];
+  assert.ok(entry && entry.kind === "entry");
+  if (!entry || entry.kind !== "entry") return;
+
+  assert.deepEqual(entry.fields.find(({ slug }) => slug === "photo")?.value, {
+    kind: "images",
+    images: [{ src: "https://cdn.example.test/community-supper.jpg", alt: "Photo", width: 1600, height: 900 }],
+  });
+});
+
 test("rejects mismatched resolver paths and keeps non-blueprint routes unhandled", async () => {
   await assert.rejects(
     () => resolveBlueprintRoutes(["/happenings/"], async () => ({

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mediaAltText, previewRouteUrl, safeAltText, safeImageUrl, safeLinkUrl, safeSiteLinkUrl, safeVideoUrl } from "../src/lib/safe-url";
+import { mediaAltText, mediaDimensions, previewRouteUrl, safeAltText, safeImageUrl, safeLinkUrl, safeSiteLinkUrl, safeVideoUrl } from "../src/lib/safe-url";
 
 test("safe block URLs allow local and supported links but reject unsafe schemes", () => {
   assert.equal(safeLinkUrl("/about/"), "/about/");
@@ -47,4 +47,11 @@ test("preview route URLs localize only known paths on the configured website dom
   assert.equal(previewRouteUrl("https://goallinebar.com/football/", "goallinebar.com", ["/events/football/", "/league/football/"]), null);
   assert.equal(previewRouteUrl("https://example.test/menu/", "goallinebar.com", routes), null);
   assert.equal(previewRouteUrl("javascript:alert(1)", "goallinebar.com", routes), null);
+});
+
+test("media dimensions accept only positive integer values", () => {
+  assert.deepEqual(mediaDimensions({ width: 1200, height: 800 }), { width: 1200, height: 800 });
+  assert.equal(mediaDimensions({ width: 0, height: 800 }), null);
+  assert.equal(mediaDimensions({ width: "1200", height: 800 }), null);
+  assert.equal(mediaDimensions(null), null);
 });

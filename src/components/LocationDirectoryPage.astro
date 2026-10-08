@@ -22,7 +22,7 @@ const locations = Astro.props.locations.toSorted((left, right) => left.location.
         const description = location.description ? sanitizeRichText(location.description) : "";
         return (
           <article class="location-card">
-            {location.imageUrl && <a class="location-card__image-link" href={path} aria-label={`Visit ${location.name}`}><img src={location.imageUrl} alt={location.imageAlt || location.name} loading="lazy" decoding="async" /></a>}
+            {location.imageUrl && <a class="location-card__image-link" href={path} aria-label={`Visit ${location.name}`}><img src={location.imageUrl} alt={location.imageAlt || location.name} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 1000} loading="lazy" decoding="async" /></a>}
             <div class="location-card__content">
               <h2><a href={path}>{location.name}</a></h2>
               {location.addressLines.length > 0 && <address>{location.addressLines.map((line) => <span>{line}</span>)}</address>}
