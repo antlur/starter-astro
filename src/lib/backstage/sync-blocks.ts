@@ -115,6 +115,14 @@ function validateSchemaFields(fields: unknown[], blockSlug: string, parent = "sc
       throw new Error(`Block manifest "${blockSlug}" has an invalid multiple-value setting for "${field.slug}".`);
     }
 
+    if (field.is_primary !== undefined && typeof field.is_primary !== "boolean") {
+      throw new Error(`Block manifest "${blockSlug}" has an invalid primary-field setting for "${field.slug}".`);
+    }
+
+    if (field.show_in_list !== undefined && typeof field.show_in_list !== "boolean") {
+      throw new Error(`Block manifest "${blockSlug}" has an invalid list-visibility setting for "${field.slug}".`);
+    }
+
     if (field.allowed_references !== undefined && (!Array.isArray(field.allowed_references)
       || field.allowed_references.some((reference) => typeof reference !== "string"))) {
       throw new Error(`Block manifest "${blockSlug}" has invalid reference targets for "${field.slug}".`);
@@ -147,30 +155,34 @@ function accountOnlyFields(localFields: readonly Field[], accountFields: readonl
   });
 }
 
-type NormalizedField = {
-  name: string;
-  slug: string;
-  type: Field["type"];
-  description: string | null;
-  placeholder: string | null;
-  order: number | null;
-  options: Array<{ label: string; value: unknown }>;
-  is_multiple: boolean;
-  fields: NormalizedField[];
-};
+function normalizedFields(fields: readonly Field[]): Record<string, unknown>[] {
+  return fields.map((field) => {
+    const { type_id: _typeId, fields: nestedFields, ...portable } = field;
 
-function normalizedFields(fields: readonly Field[]): NormalizedField[] {
-  return fields.map((field) => ({
-    name: field.name,
-    slug: field.slug,
-    type: field.type,
-    description: field.description ?? null,
-    placeholder: field.placeholder ?? null,
-    order: field.order ?? null,
-    options: (field.options ?? []).map(({ label, value }) => ({ label, value })),
-    is_multiple: Boolean(field.is_multiple),
-    fields: normalizedFields(field.fields ?? []),
-  }));
+    return {
+      ...portable,
+      description: field.description ?? null,
+      placeholder: field.placeholder ?? null,
+      required: Boolean(field.required),
+      options: field.options ?? [],
+      allowed_references: field.allowed_references ?? [],
+      is_multiple: Boolean(field.is_multiple),
+      is_primary: Boolean(field.is_primary),
+      show_in_list: Boolean(field.show_in_list),
+      order: field.order ?? null,
+      value: field.value ?? null,
+      fields: normalizedFields(nestedFields ?? []),
+    };
+  });
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (isRecord(value)) {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+  }
+
+  return JSON.stringify(value) ?? "null";
 }
 
 function matchesManifest(existing: RegisteredBlock, manifest: BlockManifest): boolean {
@@ -179,8 +191,8 @@ function matchesManifest(existing: RegisteredBlock, manifest: BlockManifest): bo
     && existing.slug === manifest.slug
     && (existing.registry_identity ?? null) === manifest.registry_identity
     && (manifest.derived_from === undefined || (existing.derived_from ?? null) === manifest.derived_from)
-    && JSON.stringify(normalizedFields(existing.schema?.fields ?? []))
-      === JSON.stringify(normalizedFields(manifest.schema.fields));
+    && stableJson(normalizedFields(existing.schema?.fields ?? []))
+      === stableJson(normalizedFields(manifest.schema.fields));
 }
 
 export function validateBlockManifests(manifests: unknown[]): asserts manifests is BlockManifest[] {
