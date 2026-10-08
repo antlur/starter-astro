@@ -1,6 +1,6 @@
+import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "../lib/backstage/concurrency";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import { safeAltText } from "../lib/safe-url";
-import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "../lib/backstage/concurrency";
 import { normalizeRoutePath } from "./routes";
 
 interface BlueprintField {
