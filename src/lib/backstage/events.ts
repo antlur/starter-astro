@@ -1,4 +1,4 @@
-import { mediaAltText, safeImageUrl, safeLinkUrl } from "../safe-url";
+import { mediaAltText, safeImageUrl, safeSiteLinkUrl } from "../safe-url";
 
 export interface SiteEvent {
   id: string;
@@ -60,7 +60,7 @@ export const normalizeEvent = (value: unknown, index = 0): SiteEvent => {
     description: optionalText(value.description),
     imageUrl: safeImageUrl(coverMedia),
     imageAlt: mediaAltText(coverMedia),
-    ticketUrl: safeLinkUrl(value.ticket_uri),
+    ticketUrl: safeSiteLinkUrl(value.ticket_uri),
   };
 };
 

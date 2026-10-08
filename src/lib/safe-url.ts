@@ -3,6 +3,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isLocalPath = (value: string): boolean =>
   value.startsWith("/") && !value.startsWith("//") && !value.includes("\\");
+const staticFileExtension = /\.(?:7z|avif|bmp|bin|css|csv|docx?|eot|gif|gz|heic|heif|ico|jpe?g|js|json|m4a|m4v|mov|mp3|mp4|mpeg|ogg|otf|pdf|png|pptx?|rar|rtf|svg|tar|tif|tiff|txt|wav|webm|webmanifest|webp|woff2?|xlsx?|xml|zip)$/i;
 
 const normalizedHostname = (value: string): string | null => {
   try {
@@ -55,6 +56,19 @@ export const safeLinkUrl = (value: unknown): string | null => {
   } catch {
     return null;
   }
+};
+
+export const safeSiteLinkUrl = (value: unknown): string | null => {
+  const safeUrl = safeLinkUrl(value);
+  if (!safeUrl || !isLocalPath(safeUrl)) return safeUrl;
+
+  const url = new URL(safeUrl, "https://starter.invalid");
+  const finalSegment = url.pathname.split("/").filter(Boolean).at(-1) ?? "";
+  // Static asset paths keep their filename; page paths match Astro's trailing-slash routes.
+  if (staticFileExtension.test(finalSegment)) return safeUrl;
+
+  const pathname = url.pathname === "/" ? "/" : `/${url.pathname.split("/").filter(Boolean).join("/")}/`;
+  return `${pathname}${url.search}${url.hash}`;
 };
 
 export const safeImageUrl = (value: unknown): string | null => {

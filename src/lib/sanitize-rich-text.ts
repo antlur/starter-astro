@@ -1,6 +1,6 @@
 import { decodeHTML } from "entities";
 import sanitizeHtml from "sanitize-html";
-import { previewRouteUrl } from "./safe-url";
+import { previewRouteUrl, safeSiteLinkUrl } from "./safe-url";
 
 const length = "(?:0|(?:\\d+(?:\\.\\d+)?)(?:px|rem|em|%))";
 const spacing = new RegExp(`^(?:auto|-?${length})(?:\\s+(?:auto|-?${length})){0,3}$`, "i");
@@ -65,12 +65,12 @@ export const sanitizeRichText = (
 
         return { tagName: "h2", attribs: attributes };
       },
-      ...(preview ? {
-        a: (tagName: string, attributes: Record<string, string>) => {
-          const href = previewRouteUrl(attributes.href, preview.siteDomain, preview.routePaths);
-          return { tagName, attribs: href ? { ...attributes, href } : attributes };
-        },
-      } : {}),
+      a: (tagName: string, attributes: Record<string, string>) => {
+        const href = (preview
+          ? previewRouteUrl(attributes.href, preview.siteDomain, preview.routePaths)
+          : null) ?? (attributes.href?.startsWith("/") ? safeSiteLinkUrl(attributes.href) : null);
+        return { tagName, attribs: href ? { ...attributes, href } : attributes };
+      },
     },
   });
 };

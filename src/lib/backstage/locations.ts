@@ -1,4 +1,4 @@
-import { mediaAltText, safeImageUrl, safeLinkUrl } from "../safe-url";
+import { mediaAltText, safeImageUrl, safeSiteLinkUrl } from "../safe-url";
 
 export interface SiteLocationHours {
   day: string;
@@ -163,7 +163,7 @@ export const normalizeLocation = (value: unknown, index = 0): SiteLocation => {
     longitude: coordinate(value.longitude),
     imageUrl: safeImageUrl(value.featured_media),
     imageAlt: mediaAltText(value.featured_media),
-    loyaltyUrl: safeLinkUrl(value.loyalty_url),
+    loyaltyUrl: safeSiteLinkUrl(value.loyalty_url),
     hours: normalizeLocationHours(value.hours),
   };
 };
