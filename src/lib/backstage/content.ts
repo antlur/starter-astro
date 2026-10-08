@@ -1,5 +1,6 @@
 import { BackstageClient } from "@antlur/backstage";
 import type { AccountBlock, Alert, Field } from "@antlur/backstage";
+import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "./concurrency";
 import { pageLayoutDefinitions } from "../../site/page-layout-definitions";
 import { loadBlockManifests } from "./block-manifests";
 import { attachBackstageForms } from "./forms";
@@ -790,7 +791,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     ? locationMenuIds
     : [];
   const menuIds = [...new Set([...pageMenuIds, ...navigationMenuIds, ...routeMenuIds, ...indexMenuIds])];
-  const rawMenus = await Promise.all(menuIds.map(async (id) => {
+  const rawMenus = await mapWithConcurrency(menuIds, BACKSTAGE_REQUEST_CONCURRENCY, async (id) => {
     try {
       const response: unknown = await client.menus.getMenu(id);
       const menu = Array.isArray(response)
@@ -802,7 +803,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     } catch (error) {
       throw new Error(`Could not load Backstage menu ${id} linked from a page block or navigation.`, { cause: error });
     }
-  }));
+  });
   const menuMedia = await loadMenuMedia(client, collectMenuMediaIds(rawMenus));
   const menus = rawMenus.map((menu, index) => normalizeMenu(menu, index, menuMedia));
   attachMenusToBlocks(normalizedPages, menus);

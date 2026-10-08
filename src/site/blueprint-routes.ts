@@ -1,3 +1,4 @@
+import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "../lib/backstage/concurrency";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import { mediaDimensions, safeAltText, safeSiteLinkUrl } from "../lib/safe-url";
 import { normalizeRoutePath } from "./routes";
@@ -287,26 +288,11 @@ export const parseBlueprintRoute = (path: string, value: unknown): BlueprintRout
   };
 };
 
-const withConcurrency = async <T, R>(items: readonly T[], concurrency: number, task: (item: T) => Promise<R>): Promise<R[]> => {
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-
-  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex++;
-      results[index] = await task(items[index]);
-    }
-  });
-
-  await Promise.all(workers);
-  return results;
-};
-
 export const resolveBlueprintRoutes = async (
   paths: readonly string[],
   resolver: RouteResolver,
 ): Promise<{ routes: BlueprintRoute[]; unhandledPaths: string[] }> => {
-  const resolved = await withConcurrency(paths, 4, async (path) => ({
+  const resolved = await mapWithConcurrency(paths, BACKSTAGE_REQUEST_CONCURRENCY, async (path) => ({
     path,
     route: parseBlueprintRoute(path, await resolver(path).catch((error: unknown) => {
       throw new Error(`Failed to resolve Backstage route ${path}.`, { cause: error });

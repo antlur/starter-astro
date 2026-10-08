@@ -28,6 +28,31 @@ test("uses a Backstage canonical route only when it resolves to the existing pag
   assert.deepEqual(result.unhandledPaths, []);
 });
 
+test("bounds canonical route resolution and preserves route order", async () => {
+  const pages = Array.from({ length: 12 }, (_, index) => ({
+    ...fixtureContent.pages[1],
+    id: `page-${index}`,
+    slug: `page-${index}`,
+    pathname: `/page-${index}/`,
+  }));
+  const paths = pages.map((page) => page.pathname);
+  let active = 0;
+  let maxActive = 0;
+
+  const result = await resolveCanonicalPageRoutes(paths, pages, async (path) => {
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await new Promise((resolve) => setTimeout(resolve, 1));
+    active -= 1;
+    const page = pages.find((candidate) => candidate.pathname === path)!;
+    return { type: "page", meta: { type: "page", path }, data: { id: page.id } };
+  });
+
+  assert.equal(maxActive, 4);
+  assert.deepEqual(result.pages.map((page) => page.pathname), paths);
+  assert.deepEqual(result.unhandledPaths, []);
+});
+
 test("rejects a route resolver response for a different canonical path", () => {
   assert.throws(
     () => pageForCanonicalRoute("/requested", {
