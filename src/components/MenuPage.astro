@@ -1,6 +1,7 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import { uniqueMenuRoutes, type SiteMenu } from "../lib/backstage/menus";
+import { uniqueMenuRoutes } from "../site/menu-routes";
+import type { SiteMenu } from "../lib/backstage/menus";
 import { safeLinkUrl } from "../lib/safe-url";
 
 interface Props {
