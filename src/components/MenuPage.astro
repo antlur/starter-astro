@@ -1,8 +1,8 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import { uniqueMenuRoutes } from "../site/menu-routes";
 import type { SiteMenu } from "../lib/backstage/menus";
 import { safeLinkUrl } from "../lib/safe-url";
+import { uniqueMenuRoutes } from "../site/menu-routes";
 
 interface Props {
   menu: SiteMenu;
@@ -11,7 +11,6 @@ interface Props {
 }
 
 const { menu, menuRoutes, isEmbedded = false } = Astro.props;
-const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
 const formatPrice = (value: string): string => {
   return value.trim().replace(/^\$\s*/, "");
 };
@@ -20,6 +19,7 @@ const categoryAnchors = menu.categories.map((category, index) => ({
   id: `menu-category-${menu.id}-${index}`,
   title: category.title,
 }));
+const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
 ---
 
 <section class:list={["menu-page", isEmbedded && "menu-page--embedded"]} aria-labelledby={`menu-title-${menu.id}`}>
