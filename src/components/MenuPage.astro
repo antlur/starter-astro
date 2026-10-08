@@ -24,7 +24,7 @@ const categoryAnchors = menu.categories.map((category, index) => ({
   <header class="menu-page__header">
     {isEmbedded
       ? <h2 class="menu-page__title" id={`menu-title-${menu.id}`}>{menu.title}</h2>
-      : <h1 class="sr-only" id={`menu-title-${menu.id}`}>{menu.title}</h1>}
+      : <h1 class="menu-page__title" id={`menu-title-${menu.id}`}>{menu.title}</h1>}
     {menu.subtitle && <p class="menu-page__subtitle">{menu.subtitle}</p>}
     {pdfUrl && <a class="menu-page__download" href={pdfUrl} target="_blank" rel="noopener noreferrer">Download Menu</a>}
   </header>
@@ -108,14 +108,10 @@ const categoryAnchors = menu.categories.map((category, index) => ({
   .menu-page__header {
     display: flex;
     min-height: 2.25rem;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 1rem;
-  }
-
-  .menu-page--embedded .menu-page__header {
-    justify-content: flex-start;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1rem;
   }
 
   .menu-page__title {
