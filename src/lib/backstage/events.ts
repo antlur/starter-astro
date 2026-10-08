@@ -69,6 +69,17 @@ export const normalizeEvent = (value: unknown, index = 0): SiteEvent => {
   };
 };
 
+export const resolveEventTimezone = (
+  eventTimezone: string | null,
+  locationTimezones: Array<string | null>,
+): string | null => {
+  if (eventTimezone) return eventTimezone;
+  if (locationTimezones.length === 0) return null;
+
+  const [timezone] = locationTimezones;
+  return timezone && locationTimezones.every((candidate) => candidate === timezone) ? timezone : null;
+};
+
 export const selectUpcomingEvents = (
   events: SiteEvent[],
   count: unknown,
@@ -90,10 +101,10 @@ const zonedFormatter = (
   try {
     return new Intl.DateTimeFormat("en-US", {
       ...options,
-      ...(timezone ? { timeZone: timezone } : {}),
+      timeZone: timezone || "UTC",
     });
   } catch {
-    return new Intl.DateTimeFormat("en-US", options);
+    return new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" });
   }
 };
 
