@@ -1,5 +1,6 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import { formFieldAutocomplete } from "../lib/form-autocomplete";
 import type { BackstageFormField, HeadlessBlock } from "../lib/backstage/content";
 
 interface Props {
@@ -62,12 +63,13 @@ const inputType = (type: BackstageFormField["type"]): "text" | "email" | "tel" |
       {form.fields.map((field) => {
         const id = `${block.id}-${field.id}`;
         const name = field.type === "checkbox" && field.options.length > 0 ? `${field.name}[]` : field.name;
+        const autocomplete = formFieldAutocomplete(field);
 
         if (field.type === "select") {
           return (
             <label class="contact-form__field" for={id}>
               <span>{field.label}{field.required && <span aria-hidden="true"> *</span>}</span>
-              <select id={id} name={field.name} required={field.required}>
+              <select id={id} name={field.name} required={field.required} autocomplete={autocomplete}>
                 <option value="" disabled selected>Select an option</option>
                 {field.options.map((option) => <option value={option.value}>{option.label}</option>)}
               </select>
@@ -79,7 +81,7 @@ const inputType = (type: BackstageFormField["type"]): "text" | "email" | "tel" |
           return (
             <label class="contact-form__field" for={id}>
               <span>{field.label}{field.required && <span aria-hidden="true"> *</span>}</span>
-              <textarea id={id} name={field.name} required={field.required} rows="5"></textarea>
+              <textarea id={id} name={field.name} required={field.required} rows="5" autocomplete={autocomplete}></textarea>
             </label>
           );
         }
@@ -123,6 +125,9 @@ const inputType = (type: BackstageFormField["type"]): "text" | "email" | "tel" |
               name={field.name}
               required={field.required}
               aria-required={field.required ? "true" : undefined}
+              autocomplete={autocomplete}
+              autocapitalize={field.type === "email" || field.type === "url" ? "none" : undefined}
+              spellcheck={field.type === "email" ? "false" : undefined}
             />
           </label>
         );
