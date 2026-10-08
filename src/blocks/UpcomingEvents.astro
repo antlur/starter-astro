@@ -37,7 +37,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
       {scheduledEvents.map(({ event, schedule }) => (
         <article class="upcoming-events__item">
           {event.imageUrl && (
-            <img src={event.imageUrl} alt={event.imageAlt} loading="lazy" decoding="async" />
+            <img src={event.imageUrl} alt={event.imageAlt} width={event.imageWidth ?? 1200} height={event.imageHeight ?? 900} loading="lazy" decoding="async" />
           )}
           <div class="upcoming-events__copy">
             <p class="upcoming-events__date">

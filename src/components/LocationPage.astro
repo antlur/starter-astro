@@ -35,7 +35,7 @@ const locationSchema = JSON.stringify({
     {description && <div class="location-page__description" set:html={description} />}
   </header>
 
-  {location.imageUrl && <img class="location-page__image" src={location.imageUrl} alt={location.imageAlt || location.name} fetchpriority="high" />}
+  {location.imageUrl && <img class="location-page__image" src={location.imageUrl} alt={location.imageAlt || location.name} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 800} fetchpriority="high" />}
 
   <div class="location-page__details">
     <section class="location-page__visit" aria-labelledby="location-address-title">

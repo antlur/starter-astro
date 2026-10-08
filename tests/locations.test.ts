@@ -12,6 +12,7 @@ test("normalizes grouped Backstage hours and collapses adjacent matching days", 
     zip: "60131",
     phone: "(847) 349-9325",
     map_link: "https://maps.example.test/restaurant",
+    featured_media: { url: "https://cdn.example.test/location.jpg", alt: "Dining room", width: 1600, height: 1000 },
     hours: [{
       label: "",
       days: [
@@ -31,6 +32,8 @@ test("normalizes grouped Backstage hours and collapses adjacent matching days", 
     { day: "Sun", value: "11 AM - 10 PM" },
   ]);
   assert.equal(location.mapUrl, "https://maps.example.test/restaurant");
+  assert.equal(location.imageWidth, 1600);
+  assert.equal(location.imageHeight, 1000);
 });
 
 test("omits unsafe map URLs and respects closed, hidden, and 24-hour days", () => {

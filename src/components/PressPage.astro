@@ -31,7 +31,7 @@ const content = release?.content ? sanitizeRichText(release.content) : "";
         <div class="press-list">
           {sortedReleases.map((item) => (
             <article class="press-item">
-              {item.imageUrl && <img src={item.imageUrl} alt={item.imageAlt || item.title} loading="lazy" decoding="async" />}
+              {item.imageUrl && <img src={item.imageUrl} alt={item.imageAlt || item.title} width={item.imageWidth ?? 1200} height={item.imageHeight ?? 900} loading="lazy" decoding="async" />}
               <div class="press-item__content">
                 <p class="press-item__meta">{item.source} <span aria-hidden="true">·</span> <time datetime={item.publishedAt}>{dateLabel(item.publishedAt)}</time></p>
                 <h2>{item.publicPath ? <a href={item.publicPath}>{item.title}</a> : item.title}</h2>
@@ -52,7 +52,7 @@ const content = release?.content ? sanitizeRichText(release.content) : "";
         <h1 id="press-title">{release.title}</h1>
         {release.excerpt && <p class="press-detail__excerpt">{release.excerpt}</p>}
       </header>
-      {release.imageUrl && <img class="press-detail__image" src={release.imageUrl} alt={release.imageAlt || release.title} fetchpriority="high" />}
+      {release.imageUrl && <img class="press-detail__image" src={release.imageUrl} alt={release.imageAlt || release.title} width={release.imageWidth ?? 1200} height={release.imageHeight ?? 900} fetchpriority="high" />}
       {content && <div class="press-detail__content" set:html={content} />}
       {release.sourceUrl && <p class="press-detail__source"><a href={release.sourceUrl} target="_blank" rel="noopener noreferrer">Read the original story at {release.source}</a></p>}
     </article>

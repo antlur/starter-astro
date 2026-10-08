@@ -1,6 +1,6 @@
 ---
 import type { HeadlessBlock } from "../lib/backstage/content";
-import { mediaAltText, safeAltText, safeImageUrl } from "../lib/safe-url";
+import { mediaAltText, mediaDimensions, safeAltText, safeImageUrl } from "../lib/safe-url";
 
 interface Props {
   block: HeadlessBlock;
@@ -18,7 +18,8 @@ const images = Array.isArray(block.fields.images)
       if (typeof value !== "object" || value === null || Array.isArray(value)) return [];
       const item = value as Record<string, unknown>;
       const src = safeImageUrl(item.image);
-      return src ? [{ src, alt: safeAltText(item.imageAlt) || mediaAltText(item.image), caption: text(item.caption) }] : [];
+      const dimensions = mediaDimensions(item.image);
+      return src ? [{ src, ...dimensions, alt: safeAltText(item.imageAlt) || mediaAltText(item.image), caption: text(item.caption) }] : [];
     })
   : [];
 const HeadingTag = isPrimary ? "h1" : "h2";
@@ -35,7 +36,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     <div class:list={["image-gallery__grid", imageFit === "contain" && "image-gallery__grid--contain"]} style={`--gallery-columns: ${columns}`}>
       {images.map((item) => (
         <figure>
-          <img src={item.src} alt={item.alt} loading="lazy" decoding="async" />
+          <img src={item.src} alt={item.alt} width={item.width ?? 1200} height={item.height ?? 900} loading="lazy" decoding="async" />
           {item.caption && <figcaption>{item.caption}</figcaption>}
         </figure>
       ))}

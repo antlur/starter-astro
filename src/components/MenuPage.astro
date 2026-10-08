@@ -82,7 +82,7 @@ const categoryAnchors = menu.categories.map((category, index) => ({
                     </dl>
                   )}
                 </div>
-                {item.imageUrl && <img class="menu-item__image" src={item.imageUrl} alt={item.imageAlt || item.title} loading="lazy" decoding="async" />}
+                {item.imageUrl && <img class="menu-item__image" src={item.imageUrl} alt={item.imageAlt || item.title} width={item.imageWidth ?? 400} height={item.imageHeight ?? 400} loading="lazy" decoding="async" />}
               </article>
             );
           })}

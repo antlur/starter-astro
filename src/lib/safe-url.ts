@@ -70,6 +70,17 @@ export const safeImageUrl = (value: unknown): string | null => {
   }
 };
 
+export const mediaDimensions = (value: unknown): { width: number; height: number } | null => {
+  if (!isRecord(value)) return null;
+
+  const { width, height } = value;
+  if (typeof width !== "number" || typeof height !== "number" || !Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+    return null;
+  }
+
+  return { width, height };
+};
+
 export const safeVideoUrl = (value: unknown): string | null => {
   const media = isRecord(value) ? value : null;
   const rawUrl = typeof value === "string" ? value : media?.url;
