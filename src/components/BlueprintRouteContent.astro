@@ -38,7 +38,7 @@ const renderField = (field: PresentedField) => field.value;
                             : value.text)}
                           {value.kind === "html" && <span set:html={value.html} />}
                           {value.kind === "images" && value.images[0] && (
-                            <img class="summary-image" src={value.images[0].src} alt={value.images[0].alt} loading="lazy" />
+                            <img class="summary-image" src={value.images[0].src} alt={value.images[0].alt} width={value.images[0].width} height={value.images[0].height} loading="lazy" />
                           )}
                           {value.kind === "files" && value.files[0] && (
                             <a href={value.files[0].href}>{value.files[0].label}</a>
@@ -80,7 +80,7 @@ const renderField = (field: PresentedField) => field.value;
                   <div class="image-list">
                     {value.images.map((image) => (
                       <figure>
-                        <img src={image.src} alt={image.alt} loading="lazy" />
+                        <img src={image.src} alt={image.alt} width={image.width} height={image.height} loading="lazy" />
                         {image.alt !== field.name && <figcaption>{image.alt}</figcaption>}
                       </figure>
                     ))}
