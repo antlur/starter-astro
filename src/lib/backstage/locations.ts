@@ -55,6 +55,9 @@ const safeMapEmbedUrl = (value: unknown): string | null => {
   return url.hostname === "www.google.com" && url.pathname === "/maps/embed" ? url.href : null;
 };
 
+export const locationSchemaUrl = (site: URL | undefined, pathname: string): string | undefined =>
+  site ? new URL(pathname, site).href : undefined;
+
 const coordinate = (value: unknown): number | null => {
   if (typeof value !== "string" && typeof value !== "number") return null;
   const parsed = Number(value);

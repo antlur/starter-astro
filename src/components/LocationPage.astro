@@ -1,14 +1,15 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import type { SiteLocation } from "../lib/backstage/locations";
+import { locationSchemaUrl, type SiteLocation } from "../lib/backstage/locations";
 import { uniqueMenuRoutes, type SiteMenuRoute } from "../site/menu-routes";
 
 interface Props {
   location: SiteLocation;
+  routePath: string;
   menuRoutes: SiteMenuRoute[];
 }
 
-const { location, menuRoutes } = Astro.props;
+const { location, routePath, menuRoutes } = Astro.props;
 const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes);
 const description = location.description ? sanitizeRichText(location.description) : "";
 const locationSchema = JSON.stringify({
@@ -18,7 +19,7 @@ const locationSchema = JSON.stringify({
   address: location.addressLines.join(", "),
   telephone: location.phone ?? undefined,
   email: location.email ?? undefined,
-  url: Astro.site?.href,
+  url: locationSchemaUrl(Astro.site, routePath),
   image: location.imageUrl ?? undefined,
   geo: location.latitude !== null && location.longitude !== null ? {
     "@type": "GeoCoordinates",
