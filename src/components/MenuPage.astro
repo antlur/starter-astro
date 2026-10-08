@@ -1,6 +1,6 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import type { SiteMenu } from "../lib/backstage/menus";
+import { uniqueMenuRoutes, type SiteMenu } from "../lib/backstage/menus";
 import { safeLinkUrl } from "../lib/safe-url";
 
 interface Props {
@@ -10,6 +10,7 @@ interface Props {
 }
 
 const { menu, menuRoutes, isEmbedded = false } = Astro.props;
+const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
 const formatPrice = (value: string): string => {
   return value.trim().replace(/^\$\s*/, "");
 };
@@ -29,10 +30,10 @@ const categoryAnchors = menu.categories.map((category, index) => ({
     {pdfUrl && <a class="menu-page__download" href={pdfUrl} target="_blank" rel="noopener noreferrer">Download Menu</a>}
   </header>
 
-  {menuRoutes.length > 1 && (
+  {visibleMenuRoutes.length > 1 && (
     <nav class="menu-page__selector" aria-label="Choose a menu">
-      {menuRoutes.map((route) => (
-        <a href={route.path} aria-current={route.menu.id === menu.id ? "page" : undefined}>{route.label}</a>
+      {visibleMenuRoutes.map((route) => (
+        <a href={route.path} aria-current={route.path === Astro.url.pathname ? "page" : undefined}>{route.label}</a>
       ))}
     </nav>
   )}
