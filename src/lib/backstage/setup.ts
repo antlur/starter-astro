@@ -85,7 +85,7 @@ export async function inspectStarterSetup(
   let rootRouteExists: boolean | null = null;
   let navigationStatus: StarterNavigationStatus = "unknown";
 
-  warnings.push("Confirm Headless application and Application owned routing in Backstage Settings; the SDK does not expose these setting values.");
+  warnings.push("Confirm Headless rendering in Backstage Settings; the SDK does not expose this setting. The Starter uses Backstage's canonical route graph and does not require the legacy Application owned routing mode.");
 
   if (missingRegistrySlugs.length > 0) {
     warnings.push(
@@ -141,7 +141,7 @@ export async function inspectStarterSetup(
         warnings.push(`Pages use block types without a local Starter manifest/renderer: ${unsupportedBlockTypes.join(", ")}. Add support before building.`);
       }
     } catch {
-      warnings.push("Could not verify Headless pages and routes; confirm Headless rendering and Application owned routing in Backstage.");
+      warnings.push("Could not verify Headless pages and routes; confirm Headless rendering and that the expected public routes are present in Backstage's canonical site graph.");
     }
   }
 
