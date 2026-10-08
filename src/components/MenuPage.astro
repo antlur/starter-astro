@@ -2,6 +2,7 @@
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import { formatMenuPrice, type SiteMenu } from "../lib/backstage/menus";
 import { safeLinkUrl } from "../lib/safe-url";
+import { uniqueMenuRoutes } from "../site/menu-routes";
 
 interface Props {
   menu: SiteMenu;
@@ -15,6 +16,7 @@ const categoryAnchors = menu.categories.map((category, index) => ({
   id: `menu-category-${menu.id}-${index}`,
   title: category.title,
 }));
+const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
 ---
 
 <section class:list={["menu-page", isEmbedded && "menu-page--embedded"]} aria-labelledby={`menu-title-${menu.id}`}>
@@ -26,10 +28,10 @@ const categoryAnchors = menu.categories.map((category, index) => ({
     {pdfUrl && <a class="menu-page__download" href={pdfUrl} target="_blank" rel="noopener noreferrer">Download Menu</a>}
   </header>
 
-  {menuRoutes.length > 1 && (
+  {visibleMenuRoutes.length > 1 && (
     <nav class="menu-page__selector" aria-label="Choose a menu">
-      {menuRoutes.map((route) => (
-        <a href={route.path} aria-current={route.menu.id === menu.id ? "page" : undefined}>{route.label}</a>
+      {visibleMenuRoutes.map((route) => (
+        <a href={route.path} aria-current={route.path === Astro.url.pathname ? "page" : undefined}>{route.label}</a>
       ))}
     </nav>
   )}

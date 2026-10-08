@@ -187,6 +187,6 @@ const contentType = pressRoute?.kind === "detail" || eventRoute?.kind === "detai
         : locationIndexPath
           ? <LocationDirectoryPage locations={locationRoutes} />
         : locationRoute
-          ? <LocationPage location={locationRoute.location} menuRoutes={menuRoutes.map(({ path, label }) => ({ path, label }))} />
+          ? <LocationPage location={locationRoute.location} menuRoutes={menuRoutes} />
             : pressRoute && <PressPage kind={pressRoute.kind} release={pressRoute.kind === "detail" ? pressRoute.release : undefined} releases={pressReleases} indexPath={pressIndexPath} />}
 </SiteLayout>

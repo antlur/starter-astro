@@ -1,13 +1,15 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import type { SiteLocation } from "../lib/backstage/locations";
+import { uniqueMenuRoutes, type SiteMenuRoute } from "../site/menu-routes";
 
 interface Props {
   location: SiteLocation;
-  menuRoutes: Array<{ path: string; label: string }>;
+  menuRoutes: SiteMenuRoute[];
 }
 
 const { location, menuRoutes } = Astro.props;
+const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes);
 const description = location.description ? sanitizeRichText(location.description) : "";
 const locationSchema = JSON.stringify({
   "@context": "https://schema.org",
@@ -51,10 +53,10 @@ const locationSchema = JSON.stringify({
         {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Get directions</a>}
         {location.loyaltyUrl && <a href={location.loyaltyUrl} target="_blank" rel="noopener noreferrer">Join rewards</a>}
       </div>
-      {menuRoutes.length > 0 && (
+      {visibleMenuRoutes.length > 0 && (
         <nav class="location-page__menus" aria-label={`${location.name} menus`}>
           <h3>Explore the menu</h3>
-          {menuRoutes.map((route) => <a href={route.path}>{route.label}</a>)}
+          {visibleMenuRoutes.map((route) => <a href={route.path}>{route.label}</a>)}
         </nav>
       )}
     </section>
