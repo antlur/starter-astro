@@ -1,5 +1,5 @@
 import { listRegistryBlocks, type BackstageClient } from "@antlur/backstage";
-import type { BlockManifest, BlockSyncClient } from "./sync-blocks";
+import type { BlockManifest, BlockSyncClient, BlockSyncResult } from "./sync-blocks";
 import { syncBlockManifests } from "./sync-blocks";
 import { safeLinkUrl, safeSiteLinkUrl } from "../safe-url";
 import { planStarterSitePages, type StarterSitePagePlan } from "./site-initializer";
@@ -24,7 +24,7 @@ export interface StarterSetupReport {
   sdkRegistry: { registered: number; total: number; missingSlugs: string[] };
   socialProfileCount: number | null;
   websiteCtaConfigured: boolean | null;
-  blockChanges: { created: number; updated: number } | null;
+  blockChanges: BlockSyncResult | null;
   warnings: string[];
 }
 
@@ -152,6 +152,7 @@ export async function inspectStarterSetup(
   const blockChanges = customBlocksEnabled
     ? await syncBlockManifests(client, manifests, { dryRun: true })
     : null;
+  if (blockChanges?.warnings) warnings.push(...blockChanges.warnings);
 
   return {
     websiteCount: websites.length,

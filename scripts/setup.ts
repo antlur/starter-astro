@@ -124,6 +124,10 @@ async function main() {
 
   const result = await syncBlockManifests(client, manifests);
   console.log(`Block sync complete: ${result.created} created, ${result.updated} updated.`);
+  const reportedWarnings = new Set(report.warnings);
+  for (const warning of result.warnings ?? []) {
+    if (!reportedWarnings.has(warning)) console.warn(`- ${warning}`);
+  }
   console.log("Pages, navigation, menus, forms, and business content are not changed by block sync.");
 }
 

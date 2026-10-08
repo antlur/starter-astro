@@ -38,6 +38,12 @@ export interface BlockSyncOptions {
   dryRun?: boolean;
 }
 
+export interface BlockSyncResult {
+  created: number;
+  updated: number;
+  warnings?: string[];
+}
+
 const identityPattern = /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*@[1-9][0-9]*$/;
 const supportedFieldTypes: Record<FieldType, true> = {
   boolean: true,
@@ -115,6 +121,14 @@ function validateSchemaFields(fields: unknown[], blockSlug: string, parent = "sc
       throw new Error(`Block manifest "${blockSlug}" has an invalid multiple-value setting for "${field.slug}".`);
     }
 
+    if (field.is_primary !== undefined && typeof field.is_primary !== "boolean") {
+      throw new Error(`Block manifest "${blockSlug}" has an invalid primary-field setting for "${field.slug}".`);
+    }
+
+    if (field.show_in_list !== undefined && typeof field.show_in_list !== "boolean") {
+      throw new Error(`Block manifest "${blockSlug}" has an invalid list-visibility setting for "${field.slug}".`);
+    }
+
     if (field.allowed_references !== undefined && (!Array.isArray(field.allowed_references)
       || field.allowed_references.some((reference) => typeof reference !== "string"))) {
       throw new Error(`Block manifest "${blockSlug}" has invalid reference targets for "${field.slug}".`);
@@ -147,40 +161,88 @@ function accountOnlyFields(localFields: readonly Field[], accountFields: readonl
   });
 }
 
-type NormalizedField = {
-  name: string;
-  slug: string;
-  type: Field["type"];
-  description: string | null;
-  placeholder: string | null;
-  order: number | null;
-  options: Array<{ label: string; value: unknown }>;
-  is_multiple: boolean;
-  fields: NormalizedField[];
-};
+function normalizedFields(fields: readonly Field[]): Record<string, unknown>[] {
+  return fields.map((field) => {
+    const { type_id: _typeId, fields: nestedFields, ...portable } = field;
 
-function normalizedFields(fields: readonly Field[]): NormalizedField[] {
-  return fields.map((field) => ({
-    name: field.name,
-    slug: field.slug,
-    type: field.type,
-    description: field.description ?? null,
-    placeholder: field.placeholder ?? null,
-    order: field.order ?? null,
-    options: (field.options ?? []).map(({ label, value }) => ({ label, value })),
-    is_multiple: Boolean(field.is_multiple),
-    fields: normalizedFields(field.fields ?? []),
-  }));
+    return {
+      ...portable,
+      description: field.description ?? null,
+      placeholder: field.placeholder ?? null,
+      required: Boolean(field.required),
+      options: field.options ?? [],
+      allowed_references: field.allowed_references ?? [],
+      is_multiple: Boolean(field.is_multiple),
+      is_primary: Boolean(field.is_primary),
+      show_in_list: Boolean(field.show_in_list),
+      order: field.order ?? null,
+      value: field.value ?? null,
+      fields: normalizedFields(nestedFields ?? []),
+    };
+  });
 }
 
-function matchesManifest(existing: RegisteredBlock, manifest: BlockManifest): boolean {
+function comparableFields(
+  accountFields: readonly Field[],
+  manifestFields: readonly Field[],
+  identity: string,
+  warnings: Set<string>,
+  parent = "",
+): { account: Record<string, unknown>[]; manifest: Record<string, unknown>[] } {
+  const account = normalizedFields(accountFields);
+  const manifest = normalizedFields(manifestFields);
+  const accountIndexes = new Map(accountFields.map((field, index) => [field.slug, index]));
+
+  for (const [index, manifestField] of manifestFields.entries()) {
+    const accountIndex = accountIndexes.get(manifestField.slug);
+    if (accountIndex === undefined) continue;
+
+    const accountField = accountFields[accountIndex];
+    const path = parent ? `${parent}.${manifestField.slug}` : manifestField.slug;
+
+    if (manifestField.required === true && !Object.hasOwn(accountField, "required")) {
+      delete account[accountIndex].required;
+      delete manifest[index].required;
+      warnings.add(`Backstage did not return required metadata for ${identity}.${path}; the account editor may not enforce this field as required.`);
+    }
+
+    const nested = comparableFields(
+      accountField.fields ?? [],
+      manifestField.fields ?? [],
+      identity,
+      warnings,
+      path,
+    );
+    account[accountIndex].fields = nested.account;
+    manifest[index].fields = nested.manifest;
+  }
+
+  return { account, manifest };
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (isRecord(value)) {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(",")}}`;
+  }
+
+  return JSON.stringify(value) ?? "null";
+}
+
+function matchesManifest(existing: RegisteredBlock, manifest: BlockManifest, warnings: Set<string>): boolean {
+  const fields = comparableFields(
+    existing.schema?.fields ?? [],
+    manifest.schema.fields,
+    manifest.registry_identity,
+    warnings,
+  );
+
   return existing.name === manifest.name
     && (existing.description ?? null) === (manifest.description ?? null)
     && existing.slug === manifest.slug
     && (existing.registry_identity ?? null) === manifest.registry_identity
     && (manifest.derived_from === undefined || (existing.derived_from ?? null) === manifest.derived_from)
-    && JSON.stringify(normalizedFields(existing.schema?.fields ?? []))
-      === JSON.stringify(normalizedFields(manifest.schema.fields));
+    && stableJson(fields.account) === stableJson(fields.manifest);
 }
 
 export function validateBlockManifests(manifests: unknown[]): asserts manifests is BlockManifest[] {
@@ -222,7 +284,7 @@ export async function syncBlockManifests(
   client: BlockSyncClient,
   manifests: BlockManifest[],
   options: BlockSyncOptions = {},
-) {
+): Promise<BlockSyncResult> {
   validateBlockManifests(manifests);
   const adoptUnregisteredSlugs = new Set(options.adoptUnregisteredSlugs ?? []);
   const manifestSlugs = new Set(manifests.map((manifest) => manifest.slug));
@@ -263,6 +325,7 @@ export async function syncBlockManifests(
   };
 
   // Validate every manifest against the account before the first write.
+  const warnings = new Set<string>();
   const planned = manifests.map((manifest) => {
     const existing = findExisting(manifest);
     const extraFields = existing
@@ -276,11 +339,11 @@ export async function syncBlockManifests(
       );
     }
 
-    return { manifest, existing };
+    return { manifest, existing, matches: existing ? matchesManifest(existing, manifest, warnings) : false };
   });
   const result = { created: 0, updated: 0 };
 
-  for (const { manifest, existing } of planned) {
+  for (const { manifest, existing, matches } of planned) {
     const payload: SyncPayload = {
       name: manifest.name,
       slug: manifest.slug,
@@ -291,9 +354,14 @@ export async function syncBlockManifests(
     };
 
     if (existing) {
-      if (matchesManifest(existing, manifest)) continue;
+      if (matches) continue;
       result.updated += 1;
-      if (!options.dryRun) await client.blocks.update(existing.id, payload);
+      if (!options.dryRun) {
+        const updated = await client.blocks.update(existing.id, payload);
+        if (updated?.schema?.fields) {
+          comparableFields(updated.schema.fields, manifest.schema.fields, manifest.registry_identity, warnings);
+        }
+      }
       continue;
     }
 
@@ -301,7 +369,10 @@ export async function syncBlockManifests(
     if (options.dryRun) continue;
 
     try {
-      await client.blocks.create(payload);
+      const created = await client.blocks.create(payload);
+      if (created?.schema?.fields) {
+        comparableFields(created.schema.fields, manifest.schema.fields, manifest.registry_identity, warnings);
+      }
     } catch (error) {
       if (statusOf(error) !== 409) throw error;
 
@@ -312,11 +383,14 @@ export async function syncBlockManifests(
         throw new Error(`Slug "${manifest.slug}" conflicted, but no matching registered block was found in this account.`);
       }
 
-      await client.blocks.update(racedBlock.id, payload);
+      const updated = await client.blocks.update(racedBlock.id, payload);
+      if (updated?.schema?.fields) {
+        comparableFields(updated.schema.fields, manifest.schema.fields, manifest.registry_identity, warnings);
+      }
       result.created -= 1;
       result.updated += 1;
     }
   }
 
-  return result;
+  return warnings.size > 0 ? { ...result, warnings: [...warnings] } : result;
 }
