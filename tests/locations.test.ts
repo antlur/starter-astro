@@ -11,6 +11,7 @@ test("normalizes grouped Backstage hours and collapses adjacent matching days", 
     state: "IL",
     zip: "60131",
     phone: "(847) 349-9325",
+    timezone: "America/Chicago",
     map_link: "https://maps.example.test/restaurant",
     hours: [{
       label: "",
@@ -31,6 +32,7 @@ test("normalizes grouped Backstage hours and collapses adjacent matching days", 
     { day: "Sun", value: "11 AM - 10 PM" },
   ]);
   assert.equal(location.mapUrl, "https://maps.example.test/restaurant");
+  assert.equal(location.timezone, "America/Chicago");
 });
 
 test("omits unsafe map URLs and respects closed, hidden, and 24-hour days", () => {

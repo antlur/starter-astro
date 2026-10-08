@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { eventScheduleLabels, normalizeEvent, selectUpcomingEvents } from "../src/lib/backstage/events";
+import { eventScheduleLabels, normalizeEvent, resolveEventTimezone, selectUpcomingEvents } from "../src/lib/backstage/events";
 
 const event = (id: string, startTime: string, endTime: string | null = null) => normalizeEvent({
   id,
@@ -67,4 +67,36 @@ test("formats same-day and multi-day event date and time ranges in the event tim
     startTime: "12:00 PM",
     endTime: "12:00 PM",
   });
+});
+
+test("uses an event timezone before a shared location timezone and avoids ambiguous inference", () => {
+  assert.equal(resolveEventTimezone("America/New_York", ["America/Chicago"]), "America/New_York");
+  assert.equal(resolveEventTimezone(null, ["America/Chicago"]), "America/Chicago");
+  assert.equal(resolveEventTimezone(null, ["America/Chicago", "America/Chicago"]), "America/Chicago");
+  assert.equal(resolveEventTimezone(null, ["America/Chicago", "America/Los_Angeles"]), null);
+  assert.equal(resolveEventTimezone(null, ["America/Chicago", null]), null);
+  assert.equal(resolveEventTimezone(null, []), null);
+});
+
+test("formats missing or invalid event timezones in UTC instead of the process timezone", () => {
+  const previousTimezone = process.env.TZ;
+  process.env.TZ = "America/Los_Angeles";
+
+  try {
+    for (const timezone of [null, "Invalid/Timezone"]) {
+      const normalized = normalizeEvent({
+        id: "utc-fallback",
+        slug: "utc-fallback",
+        title: "UTC fallback",
+        start_time: "2027-04-10T18:00:00Z",
+        timezone,
+      });
+
+      assert.equal(eventScheduleLabels(normalized).startDate, "Saturday, April 10, 2027");
+      assert.equal(eventScheduleLabels(normalized).startTime, "6:00 PM");
+    }
+  } finally {
+    if (previousTimezone === undefined) delete process.env.TZ;
+    else process.env.TZ = previousTimezone;
+  }
 });

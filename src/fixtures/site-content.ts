@@ -95,6 +95,7 @@ export const fixtureSiteContent: SiteContent = {
       mapEmbedUrl: null,
       latitude: null,
       longitude: null,
+      timezone: null,
       imageUrl: null,
       imageAlt: "",
       loyaltyUrl: null,

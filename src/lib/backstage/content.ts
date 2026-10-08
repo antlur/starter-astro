@@ -6,7 +6,7 @@ import { attachBackstageForms } from "./forms";
 import { normalizeLocation, type SiteLocation } from "./locations";
 import { normalizeMenu, type SiteMenu } from "./menus";
 import { normalizePublicPressReleases, type SitePressRelease } from "./press";
-import { normalizeEvent, type SiteEvent } from "./events";
+import { normalizeEvent, resolveEventTimezone, type SiteEvent } from "./events";
 import { normalizeInstagramPosts, type SiteInstagramPost } from "./instagram";
 import { assertLegacyPreviewConfiguration, collectLegacyPageMediaIds, normalizeLegacyPreviewPages } from "./legacy-page-preview";
 import { validateBlockManifests, type BlockManifest } from "./sync-blocks";
@@ -932,8 +932,10 @@ const loadSiteContent = async (): Promise<SiteContent> => {
         return [];
       }
     }));
+    const locationTimezones = locations.map((location) => location.timezone);
     events = rawEvents.map(normalizeEvent).map((event) => ({
       ...event,
+      timezone: resolveEventTimezone(event.timezone, locationTimezones),
       publicPath: publicEventPaths.get(event.slug) ?? null,
     }));
     attachEventsToBlocks(normalizedPages, events, routePaths);

@@ -18,6 +18,7 @@ export interface SiteLocation {
   mapEmbedUrl: string | null;
   latitude: number | null;
   longitude: number | null;
+  timezone: string | null;
   imageUrl: string | null;
   imageAlt: string;
   loyaltyUrl: string | null;
@@ -161,6 +162,7 @@ export const normalizeLocation = (value: unknown, index = 0): SiteLocation => {
     mapEmbedUrl: safeMapEmbedUrl(value.map_embed),
     latitude: coordinate(value.latitude),
     longitude: coordinate(value.longitude),
+    timezone: optionalString(value.timezone),
     imageUrl: safeImageUrl(value.featured_media),
     imageAlt: mediaAltText(value.featured_media),
     loyaltyUrl: safeLinkUrl(value.loyalty_url),
