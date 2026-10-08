@@ -4,7 +4,7 @@ import LocationHoursSection from "../components/LocationHoursSection.astro";
 import SiteAlerts from "../components/SiteAlerts.astro";
 import SocialIcon from "../components/SocialIcon.astro";
 import { alertsForPath } from "../lib/backstage/alerts";
-import { richTextToPlainText } from "../lib/sanitize-rich-text";
+import { resolveSeoMetadata } from "../lib/seo-metadata";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
 import type { SiteLocation } from "../lib/backstage/locations";
 
@@ -26,13 +26,7 @@ interface Props {
 
 const { page, pageTitle: routeTitle, pageDescription: routeDescription, pageImage, contentType = "website", site, pathname, navigation, footerNavigation = [], routePaths, alerts, locations, showLocationHours = true } = Astro.props;
 const siteTitle = site.meta?.title || site.name;
-const pageTitle = routeTitle || page?.meta?.title || page?.title || siteTitle;
-const title = pageTitle === siteTitle || pageTitle.endsWith(" | " + siteTitle)
-  ? pageTitle
-  : pageTitle + " | " + siteTitle;
-const description = richTextToPlainText(routeDescription || page?.meta?.description || site.openGraph?.description || site.meta?.description || pageTitle);
-const openGraphTitle = routeTitle || page?.meta?.title || site.openGraph?.title || title;
-const openGraphDescription = richTextToPlainText(routeDescription || page?.meta?.description || site.openGraph?.description || description);
+const { title, description, openGraphTitle, openGraphDescription } = resolveSeoMetadata({ page, routeTitle, routeDescription, site });
 const openGraphImage = pageImage || site.openGraph?.image;
 const canonicalUrl = Astro.site ? new URL(pathname, Astro.site).href : undefined;
 const indexable = import.meta.env.SITE_INDEXABLE === "true" && Boolean(Astro.site);
