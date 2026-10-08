@@ -1,7 +1,8 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import type { SiteMenu } from "../lib/backstage/menus";
+import { formatMenuPrice, type SiteMenu } from "../lib/backstage/menus";
 import { safeLinkUrl } from "../lib/safe-url";
+import { uniqueMenuRoutes } from "../site/menu-routes";
 
 interface Props {
   menu: SiteMenu;
@@ -10,29 +11,27 @@ interface Props {
 }
 
 const { menu, menuRoutes, isEmbedded = false } = Astro.props;
-const formatPrice = (value: string): string => {
-  return value.trim().replace(/^\$\s*/, "");
-};
 const pdfUrl = safeLinkUrl(menu.pdfUrl);
 const categoryAnchors = menu.categories.map((category, index) => ({
   id: `menu-category-${menu.id}-${index}`,
   title: category.title,
 }));
+const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
 ---
 
 <section class:list={["menu-page", isEmbedded && "menu-page--embedded"]} aria-labelledby={`menu-title-${menu.id}`}>
   <header class="menu-page__header">
     {isEmbedded
       ? <h2 class="menu-page__title" id={`menu-title-${menu.id}`}>{menu.title}</h2>
-      : <h1 class="sr-only" id={`menu-title-${menu.id}`}>{menu.title}</h1>}
+      : <h1 class="menu-page__title" id={`menu-title-${menu.id}`}>{menu.title}</h1>}
     {menu.subtitle && <p class="menu-page__subtitle">{menu.subtitle}</p>}
     {pdfUrl && <a class="menu-page__download" href={pdfUrl} target="_blank" rel="noopener noreferrer">Download Menu</a>}
   </header>
 
-  {menuRoutes.length > 1 && (
+  {visibleMenuRoutes.length > 1 && (
     <nav class="menu-page__selector" aria-label="Choose a menu">
-      {menuRoutes.map((route) => (
-        <a href={route.path} aria-current={route.menu.id === menu.id ? "page" : undefined}>{route.label}</a>
+      {visibleMenuRoutes.map((route) => (
+        <a href={route.path} aria-current={route.path === Astro.url.pathname ? "page" : undefined}>{route.label}</a>
       ))}
     </nav>
   )}
@@ -65,7 +64,7 @@ const categoryAnchors = menu.categories.map((category, index) => ({
                   <div class="menu-item__topline">
                     {isEmbedded ? <h4 class="menu-item__title">{item.title}</h4> : <h3 class="menu-item__title">{item.title}</h3>}
                     {itemPrice && <span class="menu-item__leader" aria-hidden="true" />}
-                    {itemPrice && <span class="menu-item__price">{formatPrice(itemPrice)}</span>}
+                    {itemPrice && <span class="menu-item__price">{formatMenuPrice(itemPrice)}</span>}
                   </div>
                   {item.postTitle && <p class="menu-item__post-title">{item.postTitle}</p>}
                   {item.subtitle && <p class="menu-item__subtitle">{item.subtitle}</p>}
@@ -76,13 +75,13 @@ const categoryAnchors = menu.categories.map((category, index) => ({
                       {item.prices.map((price) => (
                         <div>
                           {price.label && <dt>{price.label}</dt>}
-                          <dd>{formatPrice(price.value)}</dd>
+                          <dd>{formatMenuPrice(price.value)}</dd>
                         </div>
                       ))}
                     </dl>
                   )}
                 </div>
-                {item.imageUrl && <img class="menu-item__image" src={item.imageUrl} alt={item.imageAlt || item.title} loading="lazy" decoding="async" />}
+                {item.imageUrl && <img class="menu-item__image" src={item.imageUrl} alt={item.imageAlt || item.title} width={item.imageWidth ?? 400} height={item.imageHeight ?? 400} loading="lazy" decoding="async" />}
               </article>
             );
           })}
@@ -108,14 +107,10 @@ const categoryAnchors = menu.categories.map((category, index) => ({
   .menu-page__header {
     display: flex;
     min-height: 2.25rem;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 1rem;
-  }
-
-  .menu-page--embedded .menu-page__header {
-    justify-content: flex-start;
     flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 1rem;
   }
 
   .menu-page__title {

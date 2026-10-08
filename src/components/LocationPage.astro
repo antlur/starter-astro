@@ -1,14 +1,16 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import { locationSchemaUrl, type SiteLocation } from "../lib/backstage/locations";
+import { uniqueMenuRoutes, type SiteMenuRoute } from "../site/menu-routes";
 
 interface Props {
   location: SiteLocation;
   routePath: string;
-  menuRoutes: Array<{ path: string; label: string }>;
+  menuRoutes: SiteMenuRoute[];
 }
 
 const { location, routePath, menuRoutes } = Astro.props;
+const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes);
 const description = location.description ? sanitizeRichText(location.description) : "";
 const locationSchema = JSON.stringify({
   "@context": "https://schema.org",
@@ -36,7 +38,7 @@ const locationSchema = JSON.stringify({
     {description && <div class="location-page__description" set:html={description} />}
   </header>
 
-  {location.imageUrl && <img class="location-page__image" src={location.imageUrl} alt={location.imageAlt || location.name} fetchpriority="high" />}
+  {location.imageUrl && <img class="location-page__image" src={location.imageUrl} alt={location.imageAlt || location.name} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 800} fetchpriority="high" />}
 
   <div class="location-page__details">
     <section class="location-page__visit" aria-labelledby="location-address-title">
@@ -52,10 +54,10 @@ const locationSchema = JSON.stringify({
         {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Get directions</a>}
         {location.loyaltyUrl && <a href={location.loyaltyUrl} target="_blank" rel="noopener noreferrer">Join rewards</a>}
       </div>
-      {menuRoutes.length > 0 && (
+      {visibleMenuRoutes.length > 0 && (
         <nav class="location-page__menus" aria-label={`${location.name} menus`}>
           <h3>Explore the menu</h3>
-          {menuRoutes.map((route) => <a href={route.path}>{route.label}</a>)}
+          {visibleMenuRoutes.map((route) => <a href={route.path}>{route.label}</a>)}
         </nav>
       )}
     </section>

@@ -1,4 +1,4 @@
-import { mediaAltText, safeImageUrl, safeLinkUrl } from "../safe-url";
+import { mediaAltText, mediaDimensions, safeImageUrl, safeSiteLinkUrl } from "../safe-url";
 
 export interface SiteEvent {
   id: string;
@@ -12,6 +12,8 @@ export interface SiteEvent {
   description: string | null;
   imageUrl: string | null;
   imageAlt: string;
+  imageWidth?: number;
+  imageHeight?: number;
   ticketUrl: string | null;
 }
 
@@ -47,6 +49,7 @@ export const normalizeEvent = (value: unknown, index = 0): SiteEvent => {
   }
 
   const coverMedia = isRecord(value.cover_media) ? value.cover_media : null;
+  const dimensions = mediaDimensions(coverMedia);
 
   return {
     id: String(value.id),
@@ -60,8 +63,21 @@ export const normalizeEvent = (value: unknown, index = 0): SiteEvent => {
     description: optionalText(value.description),
     imageUrl: safeImageUrl(coverMedia),
     imageAlt: mediaAltText(coverMedia),
-    ticketUrl: safeLinkUrl(value.ticket_uri),
+    imageWidth: dimensions?.width,
+    imageHeight: dimensions?.height,
+    ticketUrl: safeSiteLinkUrl(value.ticket_uri),
   };
+};
+
+export const resolveEventTimezone = (
+  eventTimezone: string | null,
+  locationTimezones: Array<string | null>,
+): string | null => {
+  if (eventTimezone) return eventTimezone;
+  if (locationTimezones.length === 0) return null;
+
+  const [timezone] = locationTimezones;
+  return timezone && locationTimezones.every((candidate) => candidate === timezone) ? timezone : null;
 };
 
 export const selectUpcomingEvents = (
@@ -85,10 +101,10 @@ const zonedFormatter = (
   try {
     return new Intl.DateTimeFormat("en-US", {
       ...options,
-      ...(timezone ? { timeZone: timezone } : {}),
+      timeZone: timezone || "UTC",
     });
   } catch {
-    return new Intl.DateTimeFormat("en-US", options);
+    return new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" });
   }
 };
 

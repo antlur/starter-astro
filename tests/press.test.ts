@@ -44,3 +44,17 @@ test("only normalizes press records with a canonical public detail route", () =>
     ["community-supper", "/press/community-supper/"],
   ]);
 });
+
+test("preserves press image dimensions for stable image layout", () => {
+  const press = normalizePressRelease({
+    id: 43,
+    slug: "neighborhood-award",
+    title: "A neighborhood award",
+    source: "Local Gazette",
+    published_at: "2026-09-15T12:00:00Z",
+    featured_media: { url: "https://cdn.example.test/press.jpg", alt: "Award", width: 1200, height: 900 },
+  });
+
+  assert.equal(press.imageWidth, 1200);
+  assert.equal(press.imageHeight, 900);
+});

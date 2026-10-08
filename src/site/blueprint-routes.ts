@@ -1,5 +1,6 @@
+import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "../lib/backstage/concurrency";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import { safeAltText } from "../lib/safe-url";
+import { mediaDimensions, safeAltText, safeSiteLinkUrl } from "../lib/safe-url";
 import { normalizeRoutePath } from "./routes";
 
 interface BlueprintField {
@@ -21,6 +22,8 @@ interface BlueprintBase {
 export interface PresentedImage {
   src: string;
   alt: string;
+  width?: number;
+  height?: number;
 }
 
 export type PresentedValue =
@@ -129,23 +132,6 @@ const safeWebUrl = (value: unknown): string | null => {
   }
 };
 
-const safeLinkUrl = (value: string): string | undefined => {
-  const candidate = value.trim();
-  if (candidate.startsWith("#")) return candidate;
-
-  if (candidate.startsWith("/") && !candidate.startsWith("//") && !candidate.includes("\\")) {
-    const url = new URL(candidate, "https://backstage.invalid");
-    return url.pathname + url.search + url.hash;
-  }
-
-  try {
-    const url = new URL(candidate);
-    return ["http:", "https:", "mailto:", "tel:"].includes(url.protocol) ? url.href : undefined;
-  } catch {
-    return undefined;
-  }
-};
-
 const presentValue = (field: BlueprintField, value: unknown): PresentedValue | null => {
   if (value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) {
     return null;
@@ -175,7 +161,7 @@ const presentValue = (field: BlueprintField, value: unknown): PresentedValue | n
       const src = safeWebUrl(candidate.url);
       if (!src) return [];
 
-      return [{ src, alt: safeAltText(candidate.alt) || field.name }];
+      return [{ src, alt: safeAltText(candidate.alt) || field.name, ...mediaDimensions(candidate) }];
     });
 
     return images.length > 0 ? { kind: "images", images } : null;
@@ -184,7 +170,7 @@ const presentValue = (field: BlueprintField, value: unknown): PresentedValue | n
   const text = plainText(value);
   if (!text) return null;
 
-  const href = field.type === "url" ? safeLinkUrl(text) : undefined;
+  const href = field.type === "url" ? safeSiteLinkUrl(text) ?? undefined : undefined;
   return { kind: "text", text, href };
 };
 
@@ -302,26 +288,11 @@ export const parseBlueprintRoute = (path: string, value: unknown): BlueprintRout
   };
 };
 
-const withConcurrency = async <T, R>(items: readonly T[], concurrency: number, task: (item: T) => Promise<R>): Promise<R[]> => {
-  const results = new Array<R>(items.length);
-  let nextIndex = 0;
-
-  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
-    while (nextIndex < items.length) {
-      const index = nextIndex++;
-      results[index] = await task(items[index]);
-    }
-  });
-
-  await Promise.all(workers);
-  return results;
-};
-
 export const resolveBlueprintRoutes = async (
   paths: readonly string[],
   resolver: RouteResolver,
 ): Promise<{ routes: BlueprintRoute[]; unhandledPaths: string[] }> => {
-  const resolved = await withConcurrency(paths, 4, async (path) => ({
+  const resolved = await mapWithConcurrency(paths, BACKSTAGE_REQUEST_CONCURRENCY, async (path) => ({
     path,
     route: parseBlueprintRoute(path, await resolver(path).catch((error: unknown) => {
       throw new Error(`Failed to resolve Backstage route ${path}.`, { cause: error });

@@ -1,16 +1,17 @@
 import { BackstageClient } from "@antlur/backstage";
 import type { AccountBlock, Alert, Field } from "@antlur/backstage";
+import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "./concurrency";
 import { pageLayoutDefinitions } from "../../site/page-layout-definitions";
 import { loadBlockManifests } from "./block-manifests";
 import { attachBackstageForms } from "./forms";
 import { normalizeLocation, type SiteLocation } from "./locations";
 import { normalizeMenu, type SiteMenu } from "./menus";
 import { normalizePublicPressReleases, type SitePressRelease } from "./press";
-import { normalizeEvent, type SiteEvent } from "./events";
+import { normalizeEvent, resolveEventTimezone, type SiteEvent } from "./events";
 import { normalizeInstagramPosts, type SiteInstagramPost } from "./instagram";
 import { assertLegacyPreviewConfiguration, collectLegacyPageMediaIds, normalizeLegacyPreviewPages } from "./legacy-page-preview";
 import { validateBlockManifests, type BlockManifest } from "./sync-blocks";
-import { previewRouteUrl, safeImageUrl, safeLinkUrl } from "../safe-url";
+import { previewRouteUrl, safeImageUrl, safeLinkUrl, safeSiteLinkUrl } from "../safe-url";
 import { sanitizeRichText } from "../sanitize-rich-text";
 
 export interface HeadlessBlock {
@@ -537,29 +538,11 @@ export const attachEventsToBlocks = (pages: HeadlessPage[], events: SiteEvent[],
 };
 
 const normalizeNavigationUrl = (value: unknown): string => {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error("Backstage navigation contains an item without a URL.");
-  }
+  const url = typeof value === "string" ? value.trim() : "";
+  const normalized = safeSiteLinkUrl(url);
+  if (normalized) return normalized;
 
-  const url = value.trim();
-
-  if (url.startsWith("#")) return url;
-
-  if (url.startsWith("/") && !url.startsWith("//")) {
-    const parsed = new URL(url, "https://backstage.invalid");
-    const path = parsed.pathname === "/" ? "/" : `/${parsed.pathname.split("/").filter(Boolean).join("/")}/`;
-
-    return path + parsed.search + parsed.hash;
-  }
-
-  try {
-    const parsed = new URL(url);
-
-    if (["http:", "https:", "mailto:", "tel:"].includes(parsed.protocol)) return url;
-  } catch {
-    // Invalid URL values are rejected by the common error below.
-  }
-
+  if (!url) throw new Error("Backstage navigation contains an item without a URL.");
   throw new Error("Backstage navigation contains an unsupported URL: " + url);
 };
 
@@ -610,7 +593,7 @@ export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
       })
     : [];
   const homeCtaText = optionalString(value.home_cta_text);
-  const homeCtaUrl = safeLinkUrl(value.home_cta_url);
+  const homeCtaUrl = safeSiteLinkUrl(value.home_cta_url);
 
   return {
     name: optionalString(account?.name) ?? optionalString(value.app_name) ?? "Website",
@@ -808,7 +791,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     ? locationMenuIds
     : [];
   const menuIds = [...new Set([...pageMenuIds, ...navigationMenuIds, ...routeMenuIds, ...indexMenuIds])];
-  const rawMenus = await Promise.all(menuIds.map(async (id) => {
+  const rawMenus = await mapWithConcurrency(menuIds, BACKSTAGE_REQUEST_CONCURRENCY, async (id) => {
     try {
       const response: unknown = await client.menus.getMenu(id);
       const menu = Array.isArray(response)
@@ -820,7 +803,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     } catch (error) {
       throw new Error(`Could not load Backstage menu ${id} linked from a page block or navigation.`, { cause: error });
     }
-  }));
+  });
   const menuMedia = await loadMenuMedia(client, collectMenuMediaIds(rawMenus));
   const menus = rawMenus.map((menu, index) => normalizeMenu(menu, index, menuMedia));
   attachMenusToBlocks(normalizedPages, menus);
@@ -932,8 +915,10 @@ const loadSiteContent = async (): Promise<SiteContent> => {
         return [];
       }
     }));
+    const locationTimezones = locations.map((location) => location.timezone);
     events = rawEvents.map(normalizeEvent).map((event) => ({
       ...event,
+      timezone: resolveEventTimezone(event.timezone, locationTimezones),
       publicPath: publicEventPaths.get(event.slug) ?? null,
     }));
     attachEventsToBlocks(normalizedPages, events, routePaths);

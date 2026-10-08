@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeMenu } from "../src/lib/backstage/menus";
+import { formatMenuPrice, normalizeMenu } from "../src/lib/backstage/menus";
+
+test("preserves authored currency formatting for menu prices", () => {
+  assert.equal(formatMenuPrice("$13.00"), "$13.00");
+  assert.equal(formatMenuPrice("$ 13.00 "), "$ 13.00");
+  assert.equal(formatMenuPrice("13,00 €"), "13,00 €");
+});
 
 test("normalizes Backstage menu categories, rich descriptions, and labeled prices", () => {
   const menu = normalizeMenu({
@@ -196,8 +202,8 @@ test("hides prices when the effective Backstage price type is hidden", () => {
 
 test("resolves menu image IDs while respecting a placement-level image override", () => {
   const mediaById = new Map([
-    ["12", { url: "https://cdn.example.test/global.jpg", alt: "Global image" }],
-    ["34", { url: "https://cdn.example.test/local.jpg", alt: "Local image" }],
+    ["12", { url: "https://cdn.example.test/global.jpg", alt: "Global image", width: 800, height: 800 }],
+    ["34", { url: "https://cdn.example.test/local.jpg", alt: "Local image", width: 600, height: 400 }],
   ]);
   const menu = normalizeMenu({
     id: "menu-1",
@@ -226,6 +232,8 @@ test("resolves menu image IDs while respecting a placement-level image override"
 
   assert.equal(menu.categories[0].items[0].imageUrl, "https://cdn.example.test/local.jpg");
   assert.equal(menu.categories[0].items[0].imageAlt, "Local image");
+  assert.equal(menu.categories[0].items[0].imageWidth, 600);
+  assert.equal(menu.categories[0].items[0].imageHeight, 400);
   assert.equal(menu.categories[0].items[1].imageUrl, null);
   assert.equal(menu.categories[0].items[2].imageUrl, "https://cdn.example.test/global.jpg");
 });

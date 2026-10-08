@@ -1,7 +1,7 @@
 import { listRegistryBlocks, type BackstageClient } from "@antlur/backstage";
 import type { BlockManifest, BlockSyncClient } from "./sync-blocks";
 import { syncBlockManifests } from "./sync-blocks";
-import { safeLinkUrl } from "../safe-url";
+import { safeLinkUrl, safeSiteLinkUrl } from "../safe-url";
 import { planStarterSitePages, type StarterSitePagePlan } from "./site-initializer";
 
 export type StarterSetupClient = BlockSyncClient & Pick<BackstageClient, "modules" | "website" | "pages" | "navigation" | "forms">;
@@ -79,13 +79,13 @@ export async function inspectStarterSetup(
       : 0)
     : null;
   const websiteCtaConfigured = websites.length === 1
-    ? Boolean(websites[0].home_cta_text?.trim() && safeLinkUrl(websites[0].home_cta_url))
+    ? Boolean(websites[0].home_cta_text?.trim() && safeSiteLinkUrl(websites[0].home_cta_url))
     : null;
   let homepageExists: boolean | null = null;
   let rootRouteExists: boolean | null = null;
   let navigationStatus: StarterNavigationStatus = "unknown";
 
-  warnings.push("Confirm Headless application and Application owned routing in Backstage Settings; the SDK does not expose these setting values.");
+  warnings.push("Confirm Headless rendering in Backstage Settings; the SDK does not expose this setting. The Starter uses Backstage's canonical route graph and does not require the legacy Application owned routing mode.");
 
   if (missingRegistrySlugs.length > 0) {
     warnings.push(
@@ -141,7 +141,7 @@ export async function inspectStarterSetup(
         warnings.push(`Pages use block types without a local Starter manifest/renderer: ${unsupportedBlockTypes.join(", ")}. Add support before building.`);
       }
     } catch {
-      warnings.push("Could not verify Headless pages and routes; confirm Headless rendering and Application owned routing in Backstage.");
+      warnings.push("Could not verify Headless pages and routes; confirm Headless rendering and that the expected public routes are present in Backstage's canonical site graph.");
     }
   }
 

@@ -87,6 +87,15 @@ test("setup check reports account prerequisites without writing", async () => {
   assert.deepEqual(fake.writes, []);
 });
 
+test("setup check directs Headless sites to the canonical route graph without requiring legacy routing mode", async () => {
+  const fake = client();
+  const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest]);
+  const renderingGuidance = report.warnings.find((warning) => warning.includes("Confirm Headless rendering"));
+
+  assert.ok(renderingGuidance?.includes("canonical route graph"));
+  assert.ok(renderingGuidance?.includes("does not require the legacy Application owned routing mode"));
+});
+
 test("setup check explains when saved navigations need an explicit selection", async () => {
   const fake = client({ navigations: [{ id: "nav-1" }, { id: "nav-2" }] });
   const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest]);

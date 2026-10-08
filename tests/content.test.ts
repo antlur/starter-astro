@@ -729,6 +729,12 @@ test("normalizes website identity while leaving design tokens to the site projec
   assert.deepEqual(site.homeCta, { text: "Order Online", url: "https://order.example.test" });
 });
 
+test("normalizes a local website CTA to its static site route", () => {
+  const site = normalizeWebsite({ home_cta_text: "Browse the menu", home_cta_url: "/menu" });
+
+  assert.deepEqual(site.homeCta, { text: "Browse the menu", url: "/menu/" });
+});
+
 test("does not consume website theme and font settings for a custom headless site", () => {
   const site = normalizeWebsite({
     app_name: "Unsafe Site",
@@ -867,7 +873,10 @@ test("normalizes Backstage navigation and rejects unsafe link schemes", () => {
       text: "Menus",
       url: "/menus",
       new_window: false,
-      children: [{ id: "menu-2", text: "Dinner", url: "/menus/dinner", style: "button", new_window: true }],
+      children: [
+        { id: "menu-2", text: "Dinner", url: "/menus/dinner", style: "button", new_window: true },
+        { id: "menu-pdf", text: "Download", url: "/menus/dinner.pdf?download=1", new_window: true },
+      ],
     }],
   });
 
@@ -877,7 +886,10 @@ test("normalizes Backstage navigation and rejects unsafe link schemes", () => {
     url: "/menus/",
     newWindow: false,
     style: "link",
-    children: [{ id: "menu-2", text: "Dinner", url: "/menus/dinner/", newWindow: true, style: "button", children: [] }],
+    children: [
+      { id: "menu-2", text: "Dinner", url: "/menus/dinner/", newWindow: true, style: "button", children: [] },
+      { id: "menu-pdf", text: "Download", url: "/menus/dinner.pdf?download=1", newWindow: true, style: "link", children: [] },
+    ],
   }]);
 
   assert.throws(
@@ -898,12 +910,13 @@ test("sanitizes rich text tags and unsafe link schemes", () => {
 
 test("localizes known same-site rich-text links only in a preview context", () => {
   const html = sanitizeRichText(
-    '<p><a href="https://www.goallinebar.com/menu">Menu</a> <a href="https://order.goallinebar.com">Order</a></p>',
+    '<p><a href="https://www.goallinebar.com/menu">Menu</a> <a href="https://order.goallinebar.com">Order</a> <a href="/menu?source=about">Local menu</a></p>',
     { siteDomain: "goallinebar.com", routePaths: ["/menu"] },
   );
 
   assert.match(html, /href="\/menu\/?"/);
   assert.match(html, /href="https:\/\/order\.goallinebar\.com"/);
+  assert.ok(html.includes('href="/menu/?source=about"'));
 });
 
 test("preserves the primary legacy heading and formatting while removing unsafe inline styles", () => {

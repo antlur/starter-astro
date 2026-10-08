@@ -1,13 +1,13 @@
 # Backstage Headless Starter
 
-A custom-site starting point using Astro and the framework-neutral Backstage SDK. Astro owns the route map, layouts, and block renderers. Backstage owns the editable content and media.
+A custom-site starting point using Astro and the framework-neutral Backstage SDK. Backstage owns the canonical public content routes, editable content, and media. Astro owns route templates, layouts, block renderers, and site-specific routes not represented in Backstage's graph.
 
 The site builds to static HTML. The SDK runs only during the build, so API credentials are not sent to visitors. A content change requires a new build and deploy; cache-only publishing is not implemented in this starter.
 
 ## Requirements
 
 - Node.js 22.12 or newer
-- An account configured for Headless rendering and Application owned routing in Backstage
+- A Backstage account with its website configured for Headless rendering
 - A read-only Backstage API key and account ID for API builds
 
 ## Local setup
@@ -26,7 +26,7 @@ Social profiles are website-level settings, not page blocks. Configured social l
 
 Published Backstage alerts render only when their schedule and route targeting match the current page. Banners appear above the site header; pop-ups use an accessible dialog and honor the center or bottom-right position. Alert publication, schedule, and route visibility are evaluated at build time, so changes appear with the next build/deploy. On small screens, the first navigation item styled as a button becomes the persistent action; the website CTA is used only when no navigation button exists.
 
-For this starter, configure the website as **Headless application** with **Application owned** routing in Backstage Settings > Rendering. Backstage's canonical website route graph controls which CMS pages are generated. Pages are matched by their `pathname`, so nested pages and future CMS pages are included without duplicating the route list in the app. Pages outside the graph are not published. Routable blueprint index and entry routes are resolved at build time through the SDK and rendered with a generic field renderer; canonical paths come from Backstage, and collection links only include entries present in the public route graph. The starter renders generated Events, Location, Menu, and Press routes from canonical route paths and matching records; missing records stay unhandled rather than leaking unlisted content. For other application-owned routes, add paths to `applicationRoutePaths` in `src/site/routes.ts` and implement Astro page files. Duplicate paths are rejected except where Backstage exposes the Events index alongside a CMS page at `/events`; in that confirmed case, the generated system route owns the public path. Unhandled routes are reported during non-indexable builds and fail an indexable production build, preventing module routes from silently shipping as 404s.
+Configure the website for **Headless** rendering in Backstage Settings. Backstage's canonical website route graph controls which CMS-backed routes are generated; Astro owns the route templates and renderers. Pages are matched by their `pathname`, so nested pages and future CMS pages are included without duplicating the route list in the app. Pages outside the graph are not published. Routable blueprint index and entry routes are resolved at build time through the SDK and rendered with a generic field renderer; canonical paths come from Backstage, and collection links only include entries present in the public route graph. The starter renders generated Events, Location, Menu, and Press routes only when their canonical paths are present in the route graph; missing records stay unhandled rather than leaking unlisted content. Do not enable the legacy **Application owned** routing mode as a Starter prerequisite. For site-specific routes that are not represented in Backstage's graph, add paths to `applicationRoutePaths` in `src/site/routes.ts` and implement Astro page files. Duplicate paths are rejected except where Backstage exposes the Events index alongside a CMS page at `/events`; in that confirmed case, the generated system route owns the public path. Unhandled routes are reported during non-indexable builds and fail an indexable production build, preventing module routes from silently shipping as 404s.
 
 Navigation is read from Backstage. If the account has exactly one navigation, the starter uses it. If there are multiple, set `BACKSTAGE_NAVIGATION_ID` to select one. With no saved navigation, the site shows no page links; create a curated navigation in Backstage before launch. The setup check reports this as an incomplete prerequisite.
 
@@ -64,9 +64,11 @@ CSS custom properties are the canonical design-token source. `src/styles/global.
 
 Brand tokens describe identity, not component appearance. Change `theme.css` for site-specific semantic choices, `ui.css` for shared interface mechanics, and component styles for one-off presentation. Do not add a UI library or a runtime Backstage theme request for token access.
 
-For a new account, set Headless rendering and Application owned routing, enable CMS Custom Blocks, sync the manifests, then optionally create the generic site skeleton. An API build with page blocks stops if Custom Blocks is disabled or a page references a block definition that has not been synced, because those blocks would not be editable in Backstage.
+For a new account, set Headless rendering, enable CMS Custom Blocks, sync the manifests, then optionally create the generic site skeleton. Keep Backstage's canonical site graph as the source of public content routes; the Starter does not require the legacy Application owned routing mode. An API build with page blocks stops if Custom Blocks is disabled or a page references a block definition that has not been synced, because those blocks would not be editable in Backstage.
 
 To use a Contact Form block, create and configure its fields in Backstage, sync the block manifest, then select the existing form in the block editor. Older forms without configured fields need field definitions before they can be rendered. The public reCAPTCHA site key is read from Backstage; register each production hostname with the matching reCAPTCHA configuration. The secret API token is only used during the build and is never sent to site visitors.
+
+Form submissions are disabled in `astro dev`, Netlify Deploy Previews, and Netlify branch deploys. Preview forms show a notice, have disabled fields, and contain no action or form-specific submission wiring. Netlify production builds enable submissions. For a non-Netlify production build, set `BACKSTAGE_FORM_SUBMISSIONS_ENABLED=true`; it is false by default. This is a build-time setting, so rebuild after changing it. Do not enable the flag for a preview build.
 
 ## Search indexing
 

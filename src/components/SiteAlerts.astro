@@ -1,6 +1,6 @@
 ---
 import type { Alert } from "@antlur/backstage";
-import { safeAltText, safeImageUrl, safeLinkUrl } from "../lib/safe-url";
+import { safeAltText, safeImageUrl, safeSiteLinkUrl } from "../lib/safe-url";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 
 interface Props {
@@ -20,7 +20,7 @@ const popups = alerts.filter((alert) => alert.type === "popup");
       const content = alert.content ? sanitizeRichText(alert.content, { siteDomain, routePaths }) : "";
       const imageUrl = safeImageUrl(alert.media);
       const imageAlt = safeAltText(alert.media?.alt);
-      const ctaUrl = safeLinkUrl(alert.cta_url);
+      const ctaUrl = safeSiteLinkUrl(alert.cta_url);
 
       return (
         <article class="site-alert" aria-label={alert.title || "Announcement"}>
@@ -42,7 +42,7 @@ const popups = alerts.filter((alert) => alert.type === "popup");
   const content = alert.content ? sanitizeRichText(alert.content, { siteDomain, routePaths }) : "";
   const imageUrl = safeImageUrl(alert.media);
   const imageAlt = safeAltText(alert.media?.alt);
-  const ctaUrl = safeLinkUrl(alert.cta_url);
+  const ctaUrl = safeSiteLinkUrl(alert.cta_url);
 
   return (
     <dialog class="site-alert site-alert--popup" data-site-alert-popup data-site-alert-position={alert.position === "bottom-right" ? "bottom-right" : "center"} aria-label={alert.title || "Announcement"}>

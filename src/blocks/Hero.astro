@@ -1,7 +1,7 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import type { HeadlessBlock } from "../lib/backstage/content";
-import { mediaAltText, safeAltText, safeImageUrl, safeLinkUrl } from "../lib/safe-url";
+import { mediaAltText, safeAltText, safeImageUrl, safeSiteLinkUrl } from "../lib/safe-url";
 
 interface Props {
   block: HeadlessBlock;
@@ -35,7 +35,7 @@ const actions = Array.isArray(fields.actions)
 const safeActions = actions.flatMap((action) => {
   const label = typeof action.label === "string" ? action.label.trim() : "";
   const href = typeof action.href === "string" ? action.href.trim() : "";
-  const safeHref = safeLinkUrl(href);
+  const safeHref = safeSiteLinkUrl(href);
 
   return label && safeHref ? [{ label, href: safeHref }] : [];
 });

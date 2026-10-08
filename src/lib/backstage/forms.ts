@@ -1,5 +1,6 @@
 import type { FormDefinition } from "@antlur/backstage";
 import type { BackstageFormDefinition, BackstageFormField, HeadlessPage } from "./content";
+import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "./concurrency";
 
 interface FormDefinitionReader {
   forms: {
@@ -161,11 +162,13 @@ export const attachBackstageForms = async <T extends FormDefinitionReader>(
 
   const definitions = new Map<string, BackstageFormDefinition>();
 
-  await Promise.all(
-    [...formIds].map(async (formId) => {
+  await mapWithConcurrency(
+    [...formIds],
+    BACKSTAGE_REQUEST_CONCURRENCY,
+    async (formId) => {
       const response = await client.forms.getFormDefinition(formId);
       definitions.set(formId, normalizeFormDefinition(response, formId));
-    }),
+    },
   );
 
   return pages.map((page) => ({

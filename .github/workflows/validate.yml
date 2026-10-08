@@ -19,10 +19,16 @@ jobs:
         run: npm run build
         env:
           BACKSTAGE_SOURCE: fixture
+          BACKSTAGE_FORM_SUBMISSIONS_ENABLED: "false"
           SITE_INDEXABLE: "false"
+      - name: Verify preview forms are disabled
+        run: node scripts/assert-form-output.mjs disabled
       - name: Build indexable site and sitemap
         run: npm run build
         env:
           BACKSTAGE_SOURCE: fixture
+          BACKSTAGE_FORM_SUBMISSIONS_ENABLED: "true"
           SITE_URL: https://starter.example
           SITE_INDEXABLE: "true"
+      - name: Verify production forms are enabled
+        run: node scripts/assert-form-output.mjs enabled
