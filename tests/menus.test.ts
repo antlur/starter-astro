@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeMenu } from "../src/lib/backstage/menus";
+import { formatMenuPrice, normalizeMenu } from "../src/lib/backstage/menus";
+
+test("preserves authored currency formatting for menu prices", () => {
+  assert.equal(formatMenuPrice("$13.00"), "$13.00");
+  assert.equal(formatMenuPrice("$ 13.00 "), "$ 13.00");
+  assert.equal(formatMenuPrice("13,00 €"), "13,00 €");
+});
 
 test("normalizes Backstage menu categories, rich descriptions, and labeled prices", () => {
   const menu = normalizeMenu({
