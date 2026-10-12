@@ -98,6 +98,12 @@ test("Astro renders video hero, Instagram feed, and embedded menu fixtures acces
     assert.match(menuDownload, attributePattern("rel", "noopener noreferrer"));
     assert.doesNotMatch(html, /aria-label="Choose a menu"/, "an embedded menu should not show the page-level menu switcher");
 
+    assert.match(html, /<blockquote><p>Gather around the table\.<\/p><\/blockquote>/);
+    assert.match(html, /<u>Made with care\.<\/u>/);
+    assert.match(html, /<a href="\/contact\/" class="rich-text__button">Book now<\/a>/);
+    assert.match(html, /<img class="rich-text__image" src="\/favicon\.svg" alt="Fieldwork Coffee icon" title="Fieldwork Coffee" width="64" height="64" \/>/);
+    assert.doesNotMatch(html, /inline-block px-4|text-primary-foreground|alignment="center"/);
+
     const primaryNavigation = firstTag(html, /<nav\b[^>]*aria-label="Primary navigation"[^>]*>[\s\S]*?<\/nav>/, "primary navigation");
     assert.doesNotMatch(primaryNavigation, /__qa\/rendered-blocks/, "the internal QA page must not enter visible navigation");
     assert.match(primaryNavigation, /href="\/menu\/all-day\/">All Day<\/a>/);

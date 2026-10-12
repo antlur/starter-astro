@@ -253,6 +253,19 @@ export const fixtureSiteContent: SiteContent = {
             pdfUrl: "https://files.example.test/menus/all-day-coffee.pdf",
           },
         },
+        {
+          id: "fixture-qa-rich-text-editor-output",
+          type: "rich-text",
+          fields: {
+            body: '<p><a class="rich-text-link" href="/contact">Contact</a> '
+              + '<a href="/contact" data-type="button" class="inline-block px-4 py-2 bg-primary text-primary-foreground rounded">Book now</a></p>'
+              + "<blockquote><p>Gather around the table.</p></blockquote>"
+              + "<p><u>Made with care.</u></p>"
+              + '<img class="max-w-full h-auto rounded" style="max-width: 100%; height: auto;" '
+              + 'src="/favicon.svg" alt="Fieldwork Coffee icon" title="Fieldwork Coffee" '
+              + 'width="64" height="64" alignment="center">',
+          },
+        },
       ],
     },
   ],

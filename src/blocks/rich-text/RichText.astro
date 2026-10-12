@@ -75,4 +75,20 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     text-decoration-thickness: 0.08em;
     text-underline-offset: 0.18em;
   }
+
+  .content-section__body :global(.rich-text__button) {
+    display: inline-block;
+    padding: 0.65em 1em;
+    border-radius: 0.35rem;
+    background: var(--color-accent-strong);
+    color: var(--color-primary-foreground);
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .content-section__body :global(.rich-text__image) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
 </style>
