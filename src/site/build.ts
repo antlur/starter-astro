@@ -1,4 +1,5 @@
 import type { SiteContent, SiteNavigationItem } from "../lib/backstage/content";
+import { loadResolvedMenuMedia } from "../lib/backstage/content";
 import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "../lib/backstage/concurrency";
 import { finalizeBlueprintRoutes, resolveBlueprintRoutes } from "./blueprint-routes";
 import { addResolvedModuleContent, applicationRoutePaths, buildSiteRoutePlan, normalizeRoutePath, reportUnhandledRoutes, resolveCanonicalPageRoutes, type SiteRoutePlan } from "./routes";
@@ -215,7 +216,10 @@ export const buildSiteFromContent = async (
         ],
       }
     : content;
-  const routedContent = addResolvedModuleContent(pagesContent, routeResolutions);
+  const resolvedMenuMedia = import.meta.env?.BACKSTAGE_SOURCE === "api"
+    ? await loadResolvedMenuMedia(routeResolutions)
+    : new Map<string, unknown>();
+  const routedContent = addResolvedModuleContent(pagesContent, routeResolutions, resolvedMenuMedia);
   const pageResolvedPlan = buildSiteRoutePlan(
     routedContent,
     applicationRoutePaths,

@@ -10,6 +10,7 @@ export const fixtureSiteContent: SiteContent = {
     "/menu/all-day",
     "/happenings",
     "/locations/fieldwork/community-supper",
+    "/locations/fieldwork/seasonal-menu",
     "/events",
     "/events/community-supper",
     "/location",

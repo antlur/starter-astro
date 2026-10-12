@@ -379,7 +379,9 @@ const collectMenuMediaIds = (menus: unknown[]): string[] => {
   return [...ids];
 };
 
-const loadMenuMedia = async (client: BackstageClient, ids: string[]): Promise<Map<string, unknown>> => {
+type MenuMediaClient = { media: { get(id: string): Promise<unknown | null> } };
+
+const loadMenuMedia = async (client: MenuMediaClient, ids: string[]): Promise<Map<string, unknown>> => {
   const mediaById = new Map<string, unknown>();
 
   for (let offset = 0; offset < ids.length; offset += 8) {
@@ -395,6 +397,19 @@ const loadMenuMedia = async (client: BackstageClient, ids: string[]): Promise<Ma
   }
 
   return mediaById;
+};
+
+export const loadResolvedMenuMedia = async (
+  resolutions: readonly { value: unknown }[],
+  client?: MenuMediaClient,
+): Promise<Map<string, unknown>> => {
+  const menus = resolutions.flatMap(({ value }) =>
+    isRecord(value) && isRecord(value.meta) && value.meta.type === "menu" ? [value.data] : [],
+  );
+
+  if (menus.length === 0) return new Map();
+
+  return loadMenuMedia(client ?? getBackstageClient(), collectMenuMediaIds(menus));
 };
 
 const loadLegacyPageMedia = async (client: BackstageClient, ids: string[]): Promise<Map<string, unknown>> => {

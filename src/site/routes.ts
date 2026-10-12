@@ -79,6 +79,7 @@ export const resolveCanonicalPageRoutes = async (
 export const addResolvedModuleContent = (
   content: SiteContent,
   resolutions: readonly ResolvedSiteRoute[],
+  menuMedia: ReadonlyMap<string, unknown> = new Map(),
 ): SiteContent => {
   const menus = [...content.menus];
   const locations = [...content.locations];
@@ -154,7 +155,7 @@ export const addResolvedModuleContent = (
     const recordId = String(id);
 
     if (type === "menu" && !menus.some((menu) => menu.id === recordId)) {
-      const menu = normalizeMenu(data);
+      const menu = normalizeMenu(data, 0, menuMedia);
       if (menu.id !== recordId) throw new Error(`Backstage resolved ${path} to a different menu ID.`);
       menus.push(menu);
     } else if (type === "location") {
