@@ -21,6 +21,8 @@ jobs:
           BACKSTAGE_SOURCE: fixture
           BACKSTAGE_FORM_SUBMISSIONS_ENABLED: "false"
           SITE_INDEXABLE: "false"
+      - name: Verify route-resolved menu media
+        run: node scripts/assert-built-site.mjs preview
       - name: Verify preview forms are disabled
         run: node scripts/assert-form-output.mjs disabled
       - name: Build indexable site and sitemap
