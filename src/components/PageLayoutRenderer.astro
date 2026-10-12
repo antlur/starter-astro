@@ -1,7 +1,7 @@
 ---
-import StandardPage from "../layouts/pages/StandardPage.astro";
+import StandardPage from "../layouts/standard-page/StandardPage.astro";
 import type { HeadlessPage } from "../lib/backstage/content";
-import { resolvePageLayoutSlug } from "../site/page-layout-definitions";
+import { resolvePageLayoutSlug } from "../layouts/definitions";
 
 interface Props {
   page: HeadlessPage;

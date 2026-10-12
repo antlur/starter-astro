@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
 
@@ -32,6 +33,18 @@ test("discovers nested block manifests", () => {
     assert.deepEqual(loadBlockManifests(directory).map(({ slug }) => slug), ["featured-menu", "weekly-specials"]);
   } finally {
     rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("colocates each built-in manifest with its Astro renderer", () => {
+  const directory = fileURLToPath(new URL("../src/blocks/", import.meta.url));
+
+  for (const manifest of loadBlockManifests(directory)) {
+    const blockDirectory = join(directory, manifest.slug);
+    const renderers = readdirSync(blockDirectory).filter((entry) => entry.endsWith(".astro"));
+
+    assert.ok(existsSync(join(blockDirectory, "manifest.json")), `${manifest.slug} should have a colocated manifest`);
+    assert.equal(renderers.length, 1, `${manifest.slug} should have exactly one colocated Astro renderer`);
   }
 });
 

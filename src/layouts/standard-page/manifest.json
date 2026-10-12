@@ -1,0 +1,32 @@
+{
+  "manifest_version": 1,
+  "type": "layout",
+  "name": "Starter Astro Standard Page",
+  "slug": "starter-astro-standard-page",
+  "schema": {
+    "fields": [
+      {
+        "name": "Content width",
+        "slug": "content_width",
+        "type": "select",
+        "order": 0,
+        "options": [
+          { "label": "Narrow", "value": "narrow" },
+          { "label": "Standard", "value": "standard" },
+          { "label": "Wide", "value": "wide" }
+        ]
+      },
+      {
+        "name": "Section spacing",
+        "slug": "section_spacing",
+        "type": "select",
+        "order": 1,
+        "options": [
+          { "label": "Compact", "value": "compact" },
+          { "label": "Comfortable", "value": "comfortable" },
+          { "label": "Spacious", "value": "spacious" }
+        ]
+      }
+    ]
+  }
+}

@@ -9,6 +9,10 @@ export interface SiteLocationHours {
 export interface SiteLocation {
   id: string;
   slug: string | null;
+  menuIds?: string[] | null;
+  status?: string | null;
+  statusText?: string | null;
+  isPublic?: boolean | null;
   name: string;
   description: string | null;
   addressLines: string[];
@@ -52,7 +56,10 @@ const safeMapEmbedUrl = (value: unknown): string | null => {
   if (!candidate) return null;
 
   const url = new URL(candidate);
-  return url.hostname === "www.google.com" && url.pathname === "/maps/embed" ? url.href : null;
+  return url.hostname === "www.google.com"
+    && ["/maps/embed", "/maps/embed/v1/place"].includes(url.pathname)
+    ? url.href
+    : null;
 };
 
 export const locationSchemaUrl = (site: URL | undefined, pathname: string): string | undefined =>
@@ -152,6 +159,27 @@ const locationAddressLines = (value: Record<string, unknown>): string[] => {
   ].filter((line): line is string => Boolean(line));
 };
 
+const locationMenuIds = (value: unknown): string[] | null => {
+  if (value === undefined) return null;
+  const menus = Array.isArray(value)
+    ? value
+    : isRecord(value) && Array.isArray(value.data)
+      ? value.data
+      : [];
+
+  return [...new Set(menus.flatMap((menu) => {
+    const id = optionalString(isRecord(menu) ? menu.id : menu);
+    return id ? [id] : [];
+  }))];
+};
+
+export const isPublicLocation = (location: Pick<SiteLocation, "isPublic" | "status">): boolean => {
+  if (location.isPublic === false) return false;
+  if (location.status === undefined || location.status === null) return true;
+
+  return ["opening", "open", "closing"].includes(location.status);
+};
+
 export const normalizeLocation = (value: unknown, index = 0): SiteLocation => {
   if (!isRecord(value)) throw new Error(`Backstage returned an invalid location at index ${index}.`);
   const dimensions = mediaDimensions(value.featured_media);
@@ -159,6 +187,18 @@ export const normalizeLocation = (value: unknown, index = 0): SiteLocation => {
   return {
     id: optionalString(value.id) ?? `location-${index}`,
     slug: optionalString(value.slug),
+    menuIds: locationMenuIds(value.menus),
+    status: optionalString(value.status),
+    statusText: optionalString(value.status_text),
+    isPublic: typeof value.is_public === "boolean"
+      ? value.is_public
+      : typeof value.is_published === "boolean"
+        ? value.is_published
+        : typeof value.public === "boolean"
+          ? value.public
+          : typeof value.published === "boolean"
+            ? value.published
+            : null,
     name: optionalString(value.name) ?? "Location",
     description: optionalString(value.description),
     addressLines: locationAddressLines(value),

@@ -49,7 +49,7 @@ async function main() {
   const apply = flags.has("--apply");
   const initializeSite = flags.has("--site");
   const confirmContactFormRecipient = flags.has("--confirm-contact-form-recipient");
-  const manifests = loadBlockManifests(fileURLToPath(new URL("../blocks/", import.meta.url)));
+  const manifests = loadBlockManifests(fileURLToPath(new URL("../src/blocks/", import.meta.url)));
   const client = new BackstageClient();
   const report = await inspectStarterSetup(client, manifests, {
     navigationId: process.env.BACKSTAGE_NAVIGATION_ID,

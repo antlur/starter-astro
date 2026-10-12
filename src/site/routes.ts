@@ -1,5 +1,5 @@
 import type { HeadlessPage, SiteContent, SiteNavigationItem } from "../lib/backstage/content";
-import { normalizeEvent, type SiteEvent } from "../lib/backstage/events";
+import { normalizeEvent, resolveEventTimezone, type SiteEvent } from "../lib/backstage/events";
 import { normalizeLocation, type SiteLocation } from "../lib/backstage/locations";
 import { normalizeMenu, type SiteMenu } from "../lib/backstage/menus";
 import { normalizePressRelease, type SitePressRelease } from "../lib/backstage/press";
@@ -18,6 +18,7 @@ export interface SiteRoutePlan {
   menuRoutes: Array<{ path: string; label: string; menu: SiteMenu }>;
   menuIndexPaths: string[];
   eventRoutes: Array<{ path: string; kind: "index" } | { path: string; kind: "detail"; event: SiteEvent }>;
+  eventsIndexPath: string | null;
   locationRoutes: Array<{ path: string; location: SiteLocation }>;
   locationIndexPaths: string[];
   pressRoutes: Array<
@@ -88,15 +89,25 @@ export const addResolvedModuleContent = (
   for (const entry of resolutions) {
     if (!isRecord(entry.value) || !isRecord(entry.value.meta)) continue;
     const { type, id, path } = entry.value.meta;
-    if ((type === "event" || type === "press") && (typeof id === "string" || typeof id === "number") && typeof path === "string") {
-      detailPaths.set(`${type}:${id}`, normalizeRoutePath(path));
-    }
+    if ((type !== "event" && type !== "press") || (typeof id !== "string" && typeof id !== "number")) continue;
+    const resolvedPath = normalizeRoutePath(entry.path);
+    if (typeof path !== "string" || normalizeRoutePath(path) !== resolvedPath) continue;
+    detailPaths.set(`${type}:${id}`, resolvedPath);
   }
 
   const replaceOrAppend = <T extends { id: string }>(items: T[], item: T): void => {
     const index = items.findIndex((candidate) => candidate.id === item.id);
     if (index === -1) items.push(item);
     else items[index] = item;
+  };
+
+  const replaceResolvedEvent = (event: SiteEvent, publicPath?: string): void => {
+    const existingEvent = events.find((candidate) => candidate.id === event.id);
+    replaceOrAppend(events, {
+      ...event,
+      timezone: event.timezone ?? existingEvent?.timezone ?? null,
+      publicPath: publicPath ?? existingEvent?.publicPath ?? event.publicPath,
+    });
   };
 
   for (const entry of resolutions) {
@@ -113,21 +124,21 @@ export const addResolvedModuleContent = (
     if (type === "events" && Array.isArray(data)) {
       for (const [index, value] of data.entries()) {
         const event = normalizeEvent(value, index);
-        replaceOrAppend(events, {
-          ...event,
-          publicPath: detailPaths.get(`event:${event.id}`) ?? event.publicPath,
-        });
+        replaceResolvedEvent(event, detailPaths.get(`event:${event.id}`));
       }
       continue;
     }
 
     if (type === "presses" && Array.isArray(data)) {
       for (const [index, value] of data.entries()) {
+        const releaseId = isRecord(value) && (typeof value.id === "string" || typeof value.id === "number")
+          ? String(value.id)
+          : null;
+        const publicPath = releaseId ? detailPaths.get(`press:${releaseId}`) : undefined;
+        if (!publicPath) continue;
+
         const release = normalizePressRelease(value, index);
-        replaceOrAppend(pressReleases, {
-          ...release,
-          publicPath: detailPaths.get(`press:${release.id}`) ?? release.publicPath,
-        });
+        replaceOrAppend(pressReleases, { ...release, publicPath });
       }
       continue;
     }
@@ -153,7 +164,7 @@ export const addResolvedModuleContent = (
     } else if (type === "event") {
       const event = normalizeEvent(data);
       if (event.id !== recordId) throw new Error(`Backstage resolved ${path} to a different event ID.`);
-      replaceOrAppend(events, { ...event, publicPath: path });
+      replaceResolvedEvent(event, path);
     } else if (type === "press") {
       const release = normalizePressRelease(data);
       if (release.id !== recordId) throw new Error(`Backstage resolved ${path} to a different press ID.`);
@@ -161,7 +172,13 @@ export const addResolvedModuleContent = (
     }
   }
 
-  return { ...content, menus, locations, events, pressReleases };
+  const locationTimezones = locations.map((location) => location.timezone);
+  const enrichedEvents = events.map((event) => ({
+    ...event,
+    timezone: resolveEventTimezone(event.timezone, locationTimezones),
+  }));
+
+  return { ...content, menus, locations, events: enrichedEvents, pressReleases };
 };
 
 // Add paths backed by Astro-owned route files, such as a custom /private-events/ page.
@@ -222,6 +239,11 @@ const filterNavigation = (
 const flattenNavigation = (items: SiteNavigationItem[]): SiteNavigationItem[] =>
   items.flatMap((item) => [item, ...flattenNavigation(item.children)]);
 
+const uniqueSlugMatch = <T extends { slug: string | null }>(items: readonly T[], slug: string): T | undefined => {
+  const matches = items.filter((item) => item.slug === slug);
+  return matches.length === 1 ? matches[0] : undefined;
+};
+
 export const buildSiteRoutePlan = (
   content: SiteContent,
   applicationPaths: readonly string[] = applicationRoutePaths,
@@ -233,44 +255,7 @@ export const buildSiteRoutePlan = (
   for (const path of normalizedRoutePaths) routeCounts.set(path, (routeCounts.get(path) ?? 0) + 1);
   const routePaths = [...new Set(normalizedRoutePaths)];
   const cmsPagePaths = new Set(content.pages.map((page) => normalizeRoutePath(page.pathname)));
-  const eventsBySlug = new Map(content.events.map((event) => [event.slug, event]));
-  const eventRoutes: SiteRoutePlan["eventRoutes"] = [];
-
-  for (const path of routePaths) {
-    if (path === "/events/" && !cmsPagePaths.has(path)) {
-      eventRoutes.push({ path, kind: "index" });
-      continue;
-    }
-    const eventMatch = /^\/events\/([^/]+)\/$/.exec(path);
-    if (!eventMatch) continue;
-    const event = eventsBySlug.get(decodeURIComponent(eventMatch[1]));
-    if (event) eventRoutes.push({ path, kind: "detail", event });
-  }
-
-  // Backstage can expose a CMS page and the generated Events index at the same path.
-  // When both route rows are present, the later system route is the public owner.
-  const hasGeneratedEventsIndex = (routeCounts.get("/events/") ?? 0) > 1;
-  if (hasGeneratedEventsIndex && !eventRoutes.some((route) => route.path === "/events/")) {
-    eventRoutes.unshift({ path: "/events/", kind: "index" });
-  }
-
-  const menusById = new Map(content.menus.map((menu) => [menu.id, menu]));
-  const menuRoutesByPath = new Map<string, { path: string; label: string; menu: SiteMenu }>();
-  for (const item of flattenNavigation(content.navigation)) {
-    if (!item.menuId) continue;
-    const path = navigationPath(item.url);
-    if (!path || !routePaths.includes(path)) continue;
-    const menu = menusById.get(item.menuId);
-    if (!menu) throw new Error(`Backstage navigation item "${item.text}" references menu ${item.menuId}, but the menu was not loaded.`);
-    menuRoutesByPath.set(path, { path, label: item.text, menu });
-  }
-  const menuBySlug = new Map(content.menus.map((menu) => [menu.slug, menu]));
-  for (const path of routePaths) {
-    const match = /^\/menu\/([^/]+)\/$/.exec(path);
-    if (!match) continue;
-    const menu = menuBySlug.get(decodeURIComponent(match[1]));
-    if (menu && !menuRoutesByPath.has(path)) menuRoutesByPath.set(path, { path, label: menu.title, menu });
-  }
+  const canonicalRoutesByPath = new Map<string, { type: string; id: string | null }>();
   for (const entry of resolvedRoutes) {
     if (!isRecord(entry.value) || !isRecord(entry.value.meta) || typeof entry.value.meta.type !== "string") continue;
     const path = normalizeRoutePath(entry.path);
@@ -279,78 +264,174 @@ export const buildSiteRoutePlan = (
     }
 
     const type = entry.value.meta.type;
-    const id = entry.value.meta.id;
-    if (type === "events" && !eventRoutes.some((route) => route.path === path)) {
-      eventRoutes.push({ path, kind: "index" });
-    } else if (type === "event" && (typeof id === "string" || typeof id === "number")) {
-      const event = content.events.find((candidate) => candidate.id === String(id));
-      if (event && !eventRoutes.some((route) => route.path === path)) {
-        eventRoutes.push({ path, kind: "detail", event: { ...event, publicPath: path } });
-      }
-    } else if (type === "menu" && (typeof id === "string" || typeof id === "number")) {
-      const menu = menusById.get(String(id));
-      if (menu && !menuRoutesByPath.has(path)) {
-        const navigationItem = flattenNavigation(content.navigation).find((item) => navigationPath(item.url) === path && item.menuId === String(id));
-        menuRoutesByPath.set(path, { path, label: navigationItem?.text ?? menu.title, menu });
-      }
+    const rawId = entry.value.meta.id;
+    const id = typeof rawId === "string" || typeof rawId === "number" ? String(rawId) : null;
+    const existing = canonicalRoutesByPath.get(path);
+    if (existing && (existing.type !== type || existing.id !== id)) {
+      throw new Error(`Backstage returned multiple canonical route owners for ${path}.`);
     }
+    canonicalRoutesByPath.set(path, { type, id });
   }
-  const menuRoutes = [...menuRoutesByPath.values()];
-  const menuIndexPaths = routePaths.filter((path) =>
-    path === "/menu/" && !cmsPagePaths.has(path) && menuRoutes.length > 0
-      && !menuRoutes.some((route) => route.path === path),
-  );
+
+  const isCanonicalOwner = (path: string): boolean => {
+    const route = canonicalRoutesByPath.get(path);
+    return Boolean(route && route.type !== "fixture");
+  };
+  const slugOwnerCount = (slug: string): number =>
+    content.events.filter((item) => item.slug === slug).length
+      + content.menus.filter((item) => item.slug === slug).length
+      + content.locations.filter((item) => item.slug === slug).length
+      + content.pressReleases.filter((item) => item.slug === slug).length;
+
+  const eventRoutes: SiteRoutePlan["eventRoutes"] = [];
+  const menuRoutesByPath = new Map<string, { path: string; label: string; menu: SiteMenu }>();
+  const menusById = new Map(content.menus.map((menu) => [menu.id, menu]));
   const locationRoutes: SiteRoutePlan["locationRoutes"] = [];
   const locationIndexPaths: string[] = [];
-  if (content.locations.length === 1 && routePaths.includes("/location/") && !cmsPagePaths.has("/location/")) {
-    locationRoutes.push({ path: "/location/", location: content.locations[0] });
-  }
-  for (const path of routePaths) {
-    if (locationRoutes.some((route) => route.path === path)) continue;
-    if (path.startsWith("/events/") || path.startsWith("/menu/") || path.startsWith("/press/")) continue;
-    const location = content.locations.find((candidate) => candidate.slug && path.split("/").filter(Boolean).at(-1) === candidate.slug);
-    if (location && !cmsPagePaths.has(path)) locationRoutes.push({ path, location });
-  }
-  for (const entry of resolvedRoutes) {
-    if (!isRecord(entry.value) || !isRecord(entry.value.meta)) continue;
-    const path = normalizeRoutePath(entry.path);
-    if (entry.value.meta.type === "locations") {
-      if (!locationIndexPaths.includes(path)) locationIndexPaths.push(path);
-      continue;
-    }
-    if (entry.value.meta.type !== "location") continue;
-    const id = entry.value.meta.id;
-    const location = (typeof id === "string" || typeof id === "number")
-      ? content.locations.find((candidate) => candidate.id === String(id))
-      : undefined;
-    if (location && !locationRoutes.some((route) => route.path === path)) locationRoutes.push({ path, location });
+  const pressRoutes: SiteRoutePlan["pressRoutes"] = [];
+  const ownedPaths = new Set(routePaths.filter(isCanonicalOwner));
+
+  const navigationItems = flattenNavigation(content.navigation);
+  for (const item of navigationItems) {
+    if (!item.menuId) continue;
+    const path = navigationPath(item.url);
+    if (!path || !routePaths.includes(path) || ownedPaths.has(path)) continue;
+    const menu = menusById.get(item.menuId);
+    if (!menu) throw new Error(`Backstage navigation item "${item.text}" references menu ${item.menuId}, but the menu was not loaded.`);
+    if (!menuRoutesByPath.has(path)) menuRoutesByPath.set(path, { path, label: item.text, menu });
+    ownedPaths.add(path);
   }
 
-  const pressBySlug = new Map(content.pressReleases.map((release) => [release.slug, release]));
-  const pressRoutes: SiteRoutePlan["pressRoutes"] = [];
   for (const path of routePaths) {
+    const route = canonicalRoutesByPath.get(path);
+    if (!route || !isCanonicalOwner(path)) continue;
+
+    if (route.type === "events") {
+      eventRoutes.push({ path, kind: "index" });
+    } else if (route.type === "event" && route.id !== null) {
+      const event = content.events.find((candidate) => candidate.id === route.id);
+      if (event) eventRoutes.push({ path, kind: "detail", event: { ...event, publicPath: path } });
+    } else if (route.type === "menu" && route.id !== null) {
+      const menu = menusById.get(route.id);
+      if (menu) {
+        const navigationItem = navigationItems.find((item) =>
+          navigationPath(item.url) === path && item.menuId === route.id,
+        );
+        menuRoutesByPath.set(path, { path, label: navigationItem?.text ?? menu.title, menu });
+      }
+    } else if (route.type === "location" && route.id !== null) {
+      const location = content.locations.find((candidate) => candidate.id === route.id);
+      if (location) locationRoutes.push({ path, location });
+    } else if (route.type === "locations") {
+      locationIndexPaths.push(path);
+    } else if (route.type === "presses") {
+      pressRoutes.push({ path, kind: "index" });
+    } else if (route.type === "press" && route.id !== null) {
+      const release = content.pressReleases.find((candidate) => candidate.id === route.id);
+      if (release) pressRoutes.push({ path, kind: "detail", release: { ...release, publicPath: path } });
+    }
+  }
+
+  const canonicalEventsIndexPaths = routePaths.filter((path) => canonicalRoutesByPath.get(path)?.type === "events");
+
+  for (const path of routePaths) {
+    if (ownedPaths.has(path)) continue;
+
+    if (path === "/events/" && !cmsPagePaths.has(path) && canonicalEventsIndexPaths.length === 0) {
+      eventRoutes.push({ path, kind: "index" });
+      ownedPaths.add(path);
+      continue;
+    }
+    const eventMatch = /^\/events\/([^/]+)\/$/.exec(path);
+    if (!eventMatch) continue;
+    const slug = decodeURIComponent(eventMatch[1]);
+    if (slugOwnerCount(slug) !== 1) continue;
+    const event = uniqueSlugMatch(content.events, slug);
+    if (event) {
+      eventRoutes.push({ path, kind: "detail", event });
+      ownedPaths.add(path);
+    }
+  }
+
+  // Preserve the legacy Events index fallback only when canonical resolution did
+  // not identify another route as the owner of this duplicate path.
+  const eventsIndexOwner = canonicalRoutesByPath.get("/events/");
+  const hasGeneratedEventsIndex = (routeCounts.get("/events/") ?? 0) > 1
+    && canonicalEventsIndexPaths.length === 0
+    && (!eventsIndexOwner || eventsIndexOwner.type === "events");
+  if (hasGeneratedEventsIndex && !eventRoutes.some((route) => route.path === "/events/")) {
+    eventRoutes.unshift({ path: "/events/", kind: "index" });
+    ownedPaths.add("/events/");
+  }
+
+  for (const path of routePaths) {
+    if (ownedPaths.has(path)) continue;
+    const match = /^\/menu\/([^/]+)\/$/.exec(path);
+    if (!match) continue;
+    const slug = decodeURIComponent(match[1]);
+    if (slugOwnerCount(slug) !== 1) continue;
+    const menu = uniqueSlugMatch(content.menus, slug);
+    if (menu) {
+      menuRoutesByPath.set(path, { path, label: menu.title, menu });
+      ownedPaths.add(path);
+    }
+  }
+  const navigationPathOrder = new Map<string, number>();
+  navigationItems.forEach((item, index) => {
+    const path = navigationPath(item.url);
+    if (path && !navigationPathOrder.has(path)) navigationPathOrder.set(path, index);
+  });
+  const routePathOrder = new Map(routePaths.map((path, index) => [path, index]));
+  const menuRoutes = [...menuRoutesByPath.values()].sort((left, right) => {
+    const leftNavigationOrder = navigationPathOrder.get(left.path);
+    const rightNavigationOrder = navigationPathOrder.get(right.path);
+    if (leftNavigationOrder !== undefined || rightNavigationOrder !== undefined) {
+      if (leftNavigationOrder === undefined) return 1;
+      if (rightNavigationOrder === undefined) return -1;
+      if (leftNavigationOrder !== rightNavigationOrder) return leftNavigationOrder - rightNavigationOrder;
+    }
+    return (routePathOrder.get(left.path) ?? 0) - (routePathOrder.get(right.path) ?? 0);
+  });
+  const menuIndexPaths = routePaths.filter((path) =>
+    path === "/menu/" && !ownedPaths.has(path) && !cmsPagePaths.has(path) && menuRoutes.length > 0
+      && !menuRoutes.some((route) => route.path === path),
+  );
+
+  for (const path of routePaths) {
+    if (ownedPaths.has(path)) continue;
+    if (content.locations.length === 1 && path === "/location/" && !cmsPagePaths.has(path)) {
+      locationRoutes.push({ path, location: content.locations[0] });
+      ownedPaths.add(path);
+      continue;
+    }
+
+    const segments = path.split("/").filter(Boolean);
+    const isLocationCollectionPath = segments.length === 2 && ["location", "locations"].includes(segments[0]);
+    if (segments.length !== 1 && !isLocationCollectionPath) continue;
+    const slug = decodeURIComponent(segments.at(-1)!);
+    if (slugOwnerCount(slug) !== 1) continue;
+    const location = uniqueSlugMatch(content.locations, slug);
+    if (location && !cmsPagePaths.has(path)) {
+      locationRoutes.push({ path, location });
+      ownedPaths.add(path);
+    }
+  }
+
+  for (const path of routePaths) {
+    if (ownedPaths.has(path)) continue;
     if (path === "/press/") {
       pressRoutes.push({ path, kind: "index" });
+      ownedPaths.add(path);
       continue;
     }
-    if (!path.startsWith("/press/")) continue;
-
-    const slug = path.slice("/press/".length, -1);
-    const release = pressBySlug.get(slug);
-    if (release) pressRoutes.push({ path, kind: "detail", release });
-  }
-  for (const entry of resolvedRoutes) {
-    if (!isRecord(entry.value) || !isRecord(entry.value.meta) || typeof entry.value.meta.type !== "string") continue;
-    const path = normalizeRoutePath(entry.path);
-    const type = entry.value.meta.type;
-    const id = entry.value.meta.id;
-    if (type === "presses" && !pressRoutes.some((route) => route.path === path)) {
-      pressRoutes.push({ path, kind: "index" });
-    } else if (type === "press" && (typeof id === "string" || typeof id === "number")) {
-      const release = content.pressReleases.find((candidate) => candidate.id === String(id));
-      if (release && !pressRoutes.some((route) => route.path === path)) {
-        pressRoutes.push({ path, kind: "detail", release: { ...release, publicPath: path } });
-      }
+    const match = /^\/press\/([^/]+)\/$/.exec(path);
+    if (!match) continue;
+    const slug = decodeURIComponent(match[1]);
+    if (slugOwnerCount(slug) !== 1) continue;
+    const release = uniqueSlugMatch(content.pressReleases, slug);
+    if (release) {
+      pressRoutes.push({ path, kind: "detail", release });
+      ownedPaths.add(path);
     }
   }
   const generatedRoutes = [
@@ -364,7 +445,9 @@ export const buildSiteRoutePlan = (
   const duplicatePaths = [...routeCounts].filter(([, count]) => count > 1).map(([path]) => path);
   const hasDuplicateEventsIndex = hasGeneratedEventsIndex
     && eventRoutes.some((route) => route.path === "/events/" && route.kind === "index");
-  const unsupportedDuplicates = duplicatePaths.filter((path) => !(path === "/events/" && hasDuplicateEventsIndex));
+  const unsupportedDuplicates = duplicatePaths.filter((path) =>
+    !isCanonicalOwner(path) && !(path === "/events/" && hasDuplicateEventsIndex),
+  );
   if (unsupportedDuplicates.length > 0) {
     throw new Error(`Backstage site graph contains duplicate routes: ${unsupportedDuplicates.join(", ")}.`);
   }
@@ -389,6 +472,8 @@ export const buildSiteRoutePlan = (
 
   for (const page of content.pages) {
     const path = normalizeRoutePath(page.pathname);
+    const canonicalRoute = canonicalRoutesByPath.get(path);
+    if (isCanonicalOwner(path) && (canonicalRoute?.type !== "page" || canonicalRoute.id !== page.id)) continue;
 
     if (pagesByPath.has(path)) {
       throw new Error(`Multiple Backstage pages resolve to ${path}.`);
@@ -437,6 +522,11 @@ export const buildSiteRoutePlan = (
     menuRoutes,
     menuIndexPaths,
     eventRoutes,
+    eventsIndexPath: canonicalEventsIndexPaths.length === 1
+      ? canonicalEventsIndexPaths[0]
+      : canonicalEventsIndexPaths.length === 0 && eventRoutes.filter(({ kind }) => kind === "index").length === 1
+        ? eventRoutes.find(({ kind }) => kind === "index")?.path ?? null
+        : null,
     locationRoutes,
     locationIndexPaths,
     pressRoutes,
@@ -455,4 +545,30 @@ export const reportUnhandledRoutes = (paths: readonly string[], indexable: boole
 
   if (indexable) throw new Error(message);
   console.warn(message);
+};
+
+export const assertStaticRoutesEmitted = (
+  routePlan: SiteRoutePlan,
+  emittedPaths: readonly string[],
+  indexable: boolean,
+): void => {
+  if (!indexable) return;
+
+  const plannedPaths = [
+    ...routePlan.cmsPages.map(({ path }) => path),
+    ...routePlan.blueprintRoutes.map(({ path }) => path),
+    ...routePlan.menuRoutes.map(({ path }) => path),
+    ...routePlan.menuIndexPaths,
+    ...routePlan.eventRoutes.map(({ path }) => path),
+    ...routePlan.locationRoutes.map(({ path }) => path),
+    ...routePlan.locationIndexPaths,
+    ...routePlan.pressRoutes.map(({ path }) => path),
+  ].map(normalizeRoutePath).filter((path) => path !== "/");
+  // The homepage is emitted by the dedicated src/pages/index.astro route.
+  const emitted = new Set(emittedPaths.map(normalizeRoutePath));
+  const omitted = [...new Set(plannedPaths)].filter((path) => !emitted.has(path));
+
+  if (omitted.length > 0) {
+    throw new Error(`Indexable build omitted planned Backstage routes: ${omitted.join(", ")}.`);
+  }
 };

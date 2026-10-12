@@ -3,13 +3,15 @@ import PageContent from "../components/PageContent.astro";
 import LocationHoursSection from "../components/LocationHoursSection.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
 import { getHomePage } from "../lib/backstage/content";
+import { isPublicLocation } from "../lib/backstage/locations";
 import { getSiteBuild } from "../site/build";
 
 const { content, routePlan } = await getSiteBuild();
 const page = getHomePage(content.pages);
+const publicLocations = content.locations.filter(isPublicLocation);
 ---
 
-<SiteLayout page={page} site={content.site} pathname="/" navigation={routePlan.navigation} footerNavigation={routePlan.footerNavigation} routePaths={content.routePaths} alerts={content.alerts} locations={content.locations} showLocationHours={false}>
+<SiteLayout page={page} site={content.site} pathname="/" navigation={routePlan.navigation} footerNavigation={routePlan.footerNavigation} routePaths={content.routePaths} alerts={content.alerts} locations={publicLocations} showLocationHours={false}>
   <PageContent page={page} />
-  {content.locations.length > 0 && <LocationHoursSection locations={content.locations} />}
+  {publicLocations.length > 0 && <LocationHoursSection locations={publicLocations} />}
 </SiteLayout>

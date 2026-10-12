@@ -288,6 +288,29 @@ export const parseBlueprintRoute = (path: string, value: unknown): BlueprintRout
   };
 };
 
+export const finalizeBlueprintRoutes = (routes: readonly BlueprintRoute[]): BlueprintRoute[] => {
+  const entryPaths = new Map<string, string>();
+
+  for (const route of routes) {
+    if (route.kind !== "entry") continue;
+    const key = `${route.blueprint.id}:${route.id}`;
+    if (entryPaths.has(key)) {
+      throw new Error(`Backstage returned duplicate entry routes for ${route.title}.`);
+    }
+    entryPaths.set(key, route.path);
+  }
+
+  return routes.map((route) => route.kind === "index"
+    ? {
+        ...route,
+        entries: route.entries.flatMap((entry) => {
+          const entryPath = entryPaths.get(`${route.blueprint.id}:${entry.id}`);
+          return entryPath ? [{ ...entry, path: entryPath }] : [];
+        }),
+      }
+    : route);
+};
+
 export const resolveBlueprintRoutes = async (
   paths: readonly string[],
   resolver: RouteResolver,
@@ -300,26 +323,6 @@ export const resolveBlueprintRoutes = async (
   }));
   const routes = resolved.flatMap(({ route }) => route ? [route] : []);
   const unhandledPaths = resolved.flatMap(({ path, route }) => route ? [] : [path]);
-  const entryPaths = new Map<string, string>();
 
-  for (const route of routes) {
-    if (route.kind !== "entry") continue;
-    if (entryPaths.has(route.blueprint.id + ":" + route.id)) {
-      throw new Error(`Backstage returned duplicate entry routes for ${route.title}.`);
-    }
-    entryPaths.set(route.blueprint.id + ":" + route.id, route.path);
-  }
-
-  return {
-    routes: routes.map((route) => route.kind === "index"
-      ? {
-          ...route,
-          entries: route.entries.flatMap((entry) => {
-            const entryPath = entryPaths.get(route.blueprint.id + ":" + entry.id);
-            return entryPath ? [{ ...entry, path: entryPath }] : [];
-          }),
-        }
-      : route),
-    unhandledPaths,
-  };
+  return { routes, unhandledPaths };
 };

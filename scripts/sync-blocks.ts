@@ -13,7 +13,7 @@ if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") {
   throw new Error("Block sync refuses disabled TLS verification. Use NODE_OPTIONS=--use-system-ca for local certificates.");
 }
 
-const blocksDirectory = fileURLToPath(new URL("../blocks/", import.meta.url));
+const blocksDirectory = fileURLToPath(new URL("../src/blocks/", import.meta.url));
 const manifests = loadBlockManifests(blocksDirectory);
 assertStarterBlockRegistryComplete(manifests);
 

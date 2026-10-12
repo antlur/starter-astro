@@ -1,16 +1,27 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import { locationSchemaUrl, type SiteLocation } from "../lib/backstage/locations";
-import { uniqueMenuRoutes, type SiteMenuRoute } from "../site/menu-routes";
+import { menuRoutesForLocation, type SiteLocationRoute, type SiteMenuRoute } from "../site/menu-routes";
+import { normalizeRoutePath } from "../site/routes";
 
 interface Props {
   location: SiteLocation;
   routePath: string;
   menuRoutes: SiteMenuRoute[];
+  locationRoutes: SiteLocationRoute[];
 }
 
-const { location, routePath, menuRoutes } = Astro.props;
-const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes);
+const { location, routePath, menuRoutes, locationRoutes } = Astro.props;
+const normalizedLocationPath = normalizeRoutePath(routePath);
+const visibleMenuRoutes = location.menuIds?.length
+  ? menuRoutesForLocation(menuRoutes, routePath, {
+      path: normalizedLocationPath,
+      menuIds: location.menuIds,
+      otherLocationPaths: locationRoutes
+        .filter(({ location: candidate }) => candidate.id !== location.id)
+        .map(({ path }) => path),
+    })
+  : [];
 const description = location.description ? sanitizeRichText(location.description) : "";
 const locationSchema = JSON.stringify({
   "@context": "https://schema.org",

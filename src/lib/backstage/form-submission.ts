@@ -21,6 +21,20 @@ const firstValidationError = (payload: unknown): string | null => {
   return null;
 };
 
+const parseJson = (content: string): { valid: boolean; value: unknown } => {
+  try {
+    return { valid: true, value: JSON.parse(content) as unknown };
+  } catch {
+    return { valid: false, value: null };
+  }
+};
+
+const isJsonContentType = (contentType: string | null): boolean => {
+  const mediaType = contentType?.split(";", 1)[0]?.trim().toLowerCase();
+
+  return mediaType === "application/json" || Boolean(mediaType?.endsWith("+json"));
+};
+
 export const submitBackstageForm = async (
   action: string,
   data: FormData,
@@ -32,16 +46,48 @@ export const submitBackstageForm = async (
     response = await fetcher(action, {
       method: "POST",
       body: data,
-      headers: { "X-API-REQUEST": "true" },
+      headers: {
+        Accept: "application/json",
+        "X-API-REQUEST": "true",
+      },
+      redirect: "manual",
     });
   } catch {
     throw new Error(networkErrorMessage);
   }
 
-  if (response.ok) {
+  if (response.redirected || response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) {
+    throw new Error(fallbackMessage);
+  }
+
+  let content: string;
+
+  try {
+    content = await response.text();
+  } catch {
+    throw new Error(fallbackMessage);
+  }
+
+  const empty = content.trim() === "";
+
+  if (!response.ok) {
+    const payload = parseJson(content).value;
+    throw new Error(firstValidationError(payload) || fallbackMessage);
+  }
+
+  if (response.status === 204) {
+    if (empty) {
+      return;
+    }
+
+    throw new Error(fallbackMessage);
+  }
+
+  if (response.status === 201 && empty) {
     return;
   }
 
-  const payload: unknown = await response.json().catch(() => null);
-  throw new Error(firstValidationError(payload) || fallbackMessage);
+  if (empty || !isJsonContentType(response.headers.get("content-type")) || !parseJson(content).valid) {
+    throw new Error(fallbackMessage);
+  }
 };

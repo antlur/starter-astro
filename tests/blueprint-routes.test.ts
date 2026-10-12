@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { fixtureContent } from "../src/fixtures/content";
-import { resolveBlueprintRoutes } from "../src/site/blueprint-routes";
+import { finalizeBlueprintRoutes, resolveBlueprintRoutes } from "../src/site/blueprint-routes";
 import { buildSiteRoutePlan } from "../src/site/routes";
 
 const blueprint = {
@@ -60,10 +60,17 @@ const entryResponse = {
 
 test("renders only blueprint entries with canonical public detail routes", async () => {
   const requested: string[] = [];
-  const resolved = await resolveBlueprintRoutes(["/happenings/", "/locations/tampa/community-supper/"], async (path) => {
+  const resolver = async (path: string) => {
     requested.push(path);
     return path === "/happenings/" ? indexResponse : entryResponse;
-  });
+  };
+  const indexBatch = await resolveBlueprintRoutes(["/happenings/"], resolver);
+  const entryBatch = await resolveBlueprintRoutes(["/locations/tampa/community-supper/"], resolver);
+  const resolved = {
+    ...indexBatch,
+    routes: finalizeBlueprintRoutes([...indexBatch.routes, ...entryBatch.routes]),
+    unhandledPaths: [...indexBatch.unhandledPaths, ...entryBatch.unhandledPaths],
+  };
 
   assert.deepEqual(requested, ["/happenings/", "/locations/tampa/community-supper/"]);
   assert.deepEqual(resolved.unhandledPaths, []);

@@ -1,6 +1,6 @@
-import { listRegistryBlocks, type BackstageClient } from "@antlur/backstage";
+import { listRegistryBlocks, parseBlockIdentity, validateBlockManifest, type BackstageClient } from "@antlur/backstage";
 import type { BlockManifest, BlockSyncClient, BlockSyncResult } from "./sync-blocks";
-import { syncBlockManifests } from "./sync-blocks";
+import { syncBlockManifests, validateBlockManifests } from "./sync-blocks";
 import { safeLinkUrl, safeSiteLinkUrl } from "../safe-url";
 import { planStarterSitePages, type StarterSitePagePlan } from "./site-initializer";
 
@@ -45,13 +45,22 @@ export function missingStarterBlockSlugs(
   sdkRegistry: readonly Pick<BlockManifest, "registry_identity">[] = listRegistryBlocks(),
 ): string[] {
   const registryIdentities = new Set(sdkRegistry.map((block) => block.registry_identity));
-  return manifests.filter((manifest) => !registryIdentities.has(manifest.registry_identity)).map(({ slug }) => slug);
+  return manifests
+    .filter((manifest) => parseBlockIdentity(manifest.registry_identity).namespace === "starter-astro")
+    .filter((manifest) => !registryIdentities.has(manifest.registry_identity))
+    .map(({ slug }) => slug);
+}
+
+function validateStarterBlockManifests(manifests: readonly BlockManifest[]): void {
+  for (const manifest of manifests) validateBlockManifest(manifest);
+  validateBlockManifests([...manifests]);
 }
 
 export function assertStarterBlockRegistryComplete(
-  manifests: readonly Pick<BlockManifest, "registry_identity" | "slug">[],
+  manifests: readonly BlockManifest[],
   sdkRegistry: readonly Pick<BlockManifest, "registry_identity">[] = listRegistryBlocks(),
 ): void {
+  validateStarterBlockManifests(manifests);
   const missing = missingStarterBlockSlugs(manifests, sdkRegistry);
   if (missing.length > 0) {
     throw new Error(`The installed SDK registry is missing Starter block contracts: ${missing.join(", ")}. Use an SDK release that includes the complete Starter registry before syncing.`);
@@ -63,6 +72,7 @@ export async function inspectStarterSetup(
   manifests: BlockManifest[],
   options: StarterSetupOptions = {},
 ): Promise<StarterSetupReport> {
+  validateStarterBlockManifests(manifests);
   const [websites, customBlocksEnabled, navigations] = await Promise.all([
     client.website.getWebsites(),
     client.modules.isEnabled("cms.custom_blocks"),
@@ -73,6 +83,9 @@ export async function inspectStarterSetup(
   const warnings: string[] = [];
   const registryBlocks = options.sdkRegistry ?? listRegistryBlocks();
   const missingRegistrySlugs = missingStarterBlockSlugs(manifests, registryBlocks);
+  const bundledManifests = manifests.filter(
+    (manifest) => parseBlockIdentity(manifest.registry_identity).namespace === "starter-astro",
+  );
   const socialProfileCount = websites.length === 1
     ? (Array.isArray(websites[0].social_links)
       ? websites[0].social_links.filter((link) => safeLinkUrl(link.url)?.startsWith("https://")).length
@@ -163,8 +176,8 @@ export async function inspectStarterSetup(
     homepageExists,
     rootRouteExists,
     sdkRegistry: {
-      registered: manifests.length - missingRegistrySlugs.length,
-      total: manifests.length,
+      registered: bundledManifests.length - missingRegistrySlugs.length,
+      total: bundledManifests.length,
       missingSlugs: missingRegistrySlugs,
     },
     socialProfileCount,
@@ -179,6 +192,7 @@ export async function inspectStarterSiteSetup(
   manifests: BlockManifest[],
   options: StarterSiteSetupOptions = {},
 ): Promise<StarterSiteSetupReport> {
+  validateStarterBlockManifests(manifests);
   const [websites, customBlocksEnabled] = await Promise.all([
     client.website.getWebsites(),
     client.modules.isEnabled("cms.custom_blocks"),

@@ -12,7 +12,7 @@ function findManifestFiles(directory: string): string[] {
     });
 }
 
-export function loadBlockManifests(directory = resolve(process.cwd(), "blocks")): BlockManifest[] {
+export function loadBlockManifests(directory = resolve(process.cwd(), "src/blocks")): BlockManifest[] {
   if (!existsSync(directory)) {
     throw new Error(`No block manifests were found in "${directory}".`);
   }

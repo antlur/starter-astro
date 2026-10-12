@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { formatMenuPrice, normalizeMenu } from "../src/lib/backstage/menus";
+import { formatMenuPrice, normalizeMenu, selectMenuForIndex } from "../src/lib/backstage/menus";
 
 test("preserves authored currency formatting for menu prices", () => {
   assert.equal(formatMenuPrice("$13.00"), "$13.00");
@@ -260,4 +261,141 @@ test("supports legacy pipe-separated prices while rejecting unsafe media links",
     { label: "", value: "22.00" },
   ]);
   assert.equal(menu.categories[0].items[0].imageUrl, null);
+});
+
+test("normalizes keyed local prices, serves, and menu publication metadata", () => {
+  const menu = normalizeMenu({
+    id: "menu-1",
+    title: "Dinner",
+    slug: "dinner",
+    is_default: true,
+    published_at: "2026-10-01T12:00:00Z",
+    categories: [{
+      title: "Family plates",
+      serves: "3-4",
+      pricing_columns: ["Half", { label: "Full" }],
+      items: [{
+        title: "Roast chicken",
+        serves: "2",
+        prices: {
+          Half: { value: "18.00" },
+          Full: { price: "32.00" },
+        },
+        menu_item: {
+          serves: "4",
+          price_type: "hidden",
+          has_hidden_price: true,
+          prices: { Half: "90.00", Full: "120.00" },
+        },
+      }],
+    }],
+  });
+
+  assert.equal(menu.isDefault, true);
+  assert.equal(menu.isPublished, true);
+  assert.equal(menu.categories[0].serves, "3-4");
+  assert.deepEqual(menu.categories[0].pricingColumns, ["Half", "Full"]);
+  assert.equal(menu.categories[0].items[0].serves, "2");
+  assert.deepEqual(menu.categories[0].items[0].prices, [
+    { label: "Half", value: "18.00" },
+    { label: "Full", value: "32.00" },
+  ]);
+  assert.equal(menu.categories[0].items[0].hiddenPrice, false);
+  assert.equal(normalizeMenu({ id: "menu-2", title: "Draft", slug: "draft", published_at: null, categories: [] }).isPublished, false);
+});
+
+test("formats numeric menu prices as USD and preserves descriptive values", () => {
+  assert.equal(formatMenuPrice("3.5"), "$3.50");
+  assert.equal(formatMenuPrice("$1,234.5"), "$1,234.5");
+  assert.equal(formatMenuPrice("Market price"), "Market price");
+  assert.equal(formatMenuPrice("$12.00 - $18.00"), "$12.00 - $18.00");
+});
+
+test("uses pricing columns to label array and legacy fallback prices", () => {
+  const menu = normalizeMenu({
+    id: "menu-1",
+    title: "Dinner",
+    slug: "dinner",
+    categories: [{
+      title: "Pasta",
+      pricing_columns: [{ label: "Half" }, { label: "Full" }],
+      items: [
+        { title: "Baked ziti", prices: ["12.00", { value: "18.00" }] },
+        { title: "Lasagna", price: "14.00 | 20.00" },
+      ],
+    }],
+  });
+
+  assert.deepEqual(menu.categories[0].items.map(({ prices }) => prices), [
+    [{ label: "Half", value: "12.00" }, { label: "Full", value: "18.00" }],
+    [{ label: "Half", value: "14.00" }, { label: "Full", value: "20.00" }],
+  ]);
+});
+
+test("renders category and item serving counts and normalized price labels", async () => {
+  const menuPage = await readFile(new URL("../src/components/MenuPage.astro", import.meta.url), "utf8");
+
+  assert.match(menuPage, /category\.serves && <p class="menu-category__serves">Serves \{category\.serves\}<\/p>/);
+  assert.match(menuPage, /item\.serves && <p class="menu-item__serves">Serves \{item\.serves\}<\/p>/);
+  assert.match(menuPage, /item\.prices\[0\]\?\.label && <span class="menu-item__price-label">\{item\.prices\[0\]\.label\}<\/span>/);
+  assert.match(menuPage, /price\.label && <dt>\{price\.label\}<\/dt>/);
+});
+
+test("uses resolver menu IDs first and otherwise follows the location association order", () => {
+  const defaultMenu = normalizeMenu({
+    id: "menu-default",
+    title: "Default",
+    slug: "default",
+    is_default: true,
+    published_at: "2026-10-01T12:00:00Z",
+    categories: [],
+  });
+  const firstAssociatedMenu = normalizeMenu({
+    id: "menu-associated-first",
+    title: "First associated",
+    slug: "first-associated",
+    published_at: "2026-10-01T12:00:00Z",
+    categories: [],
+  });
+  const menus = [defaultMenu, firstAssociatedMenu];
+
+  assert.equal(
+    selectMenuForIndex(menus, null, ["menu-associated-first", "menu-default"])?.id,
+    "menu-associated-first",
+  );
+  assert.equal(
+    selectMenuForIndex(menus, "menu-default", ["menu-associated-first", "menu-default"])?.id,
+    "menu-default",
+  );
+});
+
+test("only publishes menus with a publication date before the build time", () => {
+  const now = new Date("2026-10-11T12:00:00.000Z");
+  const menu = (id: string, published_at: string | null) => normalizeMenu({
+    id,
+    title: id,
+    slug: id,
+    published_at,
+    categories: [],
+  }, 0, new Map(), now);
+
+  assert.equal(menu("past", "2026-10-11T11:59:59.000Z").isPublished, true);
+  assert.equal(menu("future", "2026-10-11T12:00:01.000Z").isPublished, false);
+  assert.equal(menu("unscheduled", null).isPublished, false);
+  assert.equal(normalizeMenu({ id: "legacy", title: "Legacy", slug: "legacy", categories: [] }, 0, new Map(), now).isPublished, null);
+  assert.equal(
+    selectMenuForIndex([
+      menu("future", "2026-10-11T12:00:01.000Z"),
+      menu("past", "2026-10-11T11:59:59.000Z"),
+    ], null, ["future", "past"])?.id,
+    "past",
+  );
+});
+
+test("uses canonical resolver menu identity for generated menu-index paths", async () => {
+  const routePage = await readFile(new URL("../src/pages/[...slug].astro", import.meta.url), "utf8");
+
+  assert.match(routePage, /routeMeta\?\.type === "menu" \? routeMeta\.id : null/);
+  assert.match(routePage, /selectMenuForIndex\(indexedMenuCandidates, resolverMenuId, location\?\.menuIds\)/);
+  assert.doesNotMatch(routePage, /isDefault/);
 });
