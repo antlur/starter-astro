@@ -30,3 +30,34 @@ test("removes unsupported rich-text hrefs while keeping supported links", () => 
   assert.match(html, /href="https:\/\/example\.test\/menu"/);
   assert.match(html, /href="#hours"/);
 });
+
+test("preserves Backstage editor images, quotes, underline, and linked buttons safely", () => {
+  const html = sanitizeRichText(
+    '<p><a class="rich-text-link" href="/contact">Contact</a> '
+      + '<a href="/private-events" data-type="button" class="inline-block px-4 py-2 bg-primary">Book now</a></p>'
+      + "<blockquote><p>Gather around the table.</p></blockquote>"
+      + "<p><u>Made with care.</u></p>"
+      + '<img class="max-w-full h-auto rounded" style="max-width: 100%; height: auto;" '
+      + 'src="https://media.example.test/editor-image.jpg" alt="Dining room" title="Our dining room" '
+      + 'width="640" height="420" alignment="center">',
+  );
+
+  assert.match(html, /<a href="\/contact\/">Contact<\/a>/);
+  assert.match(html, /<a href="\/private-events\/" class="rich-text__button">Book now<\/a>/);
+  assert.match(html, /<blockquote><p>Gather around the table\.<\/p><\/blockquote>/);
+  assert.match(html, /<u>Made with care\.<\/u>/);
+  assert.match(html, /<img class="rich-text__image" src="https:\/\/media\.example\.test\/editor-image\.jpg" alt="Dining room" title="Our dining room" width="640" height="420" \/>/);
+  assert.doesNotMatch(html, /max-w-full|bg-primary|alignment=|style=/);
+});
+
+test("drops unsafe editor image URLs and does not preserve arbitrary classes or styles", () => {
+  const html = sanitizeRichText(
+    '<img src="javascript:alert(1)" class="attacker-class" style="position:fixed" onerror="alert(1)">'
+      + '<a href="javascript:alert(1)" data-type="button" class="attacker-class" style="position:fixed">Unsafe</a>'
+      + '<script>alert(1)</script>',
+  );
+
+  assert.doesNotMatch(html, /javascript:|onerror|attacker-class|position:fixed|<script/i);
+  assert.doesNotMatch(html, /<img\b/);
+  assert.match(html, /<a>Unsafe<\/a>/);
+});

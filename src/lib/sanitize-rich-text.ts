@@ -1,6 +1,6 @@
 import { decodeHTML } from "entities";
 import sanitizeHtml from "sanitize-html";
-import { previewRouteUrl, safeLinkUrl, safeSiteLinkUrl } from "./safe-url";
+import { previewRouteUrl, safeImageUrl, safeLinkUrl, safeSiteLinkUrl } from "./safe-url";
 
 const length = "(?:0|(?:\\d+(?:\\.\\d+)?)(?:px|rem|em|%))";
 const spacing = new RegExp(`^(?:auto|-?${length})(?:\\s+(?:auto|-?${length})){0,3}$`, "i");
@@ -25,10 +25,11 @@ export const sanitizeRichText = (
   return sanitizeHtml(value, {
     allowedTags: [
       "p", "br", "strong", "b", "em", "i", "ul", "ol", "li", "a", "div", "hr",
-      "h1", "h2", "h3", "h4", "h5", "h6",
+      "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "u", "img",
     ],
     allowedAttributes: {
-      a: ["href"],
+      a: ["href", "class", "data-type"],
+      img: ["src", "alt", "title", "width", "height", "class"],
       "*": ["style"],
     },
     allowedStyles: {
@@ -67,7 +68,8 @@ export const sanitizeRichText = (
       },
       a: (tagName: string, attributes: Record<string, string>) => {
         const originalHref = attributes.href;
-        if (!originalHref) return { tagName, attribs: attributes };
+        const isButton = attributes["data-type"] === "button";
+        if (!originalHref) return { tagName, attribs: {} };
 
         const href = (preview
           ? previewRouteUrl(originalHref, preview.siteDomain, preview.routePaths)
@@ -75,11 +77,33 @@ export const sanitizeRichText = (
           ? safeSiteLinkUrl(originalHref)
           : safeLinkUrl(originalHref));
 
-        if (href) return { tagName, attribs: { ...attributes, href } };
+        if (href) {
+          const attribs: Record<string, string> = { href };
+          if (isButton) attribs.class = "rich-text__button";
 
-        const { href: _unsafeHref, ...safeAttributes } = attributes;
-        return { tagName, attribs: safeAttributes };
+          return {
+            tagName,
+            attribs,
+          };
+        }
+
+        return { tagName, attribs: {} };
+      },
+      img: (_tagName: string, attributes: Record<string, string>) => {
+        const src = safeImageUrl(attributes.src);
+        const attribs: Record<string, string> = { class: "rich-text__image" };
+
+        if (src) attribs.src = src;
+        for (const name of ["alt", "title"] as const) {
+          if (attributes[name]) attribs[name] = attributes[name];
+        }
+        for (const name of ["width", "height"] as const) {
+          if (/^[1-9]\d{0,4}$/.test(attributes[name] ?? "")) attribs[name] = attributes[name]!;
+        }
+
+        return { tagName: "img", attribs };
       },
     },
+    exclusiveFilter: (frame) => frame.tag === "img" && !frame.attribs.src,
   });
 };
