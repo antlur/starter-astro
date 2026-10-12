@@ -1,4 +1,4 @@
-import { getSiteContent, resolveBackstageRoute } from "../lib/backstage/content";
+import { getSiteContent, loadResolvedMenuMedia, resolveBackstageRoute } from "../lib/backstage/content";
 import { resolveBlueprintRoutes } from "./blueprint-routes";
 import { addResolvedModuleContent, applicationRoutePaths, buildSiteRoutePlan, reportUnhandledRoutes, resolveCanonicalPageRoutes } from "./routes";
 
@@ -23,7 +23,10 @@ const buildSite = async () => {
   const pagesContent = resolvedPages.pages.length > 0
     ? { ...content, pages: [...content.pages, ...resolvedPages.pages] }
     : content;
-  const routedContent = addResolvedModuleContent(pagesContent, resolvedPages.resolutions);
+  const resolvedMenuMedia = import.meta.env.BACKSTAGE_SOURCE === "api"
+    ? await loadResolvedMenuMedia(resolvedPages.resolutions)
+    : new Map<string, unknown>();
+  const routedContent = addResolvedModuleContent(pagesContent, resolvedPages.resolutions, resolvedMenuMedia);
   const pageResolvedPlan = buildSiteRoutePlan(routedContent, applicationRoutePaths, [], resolvedPages.resolutions);
   const resolved = canResolveRoutes && pageResolvedPlan.unhandledPaths.length > 0
     ? await resolveBlueprintRoutes(pageResolvedPlan.unhandledPaths, cachedResolver)

@@ -4,6 +4,7 @@ import test from "node:test";
 import { fixtureContent } from "../src/fixtures/content";
 import { fixtureRouteResolutions } from "../src/fixtures/routes";
 import { fixtureSiteContent } from "../src/fixtures/site-content";
+import { loadResolvedMenuMedia } from "../src/lib/backstage/content";
 import { resolveBlueprintRoutes } from "../src/site/blueprint-routes";
 import { addResolvedModuleContent, buildSiteRoutePlan, normalizeRoutePath, pageForCanonicalRoute, reportUnhandledRoutes, resolveCanonicalPageRoutes } from "../src/site/routes";
 
@@ -112,9 +113,13 @@ test("generates static menu routes from Backstage navigation relationships", () 
 });
 
 test("generates event, location, and blueprint routes from the Backstage route graph", async () => {
-  const initialPlan = buildSiteRoutePlan(fixtureSiteContent);
+  const fixtureWithoutResolvedMenu = {
+    ...fixtureSiteContent,
+    routePaths: fixtureSiteContent.routePaths.filter((path) => path !== "/locations/fieldwork/seasonal-menu"),
+  };
+  const initialPlan = buildSiteRoutePlan(fixtureWithoutResolvedMenu);
   const resolved = await resolveBlueprintRoutes(initialPlan.unhandledPaths, async (path) => fixtureRouteResolutions[path]);
-  const plan = buildSiteRoutePlan(fixtureSiteContent, [], resolved.routes);
+  const plan = buildSiteRoutePlan(fixtureWithoutResolvedMenu, [], resolved.routes);
 
   assert.deepEqual(plan.eventRoutes.map(({ path, kind }) => [path, kind]), [
     ["/events/", "index"],
@@ -247,6 +252,59 @@ test("resolves module routes using Backstage canonical paths instead of fixed sl
   assert.equal(content.pressReleases[0].publicPath, "/news/neighborhood-award/");
   assert.equal(content.events[0].title, "Community dinner");
   assert.equal(content.pressReleases[0].title, "Neighborhood award");
+});
+
+test("hydrates media for a route-resolved menu and preserves local image overrides", async () => {
+  const resolution = {
+    path: "/locations/fieldwork/dinner/",
+    value: {
+      type: "menu",
+      data: {
+        id: "menu-resolved",
+        title: "Dinner",
+        slug: "dinner",
+        categories: [{
+          title: "Mains",
+          items: [
+            {
+              title: "Local image override",
+              image_id: "local-image",
+              menu_item: { image_id: "global-image" },
+            },
+            {
+              title: "Global catalog image",
+              menu_item: { image_id: "global-image" },
+            },
+          ],
+        }],
+      },
+      meta: { id: "menu-resolved", type: "menu", path: "/locations/fieldwork/dinner/" },
+    },
+  };
+  const requestedIds: string[] = [];
+  const media = new Map([
+    ["local-image", { url: "https://images.example.test/local.jpg", alt: "Local dish", width: 800, height: 600 }],
+    ["global-image", { url: "https://images.example.test/global.jpg", alt: "Catalog dish", width: 640, height: 480 }],
+  ]);
+  const menuMedia = await loadResolvedMenuMedia([resolution], {
+    media: {
+      get: async (id: string) => {
+        requestedIds.push(id);
+        return media.get(id) ?? null;
+      },
+    },
+  });
+  const content = addResolvedModuleContent({ ...fixtureSiteContent, menus: [] }, [resolution], menuMedia);
+  const items = content.menus[0].categories[0].items;
+
+  assert.deepEqual(requestedIds, ["local-image", "global-image"]);
+  assert.deepEqual(
+    items.map(({ imageUrl, imageAlt, imageWidth, imageHeight }) => [imageUrl, imageAlt, imageWidth, imageHeight]),
+    [
+      ["https://images.example.test/local.jpg", "Local dish", 800, 600],
+      ["https://images.example.test/global.jpg", "Catalog dish", 640, 480],
+    ],
+  );
 });
 
 test("keeps generated Press paths unhandled when the canonical record is missing", () => {

@@ -46,6 +46,37 @@ const entries = [
 ];
 
 export const fixtureRouteResolutions: Record<string, unknown> = {
+  "/locations/fieldwork/seasonal-menu/": {
+    type: "menu",
+    data: {
+      id: "fixture-route-menu",
+      title: "Seasonal menu",
+      slug: "seasonal-menu",
+      categories: [
+        {
+          id: "fixture-route-menu-category",
+          title: "From the kitchen",
+          items: [
+            {
+              id: "fixture-route-menu-item",
+              title: "Roasted tomato tartine",
+              image: {
+                url: "https://images.example.test/roasted-tomato-tartine.jpg",
+                alt: "Roasted tomato tartine on toast",
+                width: 960,
+                height: 640,
+              },
+            },
+          ],
+        },
+      ],
+    },
+    meta: {
+      id: "fixture-route-menu",
+      type: "menu",
+      path: "/locations/fieldwork/seasonal-menu/",
+    },
+  },
   "/happenings/": {
     type: "happenings",
     data: entries,
