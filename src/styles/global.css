@@ -67,6 +67,22 @@ a {
   color: inherit;
 }
 
+.rich-text__button {
+  display: inline-block;
+  padding: 0.65em 1em;
+  border-radius: var(--ui-radius-sm);
+  background: var(--theme-color-action);
+  color: var(--theme-color-primary-foreground);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.rich-text__image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
 a:focus-visible,
 button:focus-visible,
 [tabindex="-1"]:focus-visible {

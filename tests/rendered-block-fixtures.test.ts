@@ -26,7 +26,7 @@ const firstTag = (html: string, expression: RegExp, label: string): string => {
   return match[0];
 };
 
-test("Astro renders video hero, Instagram feed, and embedded menu fixtures accessibly", async () => {
+test("Astro renders editorial fixtures accessibly and shares sanitized rich-text styling with Contact Form", async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "starter-astro-rendered-blocks-"));
   const envKeys = ["NODE_ENV", "BACKSTAGE_SOURCE", "SITE_INDEXABLE", "SITE_URL"] as const;
   const previousEnv = new Map(envKeys.map((key) => [key, process.env[key]]));
@@ -103,6 +103,23 @@ test("Astro renders video hero, Instagram feed, and embedded menu fixtures acces
     assert.match(html, /<a href="\/contact\/" class="rich-text__button">Book now<\/a>/);
     assert.match(html, /<img class="rich-text__image" src="\/favicon\.svg" alt="Fieldwork Coffee icon" title="Fieldwork Coffee" width="64" height="64" \/>/);
     assert.doesNotMatch(html, /inline-block px-4|text-primary-foreground|alignment="center"/);
+
+    const contactHtml = await readFile(path.join(outputDirectory, "contact", "index.html"), "utf8");
+    const contactBody = contactHtml.match(/<div class="contact-form-section__body"[^>]*>([\s\S]*?)<\/div>/)?.[1];
+    assert.ok(contactBody, "Contact Form should render its rich-text body wrapper.");
+    assert.match(contactBody, /<a href="\/menu\/" class="rich-text__button">View the menu<\/a>/);
+    assert.match(contactBody, /<img class="rich-text__image" src="\/favicon\.svg" alt="Fieldwork Coffee icon" width="64" height="64" \/>/);
+    assert.doesNotMatch(contactBody, /attacker-class|position: fixed|inline-block px-4/);
+
+    const stylesheetPaths = [...contactHtml.matchAll(/<link\b[^>]*>/gi)]
+      .map(([tag]) => tag.match(/\bhref="([^"#]+\.css(?:\?[^"#]*)?)"/)?.[1])
+      .filter((href): href is string => Boolean(href));
+    const stylesheets = await Promise.all(stylesheetPaths.map((href) =>
+      readFile(path.join(outputDirectory, href.replace(/^\/+/, "")), "utf8"),
+    ));
+    const contactStyles = stylesheets.join("\n");
+    assert.match(contactStyles, /(?:^|})\s*\.rich-text__button\s*\{[^}]*background:\s*var\(--theme-color-action\)/s);
+    assert.match(contactStyles, /(?:^|})\s*\.rich-text__image\s*\{[^}]*max-width:\s*100%[^}]*height:\s*auto/s);
 
     const primaryNavigation = firstTag(html, /<nav\b[^>]*aria-label="Primary navigation"[^>]*>[\s\S]*?<\/nav>/, "primary navigation");
     assert.doesNotMatch(primaryNavigation, /__qa\/rendered-blocks/, "the internal QA page must not enter visible navigation");
