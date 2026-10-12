@@ -5,6 +5,7 @@ import { normalizeMenu, type SiteMenu } from "../lib/backstage/menus";
 import { normalizePressRelease, type SitePressRelease } from "../lib/backstage/press";
 import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "../lib/backstage/concurrency";
 import type { BlueprintRoute } from "./blueprint-routes";
+import declaredApplicationRoutePaths from "./application-route-paths.json" with { type: "json" };
 
 export interface CmsPageRoute {
   path: string;
@@ -183,7 +184,7 @@ export const addResolvedModuleContent = (
 };
 
 // Add paths backed by Astro-owned route files, such as a custom /private-events/ page.
-export const applicationRoutePaths: readonly string[] = [];
+export const applicationRoutePaths: readonly string[] = declaredApplicationRoutePaths;
 
 export const normalizeRoutePath = (value: string): string => {
   if (
