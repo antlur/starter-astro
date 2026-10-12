@@ -162,6 +162,38 @@ const normalizePrices = (value: unknown, pricingColumns: readonly string[]): Sit
   });
 };
 
+export const alignCategoryPrices = (
+  pricingColumns: readonly string[],
+  prices: readonly SiteMenuPrice[],
+): SiteMenuPrice[] => {
+  const aligned = new Array<SiteMenuPrice | undefined>(pricingColumns.length);
+  const assignedPrices = new Set<number>();
+  const normalizedColumns = pricingColumns.map((column) => column.trim().toLowerCase());
+
+  prices.forEach((price, priceIndex) => {
+    const label = price.label.trim().toLowerCase();
+    if (!label) return;
+
+    const columnIndex = normalizedColumns.indexOf(label);
+    if (columnIndex < 0 || aligned[columnIndex]) return;
+
+    aligned[columnIndex] = price;
+    assignedPrices.add(priceIndex);
+  });
+
+  prices.forEach((price, priceIndex) => {
+    if (assignedPrices.has(priceIndex)) return;
+
+    const positionalIndex = priceIndex < aligned.length && !aligned[priceIndex]
+      ? priceIndex
+      : aligned.findIndex((candidate) => candidate === undefined);
+
+    if (positionalIndex >= 0) aligned[positionalIndex] = price;
+  });
+
+  return pricingColumns.map((label, index) => ({ label, value: aligned[index]?.value ?? "" }));
+};
+
 const splitPrice = (value: string | null, pricingColumns: readonly string[]): SiteMenuPrice[] => {
   if (!value || !value.includes("|")) return [];
   return value.split("|").flatMap((part, index) => {

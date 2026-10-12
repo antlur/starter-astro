@@ -271,6 +271,7 @@ export const fixtureContent: SiteContent = {
           description: null,
           afterDescription: null,
           columns: null,
+          pricingColumns: ["Small", "Large"],
           items: [
             {
               id: "fixture-drip-coffee",

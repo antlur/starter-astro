@@ -1,6 +1,6 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import { formatMenuPrice, type SiteMenu } from "../lib/backstage/menus";
+import { alignCategoryPrices, formatMenuPrice, type SiteMenu } from "../lib/backstage/menus";
 import { safeLinkUrl } from "../lib/safe-url";
 import { uniqueMenuRoutes } from "../site/menu-routes";
 
@@ -53,41 +53,82 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
           {category.serves && <p class="menu-category__serves">Serves {category.serves}</p>}
           {category.description && <div class="menu-category__description" set:html={sanitizeRichText(category.description)} />}
         </header>
-        <div class="menu-category__items">
-          {category.items.map((item) => {
-            const description = item.description ? sanitizeRichText(item.description) : "";
-            const multiPrice = item.priceType === "multiple" || item.prices.length > 1;
-            const itemPrice = !item.hiddenPrice && !multiPrice ? item.prices[0]?.value : null;
-
-            return (
-              <article class:list={["menu-item", item.imageUrl && "menu-item--with-image"]}>
-                <div class="menu-item__content">
-                  <div class="menu-item__topline">
-                    {isEmbedded ? <h4 class="menu-item__title">{item.title}</h4> : <h3 class="menu-item__title">{item.title}</h3>}
-                    {itemPrice && <span class="menu-item__leader" aria-hidden="true" />}
-                    {itemPrice && item.prices[0]?.label && <span class="menu-item__price-label">{item.prices[0].label}</span>}
-                    {itemPrice && <span class="menu-item__price">{formatMenuPrice(itemPrice)}</span>}
-                  </div>
-                  {item.postTitle && <p class="menu-item__post-title">{item.postTitle}</p>}
-                  {item.subtitle && <p class="menu-item__subtitle">{item.subtitle}</p>}
-                  {item.serves && <p class="menu-item__serves">Serves {item.serves}</p>}
-                  {description && <div class="menu-item__description" set:html={description} />}
-                  {item.dietaryTags.length > 0 && <p class="menu-item__dietary-tags">Dietary: {item.dietaryTags.join(", ")}</p>}
-                  {multiPrice && (
-                    <dl class="menu-item__prices">
-                      {item.prices.map((price) => (
-                        <div>
-                          {price.label && <dt>{price.label}</dt>}
-                          <dd>{formatMenuPrice(price.value)}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  )}
+        <div
+          class:list={["menu-category__pricing-scroll", (category.pricingColumns?.length ?? 0) > 0 && "menu-category__pricing-scroll--active"]}
+          role={(category.pricingColumns?.length ?? 0) > 0 ? "region" : undefined}
+          tabindex={(category.pricingColumns?.length ?? 0) > 0 ? 0 : undefined}
+          aria-label={(category.pricingColumns?.length ?? 0) > 0 ? `Scrollable pricing for ${category.title}` : undefined}
+        >
+          <div
+            class:list={["menu-category__items", (category.pricingColumns?.length ?? 0) > 0 && "menu-category__items--pricing"]}
+            role={(category.pricingColumns?.length ?? 0) > 0 ? "table" : undefined}
+            aria-label={(category.pricingColumns?.length ?? 0) > 0 ? `${category.title} prices` : undefined}
+            style={(category.pricingColumns?.length ?? 0) > 0
+              ? `--category-price-count: ${category.pricingColumns!.length}; --pricing-table-min-width: ${15 + category.pricingColumns!.length * 6.25}rem`
+              : undefined}
+          >
+            {(category.pricingColumns?.length ?? 0) > 0 && (
+              <div role="rowgroup">
+                <div class="menu-category__pricing-row menu-category__pricing-header" role="row">
+                  <div role="columnheader">Item</div>
+                  {category.pricingColumns?.map((column) => <div role="columnheader">{column}</div>)}
                 </div>
-                {item.imageUrl && <img class="menu-item__image" src={item.imageUrl} alt={item.imageAlt || item.title} width={item.imageWidth ?? 400} height={item.imageHeight ?? 400} loading="lazy" decoding="async" />}
-              </article>
-            );
-          })}
+              </div>
+            )}
+            <div
+              class:list={["menu-category__items-body", (category.pricingColumns?.length ?? 0) > 0 && "menu-category__items-body--pricing"]}
+              role={(category.pricingColumns?.length ?? 0) > 0 ? "rowgroup" : undefined}
+            >
+              {category.items.map((item) => {
+                const description = item.description ? sanitizeRichText(item.description) : "";
+                const usesCategoryPricing = (category.pricingColumns?.length ?? 0) > 0;
+                const categoryPrices = usesCategoryPricing
+                  ? alignCategoryPrices(category.pricingColumns ?? [], item.hiddenPrice ? [] : item.prices)
+                  : [];
+                const multiPrice = !usesCategoryPricing && (item.priceType === "multiple" || item.prices.length > 1);
+                const itemPrice = !item.hiddenPrice && !usesCategoryPricing && !multiPrice ? item.prices[0]?.value : null;
+
+                return (
+                  <article
+                    class:list={["menu-item", usesCategoryPricing && "menu-item--category-pricing", item.imageUrl && "menu-item--with-image"]}
+                    role={usesCategoryPricing ? "row" : undefined}
+                  >
+                    <div class="menu-item__details" role={usesCategoryPricing ? "rowheader" : undefined}>
+                      <div class="menu-item__content">
+                        <div class="menu-item__topline">
+                          {isEmbedded ? <h4 class="menu-item__title">{item.title}</h4> : <h3 class="menu-item__title">{item.title}</h3>}
+                          {itemPrice && <span class="menu-item__leader" aria-hidden="true" />}
+                          {itemPrice && item.prices[0]?.label && <span class="menu-item__price-label">{item.prices[0].label}</span>}
+                          {itemPrice && <span class="menu-item__price">{formatMenuPrice(itemPrice)}</span>}
+                        </div>
+                        {item.postTitle && <p class="menu-item__post-title">{item.postTitle}</p>}
+                        {item.subtitle && <p class="menu-item__subtitle">{item.subtitle}</p>}
+                        {item.serves && <p class="menu-item__serves">Serves {item.serves}</p>}
+                        {description && <div class="menu-item__description" set:html={description} />}
+                        {item.dietaryTags.length > 0 && <p class="menu-item__dietary-tags">Dietary: {item.dietaryTags.join(", ")}</p>}
+                        {multiPrice && (
+                          <dl class="menu-item__prices">
+                            {item.prices.map((price) => (
+                              <div>
+                                {price.label && <dt>{price.label}</dt>}
+                                <dd>{formatMenuPrice(price.value)}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                        )}
+                      </div>
+                      {item.imageUrl && <img class="menu-item__image" src={item.imageUrl} alt={item.imageAlt || item.title} width={item.imageWidth ?? 400} height={item.imageHeight ?? 400} loading="lazy" decoding="async" />}
+                    </div>
+                    {categoryPrices.map((price) => (
+                      <div class="menu-item__category-price" role="cell" aria-label={price.value ? undefined : "No price listed"}>
+                        {price.value ? formatMenuPrice(price.value) : ""}
+                      </div>
+                    ))}
+                  </article>
+                );
+              })}
+            </div>
+          </div>
         </div>
         {category.afterDescription && <div class="menu-category__after" set:html={sanitizeRichText(category.afterDescription)} />}
       </section>
@@ -212,6 +253,10 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     margin-bottom: 1.1rem;
   }
 
+  .menu-category {
+    min-width: 0;
+  }
+
   .menu-category__title {
     margin: 0;
     font-family: var(--font-display);
@@ -266,17 +311,62 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     column-gap: clamp(1.5rem, 4vw, 3.5rem);
   }
 
+  .menu-category__pricing-scroll {
+    display: contents;
+  }
+
+  .menu-category__pricing-scroll--active {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .menu-category__pricing-scroll--active:focus-visible {
+    outline: 2px solid var(--color-accent-strong);
+    outline-offset: 3px;
+  }
+
+  .menu-category__items--pricing {
+    display: block;
+    width: max(100%, var(--pricing-table-min-width));
+  }
+
+  .menu-category__items-body {
+    display: contents;
+  }
+
+  .menu-category__items-body--pricing {
+    display: grid;
+    width: 100%;
+  }
+
+  .menu-category__pricing-row {
+    display: grid;
+    grid-template-columns: minmax(15rem, 2fr) repeat(var(--category-price-count), minmax(5.5rem, 1fr));
+    column-gap: 0.75rem;
+    width: 100%;
+  }
+
+  .menu-category__pricing-header {
+    padding: 0 0.25rem 0.55rem;
+    border-bottom: 2px solid var(--color-line);
+    color: var(--color-muted);
+    font-size: 0.78rem;
+    font-weight: 750;
+    text-align: center;
+  }
+
+  .menu-category__pricing-header [role="columnheader"]:first-child {
+    text-align: left;
+  }
+
   .menu-item {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     padding: 0.9rem 0;
     border-bottom: 1px solid var(--color-line);
-  }
-
-  .menu-item--with-image {
-    grid-template-columns: minmax(0, 1fr) 4.75rem;
-    gap: 0.9rem;
   }
 
   .menu-item__image {
@@ -287,9 +377,43 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     object-fit: cover;
   }
 
+  .menu-item__details {
+    grid-column: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+  }
+
+  .menu-item--with-image .menu-item__details {
+    grid-template-columns: minmax(0, 1fr) 4.75rem;
+    gap: 0.9rem;
+  }
+
   .menu-item__content {
     grid-column: 1;
     min-width: 0;
+  }
+
+  .menu-item--category-pricing {
+    grid-template-columns: minmax(15rem, 2fr) repeat(var(--category-price-count), minmax(5.5rem, 1fr));
+    padding: 0;
+  }
+
+  .menu-item--category-pricing .menu-item__details,
+  .menu-item__category-price {
+    padding: 0.9rem 0;
+  }
+
+  .menu-item__category-price {
+    display: grid;
+    min-width: 0;
+    align-content: center;
+    justify-items: center;
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+    font-weight: 750;
+    overflow-wrap: anywhere;
+    text-align: center;
   }
 
   .menu-item__topline {
@@ -396,7 +520,7 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
       padding-inline: 0.25rem;
     }
 
-    .menu-item--with-image {
+    .menu-item--with-image .menu-item__details {
       grid-template-columns: minmax(0, 1fr) 4rem;
       gap: 0.65rem;
     }
