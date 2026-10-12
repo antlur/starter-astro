@@ -80,6 +80,42 @@ For a production build, set SITE_URL to the final HTTPS origin and SITE_INDEXABL
 
 The shared layout includes page and site metadata, favicon and logo support, Open Graph and Twitter metadata, and generic Organization JSON-LD. Add a more specific schema type only when the site's actual business data supports it.
 
+## Cloudflare Workers Static Assets
+
+Wrangler serves the existing static `dist` output. The configuration uses Astro's folder-style routes, returns a native 404 for missing assets, and does not enable SPA fallback or include a Worker script. Change the generic `name` in `wrangler.jsonc` to a unique Worker name for the target account before deploying. No account ID, zone, route, or secret belongs in that file. Netlify remains configured for fixture-backed deploy previews.
+
+Build a noindex preview from fixtures with submissions disabled, then run a local preview without Cloudflare login:
+
+```sh
+BACKSTAGE_SOURCE=fixture \
+SITE_INDEXABLE=false \
+BACKSTAGE_FORM_SUBMISSIONS_ENABLED=false \
+npm run build
+node scripts/assert-cloudflare-output.mjs
+npx --yes wrangler@4.149.0 dev --local
+```
+
+For production, provide `BACKSTAGE_API_KEY`, `BACKSTAGE_ACCOUNT_ID`, and optional `BACKSTAGE_API_URL` only to the build process. In CI, expose them only to the Astro build step. Set the final HTTPS `SITE_URL`, enable indexing, and explicitly enable form submissions. Keep this in a separate CI step from Wrangler; the deploy step must not receive any `BACKSTAGE_*` values.
+
+```sh
+BACKSTAGE_SOURCE=api \
+BACKSTAGE_API_KEY="$BACKSTAGE_API_KEY" \
+BACKSTAGE_ACCOUNT_ID="$BACKSTAGE_ACCOUNT_ID" \
+SITE_URL=https://www.example.com \
+SITE_INDEXABLE=true \
+BACKSTAGE_FORM_SUBMISSIONS_ENABLED=true \
+npm run build
+node scripts/assert-cloudflare-output.mjs
+```
+
+In a separate deploy step, expose only `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from the deployment provider's secret store, then run:
+
+```sh
+npx --yes wrangler@4.149.0 deploy
+```
+
+For an interactive local deploy, authenticate once with `npx --yes wrangler@4.149.0 login`. This starter does not configure a custom domain or DNS; configure that separately in the site's Cloudflare account.
+
 ## Accessibility baseline
 
 The starter includes semantic header, navigation, main, and footer landmarks; a skip link; visible keyboard focus; responsive layouts; reduced-motion handling; and image alt text from Backstage media or the block's imageAlt field. This is a starting baseline, not an accessibility conformance certification. Review each site's content, contrast, interactions, and complete rendered routes before launch.
@@ -90,5 +126,6 @@ The starter includes semantic header, navigation, main, and footer landmarks; a 
 - npm run build runs the checker and creates the static site.
 - CI builds both a noindex preview and an indexable site with sitemap output, then checks rendered route links, accessibility landmarks and image text, SEO directives, sitemap coverage, and that server credentials are absent from public assets.
 - To run the rendered output checks locally after building, use `node scripts/assert-built-site.mjs preview` for the default noindex output or `node scripts/assert-built-site.mjs indexable` with the same `SITE_URL` and `SITE_INDEXABLE=true` values used for the production build.
+- After a static build, `node scripts/assert-cloudflare-output.mjs` checks that the configured asset directory contains Astro's nested route output.
 
 The Astro compiler requires Node.js 22.12 or newer. Keep the SDK and Astro versions updated through reviewed dependency changes, then run both production build modes.
