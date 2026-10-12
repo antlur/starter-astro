@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { listRegistryBlocks } from "@antlur/backstage";
 import test from "node:test";
 import type { BlockManifest } from "../src/lib/backstage/sync-blocks";
 import type { StarterSetupClient } from "../src/lib/backstage/setup";
@@ -7,12 +8,16 @@ import { assertStarterBlockRegistryComplete, inspectStarterSetup, inspectStarter
 const manifest: BlockManifest = {
   manifest_version: 1,
   type: "block",
-  registry_identity: "starter-astro:hero@1",
-  derived_from: "backstage:hero@1",
+  registry_identity: "fieldwork:hero-copy@1",
+  derived_from: "starter-astro:hero@1",
   name: "Hero",
   slug: "hero",
   schema: { fields: [{ name: "Title", slug: "title", type: "text" }] },
 };
+
+const bundledHeroManifest = listRegistryBlocks().find(
+  ({ registry_identity }) => registry_identity === "starter-astro:hero@1",
+) as unknown as BlockManifest;
 
 function client(options: {
   customBlocks?: boolean;
@@ -23,6 +28,13 @@ function client(options: {
   headerNavigationId?: string | null;
   formFields?: Array<{ id: string; label: string; type: string }>;
   formIdToReturn?: string;
+  existingBlocks?: Array<{
+    id: string;
+    slug: string;
+    registry_identity?: string | null;
+    derived_from?: string | null;
+    schema?: BlockManifest["schema"];
+  }>;
 } = {}) {
   const writes: string[] = [];
   return {
@@ -37,7 +49,7 @@ function client(options: {
       pages: { async getHeadlessPages() { return options.pages ?? [{ id: "home", title: "Home", slug: "/", pathname: "/", is_home: true, blocks: [] }]; } },
       forms: { async getFormDefinition(id: string) { return { id: options.formIdToReturn ?? id, title: "Contact", type: "email", action: null, redirect_url: null, recaptcha_site_key: null, fields: options.formFields ?? [] }; } },
       blocks: {
-        async list() { return []; },
+        async list() { return options.existingBlocks ?? []; },
         async create() { writes.push("create"); },
         async update() { writes.push("update"); },
       },
@@ -52,7 +64,7 @@ test("setup check is read-only and reports a valid home and block plan", async (
   assert.equal(report.websiteCount, 1);
   assert.equal(report.homepageExists, true);
   assert.equal(report.rootRouteExists, true);
-  assert.deepEqual(report.sdkRegistry, { registered: 1, total: 1, missingSlugs: [] });
+  assert.deepEqual(report.sdkRegistry, { registered: 0, total: 0, missingSlugs: [] });
   assert.equal(report.socialProfileCount, 0);
   assert.equal(report.websiteCtaConfigured, false);
   assert.equal(report.navigationStatus, "missing");
@@ -64,7 +76,7 @@ test("setup check is read-only and reports a valid home and block plan", async (
 
 test("setup check reports outdated SDK block contracts and missing optional site links", async () => {
   const fake = client();
-  const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [bundledHeroManifest], { sdkRegistry: [] });
 
   assert.deepEqual(report.sdkRegistry, { registered: 0, total: 1, missingSlugs: ["hero"] });
   assert.ok(report.warnings.some((warning) => warning.includes("SDK registry is missing Starter block contracts")));
@@ -128,6 +140,66 @@ test("setup check reports a stale navigation selection", async () => {
   assert.ok(report.warnings.some((warning) => warning.includes("not found")));
 });
 
+test("setup accepts valid site-owned manifests that are not in the SDK registry", async () => {
+  const fake = client();
+  const clientApi = fake.client as unknown as StarterSetupClient;
+  const report = await inspectStarterSetup(clientApi, [manifest], { sdkRegistry: [] });
+  const siteReport = await inspectStarterSiteSetup(clientApi, [manifest], { sdkRegistry: [] });
+
+  assert.deepEqual(report.sdkRegistry, { registered: 0, total: 0, missingSlugs: [] });
+  assert.deepEqual(report.blockChanges, { created: 1, updated: 0 });
+  assert.equal(siteReport.blockers.length, 0);
+  assert.doesNotThrow(() => assertStarterBlockRegistryComplete([manifest], []));
+  assert.deepEqual(fake.writes, []);
+});
+
+test("setup rejects malformed site-owned manifests and modified bundled contracts", () => {
+  assert.throws(
+    () => assertStarterBlockRegistryComplete([{ ...manifest, registry_identity: "fieldwork:bad-identity" }]),
+    /Invalid block identity/,
+  );
+  assert.throws(
+    () => assertStarterBlockRegistryComplete([
+      { ...manifest, schema: { fields: [{ name: "Title", slug: "title", type: "unknown" }] } } as unknown as BlockManifest,
+    ]),
+    /not a supported Backstage field type/,
+  );
+  assert.throws(
+    () => assertStarterBlockRegistryComplete([{ ...bundledHeroManifest, schema: { fields: [] } }]),
+    /differs from the registry contract/,
+  );
+  assert.throws(
+    () => assertStarterBlockRegistryComplete([{ ...bundledHeroManifest, registry_identity: "starter-astro:hero@2" }]),
+    /Unsupported registry identity/,
+  );
+});
+
+test("setup preflight preserves stale identity, slug ownership, and explicit adoption safeguards", async () => {
+  const cases = [
+    {
+      blocks: [{ id: "old-id", slug: "old-hero", registry_identity: manifest.registry_identity }],
+      message: /Cannot rename "fieldwork:hero-copy@1"/,
+    },
+    {
+      blocks: [{ id: "other-id", slug: "hero", registry_identity: "another-site:hero@1" }],
+      message: /Slug "hero" is already owned by another-site:hero@1/,
+    },
+    {
+      blocks: [{ id: "unregistered-id", slug: "hero", registry_identity: null }],
+      message: /Slug "hero" is already owned by unregistered block unregistered-id/,
+    },
+  ];
+
+  for (const { blocks, message } of cases) {
+    const fake = client({ existingBlocks: blocks });
+    await assert.rejects(
+      () => inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest]),
+      message,
+    );
+    assert.deepEqual(fake.writes, []);
+  }
+});
+
 test("setup check reports missing homepage and root route", async () => {
   const fake = client({ pages: [], routes: ["/about/"] });
   const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest]);
@@ -147,7 +219,7 @@ test("setup check warns when a page uses a block without a local renderer", asyn
 
 test("starter site preflight is read-only and refuses an incomplete SDK registry", async () => {
   const fake = client({ routes: ["/"] });
-  const report = await inspectStarterSiteSetup(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterSiteSetup(fake.client as unknown as StarterSetupClient, [bundledHeroManifest], { sdkRegistry: [] });
 
   assert.equal(report.plan?.actions[0].status, "exists");
   assert.equal(report.plan?.actions[1].status, "create");
@@ -155,9 +227,10 @@ test("starter site preflight is read-only and refuses an incomplete SDK registry
   assert.deepEqual(fake.writes, []);
 });
 
-test("block writes require every local Starter contract in the installed SDK registry", () => {
-  assert.throws(() => assertStarterBlockRegistryComplete([manifest], []), /missing Starter block contracts: hero/);
-  assert.doesNotThrow(() => assertStarterBlockRegistryComplete([manifest], [manifest]));
+test("block writes require bundled Starter contracts but allow site-owned contracts", () => {
+  assert.throws(() => assertStarterBlockRegistryComplete([bundledHeroManifest], []), /missing Starter block contracts: hero/);
+  assert.doesNotThrow(() => assertStarterBlockRegistryComplete([bundledHeroManifest]));
+  assert.doesNotThrow(() => assertStarterBlockRegistryComplete([manifest], []));
 });
 
 test("starter site preflight includes a form page only after explicit recipient confirmation", async () => {

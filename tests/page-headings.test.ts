@@ -23,6 +23,50 @@ test("uses the first configured block heading when it comes first", () => {
   ]), 0);
 });
 
+test("skips an empty Instagram Feed when selecting the primary heading", () => {
+  assert.equal(primaryHeadingIndex([
+    {
+      ...block("instagram-feed", { heading: "Follow along" }),
+      instagramPosts: [],
+    },
+    block("hero", { heading: "Welcome" }),
+  ]), 1);
+});
+
+test("allows a populated Instagram Feed to own the primary heading", () => {
+  assert.equal(primaryHeadingIndex([
+    {
+      ...block("instagram-feed", { heading: "Follow along" }),
+      instagramPosts: [{
+        id: "post-1",
+        imageUrl: "https://example.com/post.jpg",
+        caption: "",
+        permalink: "https://instagram.com/p/post-1",
+        timestamp: null,
+        mediaType: "IMAGE",
+      }],
+    },
+    block("hero", { heading: "Welcome" }),
+  ]), 0);
+});
+
+test("skips an Instagram Feed when its configured post count renders no posts", () => {
+  assert.equal(primaryHeadingIndex([
+    {
+      ...block("instagram-feed", { heading: "Follow along", count: 0.5 }),
+      instagramPosts: [{
+        id: "post-1",
+        imageUrl: "https://example.com/post.jpg",
+        caption: "",
+        permalink: "https://instagram.com/p/post-1",
+        timestamp: null,
+        mediaType: "IMAGE",
+      }],
+    },
+    block("hero", { heading: "Welcome" }),
+  ]), 1);
+});
+
 test("returns no primary block heading when the page has no heading content", () => {
   assert.equal(primaryHeadingIndex([block("rich-text", { body: "<p>Content</p>" })]), -1);
 });

@@ -6,11 +6,11 @@ import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
 import { syncBlockManifests, validateBlockManifests, type BlockManifest, type BlockSyncClient } from "../src/lib/backstage/sync-blocks";
 
 const manifest = JSON.parse(
-  readFileSync(new URL("../blocks/hero/manifest.json", import.meta.url), "utf8"),
+  readFileSync(new URL("../src/blocks/hero/manifest.json", import.meta.url), "utf8"),
 ) as BlockManifest;
 
 test("creates the complete starter block set for a new account", async () => {
-  const manifests = loadBlockManifests(fileURLToPath(new URL("../blocks", import.meta.url)));
+  const manifests = loadBlockManifests(fileURLToPath(new URL("../src/blocks", import.meta.url)));
   const created: Array<Record<string, unknown>> = [];
   const client = {
     blocks: {
@@ -144,6 +144,44 @@ test("does not adopt a block registered to a different identity", async () => {
   );
 });
 
+test("preserves account-only fields when adopting a block after a create conflict", async () => {
+  const accountFields = [
+    ...structuredClone(manifest.schema.fields),
+    { name: "Account Note", slug: "account_note", type: "text" },
+  ];
+  let listCount = 0;
+  let updated = false;
+  const client = {
+    blocks: {
+      async list() {
+        listCount += 1;
+        return listCount === 1 ? [] : [{
+          id: "concurrent-hero",
+          name: manifest.name,
+          slug: manifest.slug,
+          registry_identity: null,
+          schema: { fields: accountFields },
+        }];
+      },
+      async create() {
+        const error = new Error("slug conflict") as Error & { response?: { status: number } };
+        error.response = { status: 409 };
+        throw error;
+      },
+      async update() { updated = true; },
+    },
+  };
+
+  await assert.rejects(
+    () => syncBlockManifests(client as unknown as BlockSyncClient, [manifest], {
+      adoptUnregisteredSlugs: [manifest.slug],
+    }),
+    /account_note/,
+  );
+  assert.equal(updated, false);
+  assert.equal(listCount, 2);
+});
+
 test("rejects adoption slugs without a local manifest", async () => {
   const client = { blocks: { async list() { return []; } } };
 
@@ -151,14 +189,14 @@ test("rejects adoption slugs without a local manifest", async () => {
     () => syncBlockManifests(client as unknown as BlockSyncClient, [manifest], {
       adoptUnregisteredSlugs: ["not-in-starter"],
     }),
-    /no matching block manifest/,
+    /no local block manifest uses that slug/,
   );
 });
 
 test("rejects malformed and duplicate semantic field definitions", () => {
   assert.throws(
     () => validateBlockManifests([{ ...manifest, schema: { fields: [{ name: "Heading", type: "text" }] } }]),
-    /invalid schema.fields\[0\].*name, slug, and type/,
+    /schema\.fields\.0\.slug must be a non-empty string/,
   );
 
   assert.throws(
@@ -166,20 +204,20 @@ test("rejects malformed and duplicate semantic field definitions", () => {
       { name: "Heading", slug: "heading", type: "text" },
       { name: "Second heading", slug: "heading", type: "text" },
     ] } }]),
-    /duplicate field slug "heading"/,
+    /schema\.fields\.1\.slug duplicates "heading"/,
   );
 
   assert.throws(
     () => validateBlockManifests([manifest, { ...manifest, slug: "hero-copy" }]),
-    /unique identities and slugs/,
+    /Multiple local manifests use identity/,
   );
 
   assert.throws(
     () => validateBlockManifests([manifest, { ...manifest, registry_identity: "fieldwork:hero-copy@1" }]),
-    /unique identities and slugs/,
+    /Multiple local manifests use slug/,
   );
 
-  assert.throws(() => validateBlockManifests([null]), /missing valid identity, name, slug, or schema/);
+  assert.throws(() => validateBlockManifests([null]), /Block manifest must be a JSON object/);
 });
 
 test("rejects field types that are not supported by the SDK", () => {
@@ -187,7 +225,7 @@ test("rejects field types that are not supported by the SDK", () => {
 
   assert.throws(
     () => validateBlockManifests([{ ...manifest, schema: { fields: [{ ...field, type: "phoen" }] } }]),
-    /unsupported field type "phoen" for "variant" in schema.fields/,
+    /schema\.fields\.0\.type is not a supported Backstage field type/,
   );
 });
 
@@ -200,7 +238,7 @@ test("rejects malformed field metadata in block manifests", () => {
     { ...baseField, options: [{ label: "Missing value" }] },
   ];
   const expectedErrors = [
-    /invalid required setting for "variant"/,
+    /schema\.fields\.0\.required must be a boolean/,
     /invalid multiple-value setting for "variant"/,
     /invalid reference targets for "variant"/,
     /invalid options for "variant"/,
@@ -208,7 +246,12 @@ test("rejects malformed field metadata in block manifests", () => {
 
   for (const [index, field] of malformedFields.entries()) {
     assert.throws(
-      () => validateBlockManifests([{ ...manifest, schema: { fields: [field] } }]),
+      () => validateBlockManifests([{
+        ...manifest,
+        registry_identity: "starter-astro:test-hero@1",
+        derived_from: manifest.registry_identity,
+        schema: { fields: [field] },
+      }]),
       expectedErrors[index],
     );
   }

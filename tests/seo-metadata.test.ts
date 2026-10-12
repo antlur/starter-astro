@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { resolveSeoMetadata } from "../src/lib/seo-metadata";
+import { parseBlueprintRoute } from "../src/site/blueprint-routes";
 
 const site = {
   name: "Fieldwork Coffee",
@@ -62,4 +64,51 @@ test("derives safe, concise descriptions from rich text", () => {
   assert.ok(metadata.description.includes("&"));
   assert.ok(!metadata.description.includes("ignore this"));
   assert.ok(metadata.description.endsWith("..."));
+});
+
+test("keeps route resolver meta.seo ahead of generated route titles and descriptions", () => {
+  const route = parseBlueprintRoute("/happenings/community-supper/", {
+    type: "happening",
+    data: {
+      id: "entry-1",
+      primary_field_value: "Generated event title",
+      unstable_data: { title: "Generated event title" },
+    },
+    meta: {
+      id: "entry-1",
+      type: "happening",
+      path: "/happenings/community-supper/",
+      seo: { title: "Resolver SEO title", description: "Resolver SEO description." },
+      blueprint: {
+        id: "blueprint-1",
+        name: "Happenings",
+        slug: "happenings",
+        description: "Blueprint fallback description.",
+        fields: [{ name: "Title", slug: "title", type: "text", is_primary: true, show_in_list: true }],
+      },
+    },
+  });
+
+  assert.ok(route && route.kind === "entry");
+  if (!route || route.kind !== "entry") return;
+
+  const metadata = resolveSeoMetadata({
+    routeTitle: route.seoTitle ?? route.title,
+    routeDescription: route.seoDescription,
+    site,
+  });
+
+  assert.equal(metadata.title, "Resolver SEO title | Fieldwork Coffee");
+  assert.equal(metadata.description, "Resolver SEO description.");
+});
+
+test("resolves and applies route SEO for generated event and press indexes and details", async () => {
+  const routePage = await readFile(new URL("../src/pages/[...slug].astro", import.meta.url), "utf8");
+
+  assert.match(routePage, /routePlan\.eventRoutes\.map\(\(\{ path \}\) => path\)/);
+  assert.match(routePage, /routePlan\.pressRoutes\.map\(\(\{ path \}\) => path\)/);
+  assert.match(routePage, /routeSeo: generatedRouteSeo\.get\(eventRoute\.path\) \?\? null/);
+  assert.match(routePage, /routeSeo: generatedRouteSeo\.get\(pressRoute\.path\) \?\? null/);
+  assert.match(routePage, /const pageTitle = routeSeo\?\.title \?\?/);
+  assert.match(routePage, /const pageDescription = routeSeo\?\.description \?\?/);
 });

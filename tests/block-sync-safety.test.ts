@@ -5,7 +5,7 @@ import type { Field } from "@antlur/backstage/studio";
 import { syncBlockManifests, validateBlockManifests, type BlockManifest, type BlockSyncClient } from "../src/lib/backstage/sync-blocks";
 
 const manifest = JSON.parse(
-  readFileSync(new URL("../blocks/hero/manifest.json", import.meta.url), "utf8"),
+  readFileSync(new URL("../src/blocks/hero/manifest.json", import.meta.url), "utf8"),
 ) as BlockManifest;
 
 function withFieldMetadata(slug: string, metadata: Record<string, unknown>): BlockManifest {
@@ -22,6 +22,8 @@ function withFieldMetadata(slug: string, metadata: Record<string, unknown>): Blo
   const field = find(changed.schema.fields);
   assert.ok(field, `Expected manifest to contain field "${slug}".`);
   Object.assign(field, metadata);
+  changed.registry_identity = "starter-astro:test-hero@1";
+  changed.derived_from = manifest.registry_identity;
   return changed;
 }
 
@@ -102,7 +104,7 @@ test("detects drift in all supported field metadata, including nested fields", a
       const calls: string[] = [];
       const client = clientFor({
         id: "hero-id",
-        ...manifest,
+        ...changedManifest,
         schema: manifest.schema,
       }, calls);
 
@@ -188,7 +190,7 @@ test("refuses to remove account fields missing from the local manifest", async (
 
   await assert.rejects(
     () => syncBlockManifests(client as unknown as BlockSyncClient, [manifest]),
-    /fields not present in this local manifest: remote_field.*may be older/,
+    /fields not present in the local manifest: remote_field.*Update the manifest/,
   );
   assert.deepEqual(calls, []);
 });

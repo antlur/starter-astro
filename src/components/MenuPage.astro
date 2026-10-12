@@ -50,6 +50,7 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
             ? <h3 class="menu-category__title" id={`${categoryAnchors[index].id}-title`}>{category.title}</h3>
             : <h2 class="menu-category__title" id={`${categoryAnchors[index].id}-title`}>{category.title}</h2>}
           {category.subtitle && <p class="menu-category__subtitle">{category.subtitle}</p>}
+          {category.serves && <p class="menu-category__serves">Serves {category.serves}</p>}
           {category.description && <div class="menu-category__description" set:html={sanitizeRichText(category.description)} />}
         </header>
         <div class="menu-category__items">
@@ -64,10 +65,12 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
                   <div class="menu-item__topline">
                     {isEmbedded ? <h4 class="menu-item__title">{item.title}</h4> : <h3 class="menu-item__title">{item.title}</h3>}
                     {itemPrice && <span class="menu-item__leader" aria-hidden="true" />}
+                    {itemPrice && item.prices[0]?.label && <span class="menu-item__price-label">{item.prices[0].label}</span>}
                     {itemPrice && <span class="menu-item__price">{formatMenuPrice(itemPrice)}</span>}
                   </div>
                   {item.postTitle && <p class="menu-item__post-title">{item.postTitle}</p>}
                   {item.subtitle && <p class="menu-item__subtitle">{item.subtitle}</p>}
+                  {item.serves && <p class="menu-item__serves">Serves {item.serves}</p>}
                   {description && <div class="menu-item__description" set:html={description} />}
                   {item.dietaryTags.length > 0 && <p class="menu-item__dietary-tags">Dietary: {item.dietaryTags.join(", ")}</p>}
                   {multiPrice && (
@@ -228,6 +231,7 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
   }
 
   .menu-category__subtitle,
+  .menu-category__serves,
   .menu-category__description,
   .menu-category__after {
     color: var(--color-muted);
@@ -236,6 +240,13 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
 
   .menu-category__subtitle {
     margin: 0.45rem 0 0;
+    font-weight: 650;
+  }
+
+  .menu-category__serves,
+  .menu-item__serves {
+    margin: 0.35rem 0 0;
+    font-size: 0.82rem;
     font-weight: 650;
   }
 
@@ -310,6 +321,13 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     color: var(--color-ink);
     font-variant-numeric: tabular-nums;
     font-weight: 750;
+  }
+
+  .menu-item__price-label {
+    flex: 0 0 auto;
+    color: var(--color-muted);
+    font-size: 0.76rem;
+    white-space: nowrap;
   }
 
   .menu-item__subtitle {

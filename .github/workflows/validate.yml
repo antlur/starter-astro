@@ -21,8 +21,12 @@ jobs:
           BACKSTAGE_SOURCE: fixture
           BACKSTAGE_FORM_SUBMISSIONS_ENABLED: "false"
           SITE_INDEXABLE: "false"
-      - name: Verify route-resolved menu media
+      - name: Verify preview output
         run: node scripts/assert-built-site.mjs preview
+        env:
+          SITE_INDEXABLE: "false"
+      - name: Verify route-resolved menu media
+        run: node scripts/assert-route-resolved-menu-media.mjs
       - name: Verify preview forms are disabled
         run: node scripts/assert-form-output.mjs disabled
       - name: Build indexable site and sitemap
@@ -30,6 +34,11 @@ jobs:
         env:
           BACKSTAGE_SOURCE: fixture
           BACKSTAGE_FORM_SUBMISSIONS_ENABLED: "true"
+          SITE_URL: https://starter.example
+          SITE_INDEXABLE: "true"
+      - name: Verify production output
+        run: node scripts/assert-built-site.mjs indexable
+        env:
           SITE_URL: https://starter.example
           SITE_INDEXABLE: "true"
       - name: Verify production forms are enabled

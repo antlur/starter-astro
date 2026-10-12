@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { locationSchemaUrl, normalizeLocation } from "../src/lib/backstage/locations";
+import { isPublicLocation, locationSchemaUrl, normalizeLocation } from "../src/lib/backstage/locations";
 
 test("builds a location-specific structured-data URL when the site origin is configured", () => {
   const site = new URL("https://fieldwork.example.test");
@@ -60,4 +61,49 @@ test("omits unsafe map URLs and respects closed, hidden, and 24-hour days", () =
     { day: "Mon", value: "Closed" },
     { day: "Tue", value: "Open 24 hours" },
   ]);
+});
+
+test("preserves associated menus and accepts Backstage Google Maps embed URLs", () => {
+  const location = normalizeLocation({
+    id: "location-1",
+    menus: [{ id: "menu-dinner" }, { id: 23 }, { title: "Missing ID" }, { id: "menu-dinner" }],
+    map_embed: "https://www.google.com/maps/embed/v1/place?key=test-key&q=Main+Street&zoom=14",
+  });
+
+  assert.deepEqual(location.menuIds, ["menu-dinner", "23"]);
+  assert.equal(location.mapEmbedUrl, "https://www.google.com/maps/embed/v1/place?key=test-key&q=Main+Street&zoom=14");
+  assert.equal(normalizeLocation({ id: "legacy" }).menuIds, null);
+  assert.deepEqual(normalizeLocation({ id: "empty", menus: [] }).menuIds, []);
+});
+
+test("preserves location status and matches Backstage's public route status rules", () => {
+  const legacy = normalizeLocation({ id: "legacy", status_text: "Legacy" });
+  const draft = normalizeLocation({ id: "draft", status: "draft", status_text: "Draft" });
+  const closed = normalizeLocation({ id: "closed", status: "closed", status_text: "Closed" });
+  const opening = normalizeLocation({ id: "opening", status: "opening" });
+  const open = normalizeLocation({ id: "open", status: "open" });
+  const closing = normalizeLocation({ id: "closing", status: "closing" });
+
+  assert.equal(legacy.status, null);
+  assert.equal(legacy.statusText, "Legacy");
+  assert.equal(isPublicLocation(legacy), true);
+  assert.equal(draft.statusText, "Draft");
+  assert.equal(isPublicLocation(draft), false);
+  assert.equal(isPublicLocation(closed), false);
+  assert.equal(isPublicLocation(opening), true);
+  assert.equal(isPublicLocation(open), true);
+  assert.equal(isPublicLocation(closing), true);
+  assert.equal(isPublicLocation(normalizeLocation({ id: "published", is_published: true })), true);
+  assert.equal(isPublicLocation(normalizeLocation({ id: "private", status: "open", is_public: false })), false);
+  assert.equal(isPublicLocation(normalizeLocation({ id: "not-public", status: "opening", public: false })), false);
+  assert.equal(isPublicLocation(normalizeLocation({ id: "unpublished", published: false })), false);
+});
+
+test("applies explicit location publication status to generated pages and location lists", async () => {
+  const routePage = await readFile(new URL("../src/pages/[...slug].astro", import.meta.url), "utf8");
+
+  assert.match(routePage, /content\.locations\.filter\(isPublicLocation\)/);
+  assert.match(routePage, /routePlan\.locationRoutes\.filter\(\(\{ location \}\) => isPublicLocation\(location\)\)/);
+  assert.match(routePage, /const locationPages = locationRoutes\.map/);
+  assert.match(routePage, /locationRoutes,\s*site: content\.site/);
 });

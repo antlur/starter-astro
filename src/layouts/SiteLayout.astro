@@ -3,6 +3,7 @@ import "../styles/global.css";
 import LocationHoursSection from "../components/LocationHoursSection.astro";
 import SiteAlerts from "../components/SiteAlerts.astro";
 import SocialIcon from "../components/SocialIcon.astro";
+import NavigationTree from "../components/NavigationTree.astro";
 import { alertsForPath } from "../lib/backstage/alerts";
 import { resolveSeoMetadata } from "../lib/seo-metadata";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
@@ -111,36 +112,7 @@ const visibleAlerts = alertsForPath(alerts, pathname);
               <span aria-hidden="true"></span>
             </button>
             <nav class="site-header__navigation" id="site-primary-navigation" aria-label="Primary navigation">
-              <ul class="site-nav">
-                {navigation.map((item) => (
-                  <li class="site-nav-item">
-                    <a
-                      class={item.style === "button" ? "site-nav-link site-nav-link--button" : "site-nav-link"}
-                      href={item.url}
-                      target={item.newWindow ? "_blank" : undefined}
-                      rel={item.newWindow ? "noopener noreferrer" : undefined}
-                      aria-current={pathname === item.url ? "page" : undefined}
-                    >{item.text}</a>
-                    {item.children.length > 0 && (
-                      <details class="site-nav-menu">
-                        <summary aria-label={`Show ${item.text} pages`}><span aria-hidden="true"></span></summary>
-                        <ul class="site-nav-children" aria-label={item.text + " links"}>
-                          {item.children.map((child) => (
-                            <li>
-                              <a
-                                href={child.url}
-                                target={child.newWindow ? "_blank" : undefined}
-                                rel={child.newWindow ? "noopener noreferrer" : undefined}
-                                aria-current={pathname === child.url ? "page" : undefined}
-                              >{child.text}</a>
-                            </li>
-                          ))}
-                        </ul>
-                      </details>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              <NavigationTree items={navigation} variant="header" pathname={pathname} />
             </nav>
           </>
         )}
@@ -157,8 +129,8 @@ const visibleAlerts = alertsForPath(alerts, pathname);
             {site.logo ? <img src={site.logo.url} alt="" width={site.logo.width || 160} height={site.logo.height || 48} /> : <span>{site.name}</span>}
           </a>
           {footerNavigation.length > 0 && (
-            <nav aria-label="Footer navigation">
-              {footerNavigation.map((item) => <a href={item.url} target={item.newWindow ? "_blank" : undefined} rel={item.newWindow ? "noopener noreferrer" : undefined}>{item.text}</a>)}
+            <nav class="site-footer__navigation" aria-label="Footer navigation">
+              <NavigationTree items={footerNavigation} variant="footer" pathname={pathname} />
             </nav>
           )}
           {socialLinks.length > 0 && (

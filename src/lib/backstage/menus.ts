@@ -11,6 +11,7 @@ export interface SiteMenuItem {
   postTitle: string | null;
   subtitle: string | null;
   description: string | null;
+  serves?: string | null;
   priceType: string | null;
   price: string | null;
   prices: SiteMenuPrice[];
@@ -29,6 +30,8 @@ export interface SiteMenuCategory {
   subtitle: string | null;
   description: string | null;
   afterDescription: string | null;
+  serves?: string | null;
+  pricingColumns?: string[];
   columns: number | null;
   items: SiteMenuItem[];
 }
@@ -37,12 +40,47 @@ export interface SiteMenu {
   id: string;
   title: string;
   slug: string;
+  isDefault?: boolean;
+  isPublished?: boolean | null;
   subtitle: string | null;
   pdfUrl: string | null;
   categories: SiteMenuCategory[];
 }
 
-export const formatMenuPrice = (value: string): string => value.trim();
+export const formatMenuPrice = (value: string): string => {
+  const price = value.trim();
+  if (price.startsWith("$")) return price;
+
+  const amount = price.match(/^(-?\d+(?:,\d{3})*(?:\.\d{1,2})?)$/);
+  if (!amount) return price;
+
+  const numericAmount = Number(amount[1].replaceAll(",", ""));
+  return Number.isFinite(numericAmount)
+    ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(numericAmount)
+    : price;
+};
+
+export const selectMenuForIndex = (
+  menus: readonly SiteMenu[],
+  resolverMenuId?: string | null,
+  associatedMenuIds?: readonly string[] | null,
+): SiteMenu | null => {
+  const publishedMenus = menus.filter((menu) => menu.isPublished !== false);
+
+  if (resolverMenuId !== undefined && resolverMenuId !== null) {
+    return publishedMenus.find((menu) => menu.id === resolverMenuId) ?? null;
+  }
+
+  if (associatedMenuIds !== undefined && associatedMenuIds !== null) {
+    for (const menuId of associatedMenuIds) {
+      const menu = publishedMenus.find((candidate) => candidate.id === menuId);
+      if (menu) return menu;
+    }
+    return null;
+  }
+
+  return publishedMenus[0] ?? null;
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -83,21 +121,53 @@ const safeDocumentUrl = (value: unknown): string | null => {
   }
 };
 
-const normalizePrices = (value: unknown): SiteMenuPrice[] => {
-  if (!Array.isArray(value)) return [];
+const normalizePricingColumns = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.map((column) => isRecord(column)
+      ? optionalString(column.label ?? column.title ?? column.name) ?? ""
+      : optionalString(column) ?? "");
+  }
 
-  return value.flatMap((candidate) => {
-    if (!isRecord(candidate)) return [];
-    const amount = optionalString(candidate.value ?? candidate.price);
+  if (isRecord(value)) {
+    return Object.entries(value).map(([key, column]) => {
+      const label = isRecord(column)
+        ? optionalString(column.label ?? column.title ?? column.name)
+        : optionalString(column);
+      return label ?? (/^\d+$/.test(key) ? "" : key);
+    });
+  }
+
+  return [];
+};
+
+const hasPriceEntries = (value: unknown): boolean =>
+  (Array.isArray(value) && value.length > 0) || (isRecord(value) && Object.keys(value).length > 0);
+
+const normalizePrices = (value: unknown, pricingColumns: readonly string[]): SiteMenuPrice[] => {
+  const entries = Array.isArray(value)
+    ? value.map((candidate, index) => [String(index), candidate] as const)
+    : isRecord(value)
+      ? Object.entries(value)
+      : [];
+
+  return entries.flatMap(([key, candidate], index) => {
+    const amount = optionalString(isRecord(candidate) ? candidate.value ?? candidate.price : candidate);
     if (!amount) return [];
 
-    return [{ label: optionalString(candidate.label) ?? "", value: amount }];
+    const keyedLabel = /^\d+$/.test(key) || /^(?:price\d*)$/i.test(key) ? null : key;
+    const position = /^\d+$/.test(key) ? Number(key) : index;
+    const label = isRecord(candidate) ? optionalString(candidate.label) : null;
+
+    return [{ label: label ?? keyedLabel ?? pricingColumns[position] ?? "", value: amount }];
   });
 };
 
-const splitPrice = (value: string | null): SiteMenuPrice[] => {
+const splitPrice = (value: string | null, pricingColumns: readonly string[]): SiteMenuPrice[] => {
   if (!value || !value.includes("|")) return [];
-  return value.split("|").map((part) => part.trim()).filter(Boolean).map((part) => ({ label: "", value: part }));
+  return value.split("|").flatMap((part, index) => {
+    const amount = part.trim();
+    return amount ? [{ label: pricingColumns[index] ?? "", value: amount }] : [];
+  });
 };
 
 const localValue = (
@@ -123,24 +193,26 @@ const normalizeMenuItem = (
   value: unknown,
   index: number,
   mediaById: ReadonlyMap<string, unknown>,
+  pricingColumns: readonly string[],
 ): SiteMenuItem => {
   if (!isRecord(value)) throw new Error(`Backstage menu contains an invalid item at index ${index}.`);
   const globalItem = isRecord(value.menu_item) ? value.menu_item : {};
   const title = optionalString(localValue(value, globalItem, "title"));
   const description = localValue(value, globalItem, "description");
   const subtitle = localValue(value, globalItem, "subtitle");
-  const priceType = optionalString(localValue(value, globalItem, "price_type"));
-  const hiddenPrice = priceType === "hidden"
-    || value.has_hidden_price === true
-    || (value.has_hidden_price === undefined && globalItem.has_hidden_price === true);
-  const hasLocalPriceOverride = (Array.isArray(value.prices) && value.prices.length > 0)
+  const hasLocalPriceOverride = hasPriceEntries(value.prices)
     || optionalString(value.price) !== null
     || optionalString(value.price2) !== null;
+  const priceType = optionalString(value.price_type)
+    ?? (hasLocalPriceOverride ? null : optionalString(globalItem.price_type));
+  const hiddenPrice = priceType === "hidden"
+    || value.has_hidden_price === true
+    || (value.has_hidden_price === undefined && !hasLocalPriceOverride && globalItem.has_hidden_price === true);
   const priceSource = hasLocalPriceOverride ? value : globalItem;
-  const structuredPrices = normalizePrices(priceSource.prices);
+  const structuredPrices = normalizePrices(priceSource.prices, pricingColumns);
   const scalarPrice = optionalString(priceSource.price);
   const scalarPrice2 = optionalString(priceSource.price2);
-  const scalarPrices = splitPrice(scalarPrice);
+  const scalarPrices = splitPrice(scalarPrice, pricingColumns);
   const prices = hiddenPrice
     ? []
     : structuredPrices.length > 0
@@ -148,8 +220,8 @@ const normalizeMenuItem = (
       : scalarPrices.length > 0
         ? scalarPrices
         : [
-            ...(scalarPrice ? [{ label: "", value: scalarPrice }] : []),
-            ...(scalarPrice2 ? [{ label: "", value: scalarPrice2 }] : []),
+            ...(scalarPrice ? [{ label: pricingColumns[0] ?? "", value: scalarPrice }] : []),
+            ...(scalarPrice2 ? [{ label: pricingColumns[scalarPrice ? 1 : 0] ?? "", value: scalarPrice2 }] : []),
           ];
   const hasLocalImageOverride = value.image !== undefined || value.image_id !== undefined;
   const imageValue = mediaValue(hasLocalImageOverride ? value : globalItem, mediaById);
@@ -165,6 +237,7 @@ const normalizeMenuItem = (
     postTitle: optionalString(localValue(value, globalItem, "post_title")),
     subtitle: optionalString(subtitle),
     description: typeof description === "string" ? description : null,
+    serves: optionalString(localValue(value, globalItem, "serves")),
     priceType,
     price: prices.length > 1 ? null : prices[0]?.value ?? null,
     prices,
@@ -181,15 +254,22 @@ export const normalizeMenu = (
   value: unknown,
   index = 0,
   mediaById: ReadonlyMap<string, unknown> = new Map(),
+  now = new Date(),
 ): SiteMenu => {
   if (!isRecord(value) || !Array.isArray(value.categories)) {
     throw new Error(`Backstage returned an invalid menu at index ${index}.`);
   }
+  const publishedAt = optionalString(value.published_at);
+  const isPublished = value.published_at === undefined
+    ? null
+    : Boolean(publishedAt && Date.parse(publishedAt) < now.getTime());
 
   return {
     id: requiredString(value.id, "ID"),
     title: requiredString(value.title, "title"),
     slug: requiredString(value.slug, "slug"),
+    isDefault: value.is_default === true,
+    isPublished,
     subtitle: optionalString(value.subtitle),
     pdfUrl: safeDocumentUrl(value.pdf_url),
     categories: value.categories
@@ -204,6 +284,7 @@ export const normalizeMenu = (
           || (typeof orderValue === "string" && orderValue.trim() !== "")
           ? Number(orderValue)
           : Number.NaN;
+        const pricingColumns = normalizePricingColumns(candidate.pricing_columns);
         return {
           sourceIndex: categoryIndex,
           id: optionalString(candidate.id) ?? `${value.slug}-category-${categoryIndex}`,
@@ -212,9 +293,11 @@ export const normalizeMenu = (
           subtitle: optionalString(candidate.subtitle),
           description: optionalString(candidate.description),
           afterDescription: optionalString(candidate.after_description),
+          serves: optionalString(candidate.serves),
+          pricingColumns,
           columns: Number.isInteger(columns) && columns > 0 ? Math.min(columns, 3) : null,
           items: candidate.items.map((item, itemIndex) =>
-            normalizeMenuItem(item, itemIndex, mediaById),
+            normalizeMenuItem(item, itemIndex, mediaById, pricingColumns),
           ),
         };
       })

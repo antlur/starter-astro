@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import type { Field } from "@antlur/backstage";
 import {
@@ -11,8 +11,10 @@ import {
   normalizeNavigation,
   normalizePage,
   normalizeWebsite,
+  resolveFooterNavigation,
 } from "../src/lib/backstage/content";
 import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
+import { normalizeMenu } from "../src/lib/backstage/menus";
 import type { BlockManifest } from "../src/lib/backstage/sync-blocks";
 import { attachBackstageForms, normalizeFormDefinition } from "../src/lib/backstage/forms";
 import { sanitizeRichText } from "../src/lib/sanitize-rich-text";
@@ -20,7 +22,7 @@ import {
   defaultPageLayoutSlug,
   pageLayoutDefinitions,
   resolvePageLayoutSlug,
-} from "../src/site/page-layout-definitions";
+} from "../src/layouts/definitions";
 
 const blockManifests = loadBlockManifests();
 const blockManifest = (slug: string): BlockManifest => {
@@ -41,13 +43,13 @@ const upcomingEventsManifest = blockManifest("upcoming-events");
 const instagramFeedManifest = blockManifest("instagram-feed");
 const videoHeroManifest = blockManifest("video-hero");
 const blockRendererSource = readFileSync(new URL("../src/components/BlockRenderer.astro", import.meta.url), "utf8");
-const videoHeroRendererSource = readFileSync(new URL("../src/blocks/VideoHero.astro", import.meta.url), "utf8");
+const videoHeroRendererSource = readFileSync(new URL("../src/blocks/video-hero/VideoHero.astro", import.meta.url), "utf8");
 const pageLayoutRendererSource = readFileSync(new URL("../src/components/PageLayoutRenderer.astro", import.meta.url), "utf8");
-const localLayoutFields = () => pageLayoutDefinitions[0].schema.fields.map(({ slug, type, options }) => ({
-  slug,
-  type,
-  options,
-}));
+const navigationTreeSource = readFileSync(new URL("../src/components/NavigationTree.astro", import.meta.url), "utf8");
+const siteLayoutSource = readFileSync(new URL("../src/layouts/SiteLayout.astro", import.meta.url), "utf8");
+const pageLayoutDefinitionsSource = readFileSync(new URL("../src/layouts/definitions.ts", import.meta.url), "utf8");
+const backstageConfigSource = readFileSync(new URL("../backstage.config.ts", import.meta.url), "utf8");
+const localLayoutFields = () => structuredClone(pageLayoutDefinitions[0].schema.fields);
 
 test("Hero manifest exposes the fields used by its Astro renderer", () => {
   const fields = heroManifest.schema.fields;
@@ -225,6 +227,49 @@ test("attaches selected menus to page blocks by canonical menu ID", () => {
   );
 });
 
+test("public Menu blocks reject unpublished menus but allow legacy unknown publication status", () => {
+  const now = new Date("2026-10-11T12:00:00.000Z");
+  const pageFor = (menuId: string) => normalizePage({
+    id: `page-${menuId}`,
+    title: menuId,
+    slug: menuId,
+    pathname: `/${menuId}`,
+    blocks: [{ id: `block-${menuId}`, type: "menu", fields: { menu_id: { id: menuId } } }],
+  });
+  const normalize = (id: string, published_at?: string | null) => normalizeMenu({
+    id,
+    title: id,
+    slug: id,
+    ...(published_at === undefined ? {} : { published_at }),
+    categories: [],
+  }, 0, new Map(), now);
+  const attach = (menu: ReturnType<typeof normalizeMenu>) => {
+    const page = pageFor(menu.id);
+    attachMenusToBlocks([page], [menu]);
+    return page.blocks[0].menu;
+  };
+
+  const published = normalize("published", "2026-10-10T12:00:00.000Z");
+  assert.equal(published.isPublished, true);
+  assert.equal(attach(published)?.id, "published");
+
+  const draft = normalize("draft", null);
+  assert.equal(draft.isPublished, false);
+  assert.throws(() => attach(draft), /references unpublished menu draft/);
+
+  const scheduled = normalize("scheduled", "2026-10-12T12:00:00.000Z");
+  assert.equal(scheduled.isPublished, false);
+  assert.throws(() => attach(scheduled), /references unpublished menu scheduled/);
+
+  const legacy = normalize("legacy");
+  assert.equal(legacy.isPublished, null);
+  assert.equal(attach(legacy)?.id, "legacy");
+
+  const unknown = { ...legacy };
+  delete unknown.isPublished;
+  assert.equal(attach(unknown)?.id, "legacy");
+});
+
 test("connects Upcoming Events blocks to the generated events index only when that route exists", () => {
   const page = normalizePage({
     id: "page-events",
@@ -273,18 +318,50 @@ test("every block manifest has a registered Astro renderer", () => {
   }
 });
 
-test("every configured Backstage page layout has an Astro renderer", () => {
+test("layout manifests use the shared contract and every configured layout has an Astro renderer", () => {
   const rendererSlugs = Array.from(
     pageLayoutRendererSource.matchAll(/^\s*["']?([\w-]+)["']?\s*:\s*\w+,$/gm),
     (match) => match[1],
   );
 
   assert.deepEqual(rendererSlugs.sort(), pageLayoutDefinitions.map(({ slug }) => slug).sort());
-  assert.equal(defaultPageLayoutSlug, "starter-astro-standard-page");
-  assert.deepEqual(pageLayoutDefinitions[0].schema.fields.map(({ slug }) => slug), [
-    "content_width",
-    "section_spacing",
+  assert.equal(existsSync(new URL("../src/layouts/standard-page/manifest.json", import.meta.url)), true);
+  assert.equal(existsSync(new URL("../src/layouts/standard-page/definition.ts", import.meta.url)), false);
+  assert.equal(existsSync(new URL("../src/layouts/standard-page/StandardPage.astro", import.meta.url)), true);
+  assert.equal(pageLayoutDefinitions.length, 1);
+  assert.deepEqual(Object.keys(pageLayoutDefinitions[0]).sort(), [
+    "manifest_version",
+    "name",
+    "schema",
+    "slug",
+    "type",
   ]);
+  assert.deepEqual(Object.keys(pageLayoutDefinitions[0].schema).sort(), ["fields"]);
+  assert.equal(pageLayoutDefinitions[0].manifest_version, 1);
+  assert.equal(pageLayoutDefinitions[0].type, "layout");
+  assert.equal(pageLayoutDefinitions[0].name, "Starter Astro Standard Page");
+  assert.equal(pageLayoutDefinitions[0].slug, "starter-astro-standard-page");
+  assert.equal(defaultPageLayoutSlug, "starter-astro-standard-page");
+  assert.deepEqual(pageLayoutDefinitions[0].schema.fields.map(({ name, slug, type, order }) => [name, slug, type, order]), [
+    ["Content width", "content_width", "select", 0],
+    ["Section spacing", "section_spacing", "select", 1],
+  ]);
+  assert.deepEqual(pageLayoutDefinitions[0].schema.fields.map(({ options }) => options), [
+    [
+      { label: "Narrow", value: "narrow" },
+      { label: "Standard", value: "standard" },
+      { label: "Wide", value: "wide" },
+    ],
+    [
+      { label: "Compact", value: "compact" },
+      { label: "Comfortable", value: "comfortable" },
+      { label: "Spacious", value: "spacious" },
+    ],
+  ]);
+  assert.doesNotMatch(pageLayoutDefinitionsSource, /\.astro["']/);
+  assert.equal(defaultPageLayoutSlug, pageLayoutDefinitions[0].slug);
+  assert.match(backstageConfigSource, /blockManifestDirectory:\s*["']src\/blocks["']/);
+  assert.match(backstageConfigSource, /layouts:\s*pageLayoutDefinitions/);
 });
 
 test("uses the default page layout when none is assigned and rejects unknown layouts", () => {
@@ -390,7 +467,7 @@ test("requires assigned Backstage layouts to match the local definition and fiel
       id: "layout-1",
       name: "Starter Astro Standard Page",
       slug: "starter-astro-standard-page",
-      schema: { fields: [{ slug: "content_width" }] },
+      schema: { fields: [localLayoutFields()[0]] },
       data: {},
     },
     blocks: [],
@@ -433,7 +510,7 @@ test("requires assigned Backstage layouts to match the local definition and fiel
       schema: {
         fields: [
           ...localLayoutFields(),
-          { slug: "hero_alignment" },
+          { name: "Hero alignment", slug: "hero_alignment", type: "text" },
         ],
       },
       data: {},
@@ -492,12 +569,96 @@ test("rejects assigned layouts whose field types or select values differ from th
 
   const wrongOptions = localLayoutFields().map((field) =>
     field.slug === "content_width"
-      ? { ...field, options: field.options?.filter(({ value }) => value !== "wide") }
+      ? { ...field, options: field.options?.map((option, index) => index === 0 ? { ...option, label: "Slim" } : option) }
       : field,
   );
   assert.throws(
     () => assertPageLayoutDefinitions([makePage(wrongOptions)], true),
     /field "content_width" has options that differ from its local Astro definition/,
+  );
+});
+
+test("validates nested layout fields, multiplicity, and metadata like block fields", () => {
+  const localFields: Field[] = [{
+    name: "Actions",
+    slug: "actions",
+    type: "repeater",
+    is_multiple: true,
+    order: 0,
+    fields: [{
+      name: "Label",
+      slug: "label",
+      type: "text",
+      description: "Button label",
+      placeholder: "Order online",
+      is_multiple: true,
+      required: true,
+      order: 0,
+    }],
+  }];
+  const definition = [{ slug: defaultPageLayoutSlug, schema: { fields: localFields } }];
+  const makePage = (fields: unknown[]) => normalizePage({
+    id: "page-nested-layout",
+    title: "About",
+    slug: "about",
+    pathname: "/about",
+    layout: {
+      id: "layout-nested",
+      name: "Standard",
+      slug: defaultPageLayoutSlug,
+      schema: { fields },
+      data: {},
+    },
+    blocks: [],
+  });
+  const matchingFields = () => structuredClone(localFields);
+
+  assert.doesNotThrow(() => assertPageLayoutDefinitions([makePage(matchingFields())], true, definition));
+
+  const legacyFields = matchingFields();
+  delete legacyFields[0].fields![0].required;
+  assert.doesNotThrow(() => assertPageLayoutDefinitions([makePage(legacyFields)], true, definition));
+
+  const wrongMultiplicity = matchingFields();
+  wrongMultiplicity[0].is_multiple = false;
+  assert.throws(
+    () => assertPageLayoutDefinitions([makePage(wrongMultiplicity)], true, definition),
+    /field "actions" has a multiple-value setting that differs from its local Astro definition/,
+  );
+
+  const wrongNestedMultiplicity = matchingFields();
+  wrongNestedMultiplicity[0].fields![0].is_multiple = false;
+  assert.throws(
+    () => assertPageLayoutDefinitions([makePage(wrongNestedMultiplicity)], true, definition),
+    /field "actions\.label" has a multiple-value setting that differs from its local Astro definition/,
+  );
+
+  const wrongNestedMetadata = matchingFields();
+  wrongNestedMetadata[0].fields![0].placeholder = "Learn more";
+  assert.throws(
+    () => assertPageLayoutDefinitions([makePage(wrongNestedMetadata)], true, definition),
+    /field "actions\.label" has editor metadata that differs from its local Astro definition/,
+  );
+
+  const missingNestedField = matchingFields();
+  missingNestedField[0].fields = [];
+  assert.throws(
+    () => assertPageLayoutDefinitions([makePage(missingNestedField)], true, definition),
+    /missing fields from its local definition: label.*npm run sync:layouts/,
+  );
+
+  const unsupportedNestedField = matchingFields();
+  unsupportedNestedField[0].fields!.push({ name: "Icon", slug: "icon", type: "text" });
+  assert.throws(
+    () => assertPageLayoutDefinitions([makePage(unsupportedNestedField)], true, definition),
+    /fields not supported by its local Astro renderer: icon/,
+  );
+
+  const malformedNestedFields = matchingFields();
+  (malformedNestedFields[0] as unknown as { fields: unknown }).fields = "not-an-array";
+  assert.throws(
+    () => assertPageLayoutDefinitions([makePage(malformedNestedFields)], true, definition),
+    /has an invalid field at index 0/,
   );
 });
 
@@ -640,7 +801,47 @@ test("rejects account block schemas that drift from the local field contract", (
   );
 });
 
-test("accepts required metadata omitted by the Backstage account-block normalizer", () => {
+test("rejects required-field drift in nested fields while treating local omission as false", () => {
+  const makeManifest = (): BlockManifest => ({
+    manifest_version: 1,
+    type: "block",
+    registry_identity: "fieldwork:required-parity@1",
+    name: "Required Parity",
+    slug: "required-parity",
+    schema: { fields: [structuredClone(heroManifest.schema.fields.find((field) => field.slug === "actions")!)] },
+  });
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    pathname: "/",
+    blocks: [{ id: "block-1", type: "required-parity", fields: {} }],
+  });
+  const assertRequiredMismatch = (localRequired: boolean | undefined, accountRequired: boolean) => {
+    const localManifest = makeManifest();
+    const localField = localManifest.schema.fields[0].fields![0];
+    if (localRequired === undefined) delete localField.required;
+    else localField.required = localRequired;
+
+    const accountFields: Field[] = structuredClone([...localManifest.schema.fields]);
+    accountFields[0].fields![0].required = accountRequired;
+
+    assert.throws(
+      () => assertPageBlockDefinitions([page], true, [{
+        slug: localManifest.slug,
+        registry_identity: localManifest.registry_identity,
+        schema: { fields: accountFields },
+      }], [localManifest]),
+      /field "actions\.label" has required set to ".*"; the local manifest expects ".*"/,
+    );
+  };
+
+  assertRequiredMismatch(true, false);
+  assertRequiredMismatch(false, true);
+  assertRequiredMismatch(undefined, true);
+});
+
+test("accepts required metadata omitted by older Backstage responses", () => {
   const page = normalizePage({
     id: "page-1",
     title: "Home",
@@ -875,7 +1076,13 @@ test("normalizes Backstage navigation and rejects unsafe link schemes", () => {
       new_window: false,
       children: [
         { id: "menu-2", text: "Dinner", url: "/menus/dinner", style: "button", new_window: true },
-        { id: "menu-pdf", text: "Download", url: "/menus/dinner.pdf?download=1", new_window: true },
+        {
+          id: "menu-pdf",
+          text: "Download",
+          url: "/menus/dinner.pdf?download=1",
+          new_window: true,
+          children: [{ id: "menu-details", text: "Details", url: "/menus/dinner/details", new_window: false }],
+        },
       ],
     }],
   });
@@ -888,7 +1095,21 @@ test("normalizes Backstage navigation and rejects unsafe link schemes", () => {
     style: "link",
     children: [
       { id: "menu-2", text: "Dinner", url: "/menus/dinner/", newWindow: true, style: "button", children: [] },
-      { id: "menu-pdf", text: "Download", url: "/menus/dinner.pdf?download=1", newWindow: true, style: "link", children: [] },
+      {
+        id: "menu-pdf",
+        text: "Download",
+        url: "/menus/dinner.pdf?download=1",
+        newWindow: true,
+        style: "link",
+        children: [{
+          id: "menu-details",
+          text: "Details",
+          url: "/menus/dinner/details/",
+          newWindow: false,
+          style: "link",
+          children: [],
+        }],
+      },
     ],
   }]);
 
@@ -896,6 +1117,37 @@ test("normalizes Backstage navigation and rejects unsafe link schemes", () => {
     () => normalizeNavigation({ items: [{ id: "unsafe", text: "Unsafe", url: "javascript:alert(1)" }] }),
     /unsupported URL/,
   );
+});
+
+test("reuses selected header navigation as footer navigation when IDs match", async () => {
+  const selectedNavigation = normalizeNavigation({
+    items: [{ id: "primary", text: "Primary", url: "/", children: [] }],
+  });
+  let fetchCount = 0;
+
+  const footer = await resolveFooterNavigation(
+    "navigation-1",
+    "navigation-1",
+    selectedNavigation,
+    ["navigation-1"],
+    async () => {
+      fetchCount += 1;
+      throw new Error("same navigation should not be fetched twice");
+    },
+  );
+
+  assert.strictEqual(footer, selectedNavigation);
+  assert.equal(fetchCount, 0);
+});
+
+test("renders all navigation depths in header and footer trees", () => {
+  assert.match(siteLayoutSource, /<NavigationTree items=\{navigation\} variant="header" pathname=\{pathname\} \/>/);
+  assert.match(siteLayoutSource, /<NavigationTree items=\{footerNavigation\} variant="footer" pathname=\{pathname\} \/>/);
+  assert.match(navigationTreeSource, /item\.children\.length > 0 && variant === "header"/);
+  assert.match(navigationTreeSource, /item\.children\.length > 0 && variant === "footer"/);
+  assert.equal([...navigationTreeSource.matchAll(/<Astro\.self items=\{item\.children\}/g)].length, 2);
+  assert.match(navigationTreeSource, /<details class="site-nav-menu">[\s\S]*?<summary aria-label=\{`Show \$\{item\.text\} pages`\}/);
+  assert.match(navigationTreeSource, /class=\{listClass\}/);
 });
 
 test("sanitizes rich text tags and unsafe link schemes", () => {

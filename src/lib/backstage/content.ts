@@ -1,7 +1,7 @@
 import { BackstageClient } from "@antlur/backstage";
 import type { AccountBlock, Alert, Field } from "@antlur/backstage";
 import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "./concurrency";
-import { pageLayoutDefinitions } from "../../site/page-layout-definitions";
+import { pageLayoutDefinitions } from "../../layouts/definitions";
 import { loadBlockManifests } from "./block-manifests";
 import { attachBackstageForms } from "./forms";
 import { normalizeLocation, type SiteLocation } from "./locations";
@@ -128,34 +128,72 @@ const serializedFieldMetadata = (field: Field): string => JSON.stringify({
   order: field.order ?? null,
 });
 
-const assertBlockFieldParity = (
-  blockType: string,
+const assertFieldParity = (
+  kind: "block" | "page layout",
+  name: string,
   localFields: readonly Field[],
-  accountFields: readonly Field[],
+  accountFieldsValue: unknown,
   parent = "",
 ): void => {
-  // Backstage currently drops required and resolves allowed_references to blueprint IDs.
+  const subject = `Backstage ${kind} "${name}"`;
+  const localDefinition = kind === "block" ? "local manifest" : "local Astro definition";
+  const localRenderer = kind === "block" ? "local manifest" : "local Astro renderer";
+  const accountFields = accountFieldsValue === undefined || accountFieldsValue === null
+    ? []
+    : Array.isArray(accountFieldsValue)
+      ? accountFieldsValue
+      : null;
+
+  if (!accountFields) {
+    throw new Error(`${subject} has an invalid fields list in ${parent || "its schema"}.`);
+  }
+
+  for (const [index, field] of accountFields.entries()) {
+    if (
+      !isRecord(field)
+      || typeof field.slug !== "string"
+      || typeof field.name !== "string"
+      || typeof field.type !== "string"
+      || (field.fields !== undefined && !Array.isArray(field.fields))
+      || (field.options !== undefined && !Array.isArray(field.options))
+    ) {
+      throw new Error(`${subject} has an invalid field at ${parent ? `${parent}.` : ""}index ${index}.`);
+    }
+
+    if (Array.isArray(field.options) && field.options.some((option) =>
+      !isRecord(option) || typeof option.label !== "string" || !("value" in option)
+    )) {
+      throw new Error(`${subject} field "${field.slug}" has invalid options.`);
+    }
+  }
+
+  const fields = accountFields as Field[];
+  // Older Backstage responses omit required; compare it when the API supplies it.
   const fieldPath = (slug: string) => parent ? `${parent}.${slug}` : slug;
   const localFieldsBySlug = new Map(localFields.map((field) => [field.slug, field]));
-  const accountFieldsBySlug = new Map(accountFields.map((field) => [field.slug, field]));
+  const accountFieldsBySlug = new Map(fields.map((field) => [field.slug, field]));
 
-  if (accountFieldsBySlug.size !== accountFields.length) {
-    throw new Error(`Backstage block "${blockType}" has duplicate field slugs in ${parent || "its schema"}.`);
+  if (accountFieldsBySlug.size !== fields.length) {
+    throw new Error(`${subject} has duplicate field slugs in ${parent || "its schema"}.`);
   }
 
   const missingFields = localFields.filter((field) => !accountFieldsBySlug.has(field.slug));
   if (missingFields.length > 0) {
     throw new Error(
-      `Backstage block "${blockType}" is missing fields from its local manifest: ${missingFields.map(({ slug }) => slug).join(", ")}. ` +
-      "Reconcile its definition before building.",
+      `${subject} is missing fields from its ${kind === "block" ? "local manifest" : "local definition"}: ` +
+      `${missingFields.map(({ slug }) => slug).join(", ")}. ` +
+      (kind === "block" ? "Reconcile its definition before building." : "Run npm run sync:layouts, then build again."),
     );
   }
 
-  const unsupportedFields = accountFields.filter((field) => !localFieldsBySlug.has(field.slug));
+  const unsupportedFields = fields.filter((field) => !localFieldsBySlug.has(field.slug));
   if (unsupportedFields.length > 0) {
     throw new Error(
-      `Backstage block "${blockType}" has fields not supported by its local manifest: ${unsupportedFields.map(({ slug }) => slug).join(", ")}. ` +
-      "Fork the semantic identity before adding fields.",
+      `${subject} has fields not supported by its ${kind === "block" ? "local manifest" : "local Astro renderer"}: ` +
+      `${unsupportedFields.map(({ slug }) => slug).join(", ")}. ` +
+      (kind === "block"
+        ? "Fork the semantic identity before adding fields."
+        : "Update the local layout definition and renderer, or reconcile the Backstage definition before building."),
     );
   }
 
@@ -165,25 +203,32 @@ const assertBlockFieldParity = (
     const path = fieldPath(localField.slug);
 
     if (serializedFieldMetadata(accountField) !== serializedFieldMetadata(localField)) {
-      throw new Error(`Backstage block "${blockType}" field "${path}" has editor metadata that differs from its local manifest.`);
+      throw new Error(`${subject} field "${path}" has editor metadata that differs from its ${localDefinition}.`);
     }
 
     if (accountField.type !== localField.type) {
       throw new Error(
-        `Backstage block "${blockType}" field "${path}" has type "${accountField.type}"; ` +
-        `the local manifest expects "${localField.type}".`,
+        `${subject} field "${path}" has type "${accountField.type}"; ` +
+        `the ${localRenderer} expects "${localField.type}".`,
       );
     }
 
     if (serializedOptions(accountField) !== serializedOptions(localField)) {
-      throw new Error(`Backstage block "${blockType}" field "${path}" has options that differ from its local manifest.`);
+      throw new Error(`${subject} field "${path}" has options that differ from its ${localDefinition}.`);
+    }
+
+    if (accountField.required !== undefined && accountField.required !== (localField.required ?? false)) {
+      throw new Error(
+        `${subject} field "${path}" has required set to "${accountField.required}"; ` +
+        `the ${localDefinition} expects "${localField.required ?? false}".`,
+      );
     }
 
     if (Boolean(accountField.is_multiple) !== Boolean(localField.is_multiple)) {
-      throw new Error(`Backstage block "${blockType}" field "${path}" has a multiple-value setting that differs from its local manifest.`);
+      throw new Error(`${subject} field "${path}" has a multiple-value setting that differs from its ${localDefinition}.`);
     }
 
-    assertBlockFieldParity(blockType, localField.fields ?? [], accountField.fields ?? [], path);
+    assertFieldParity(kind, name, localField.fields ?? [], accountField.fields ?? [], path);
   }
 };
 
@@ -231,13 +276,14 @@ export const assertPageBlockDefinitions = (
       );
     }
 
-    assertBlockFieldParity(type, manifest.schema.fields, definition.schema?.fields ?? []);
+    assertFieldParity("block", type, manifest.schema.fields, definition.schema?.fields ?? []);
   }
 };
 
 export const assertPageLayoutDefinitions = (
   pages: HeadlessPage[],
   customLayoutsEnabled: boolean,
+  definitions: readonly Pick<(typeof pageLayoutDefinitions)[number], "slug" | "schema">[] = pageLayoutDefinitions,
 ): void => {
   const assignedLayouts = pages.flatMap((page) => page.layout ? [page.layout] : []);
   if (assignedLayouts.length === 0) return;
@@ -250,7 +296,7 @@ export const assertPageLayoutDefinitions = (
   }
 
   for (const layout of assignedLayouts) {
-    const definition = pageLayoutDefinitions.find((candidate) => candidate.slug === layout.slug);
+    const definition = definitions.find((candidate) => candidate.slug === layout.slug);
 
     if (!definition) {
       throw new Error(
@@ -258,59 +304,7 @@ export const assertPageLayoutDefinitions = (
       );
     }
 
-    const accountFields = Array.isArray(layout.schema.fields) ? layout.schema.fields : [];
-    const accountFieldsBySlug = new Map(accountFields.flatMap((field) =>
-      isRecord(field) && typeof field.slug === "string" ? [[field.slug, field] as const] : [],
-    ));
-    const availableFields = new Set(accountFieldsBySlug.keys());
-    const missingFields = definition.schema.fields
-      .map((field) => field.slug)
-      .filter((slug) => !availableFields.has(slug));
-
-    if (missingFields.length > 0) {
-      throw new Error(
-        `Backstage page layout "${layout.slug}" is missing fields from its local definition: ${missingFields.join(", ")}. ` +
-        "Run npm run sync:layouts, then build again.",
-      );
-    }
-
-    const localFields = new Set(definition.schema.fields.map((field) => field.slug));
-    const unsupportedFields = [...availableFields].filter((slug) => !localFields.has(slug));
-
-    if (unsupportedFields.length > 0) {
-      throw new Error(
-        `Backstage page layout "${layout.slug}" has fields not supported by its local Astro renderer: ${unsupportedFields.join(", ")}. ` +
-        "Update the local layout definition and renderer, or reconcile the Backstage definition before building.",
-      );
-    }
-
-    for (const localField of definition.schema.fields) {
-      const accountField = accountFieldsBySlug.get(localField.slug);
-      if (!accountField) continue;
-
-      if (accountField.type !== localField.type) {
-        throw new Error(
-          `Backstage page layout "${layout.slug}" field "${localField.slug}" has type "${String(accountField.type)}"; ` +
-          `the local Astro renderer expects "${localField.type}". Reconcile the local and Backstage definitions before building.`,
-        );
-      }
-
-      if (localField.options) {
-        const localOptions = localField.options.map(({ value }) => String(value)).sort();
-        const accountOptions = Array.isArray(accountField.options)
-          ? accountField.options.flatMap((option) =>
-              isRecord(option) && option.value !== undefined ? [String(option.value)] : [],
-            ).sort()
-          : [];
-
-        if (JSON.stringify(accountOptions) !== JSON.stringify(localOptions)) {
-          throw new Error(
-            `Backstage page layout "${layout.slug}" field "${localField.slug}" has options that differ from its local Astro definition. ` +
-            "Reconcile the local and Backstage definitions before building.",
-          );
-        }
-      }
-    }
+    assertFieldParity("page layout", layout.slug, definition.schema.fields, layout.schema.fields);
   }
 };
 
@@ -534,6 +528,13 @@ export const attachMenusToBlocks = (pages: HeadlessPage[], menus: SiteMenu[]): v
         throw new Error(`Backstage Menu block "${block.id}" references menu ${menuId} that was not loaded.`);
       }
 
+      if (menu.isPublished === false) {
+        throw new Error(
+          `Backstage Menu block "${block.id}" on page "${page.slug}" references unpublished menu ${menuId}. ` +
+          "Only published menus can be used in public Menu blocks.",
+        );
+      }
+
       block.menu = menu;
     }
   }
@@ -589,6 +590,24 @@ export const normalizeNavigation = (value: unknown): SiteNavigationItem[] => {
   }
 
   return value.items.map(normalizeNavigationItem);
+};
+
+export const resolveFooterNavigation = async (
+  footerNavigationId: string | null,
+  headerNavigationId: string | undefined,
+  headerNavigation: SiteNavigationItem[],
+  availableNavigationIds: readonly string[],
+  loadNavigation: (id: string) => Promise<unknown>,
+): Promise<SiteNavigationItem[]> => {
+  if (!footerNavigationId) return [];
+
+  if (!availableNavigationIds.includes(footerNavigationId)) {
+    throw new Error("The Backstage website references a footer navigation that is missing from the account.");
+  }
+
+  if (footerNavigationId === headerNavigationId) return headerNavigation;
+
+  return normalizeNavigation(await loadNavigation(footerNavigationId));
 };
 
 export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
@@ -749,6 +768,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
   const requestedNavigationId = import.meta.env.BACKSTAGE_NAVIGATION_ID?.trim()
     || optionalString(rawWebsite.header_navigation_id)
     || undefined;
+  let selectedNavigationId: string | undefined;
   let navigation: SiteNavigationItem[];
 
   if (requestedNavigationId) {
@@ -756,23 +776,25 @@ const loadSiteContent = async (): Promise<SiteContent> => {
       throw new Error("BACKSTAGE_NAVIGATION_ID does not match a navigation in this account.");
     }
 
+    selectedNavigationId = requestedNavigationId;
     navigation = normalizeNavigation(await client.navigation.getNavigation(requestedNavigationId));
   } else if (navigations.length > 1) {
     throw new Error("This account has multiple navigations. Set BACKSTAGE_NAVIGATION_ID to choose one.");
   } else if (navigations.length === 1) {
-    navigation = normalizeNavigation(await client.navigation.getNavigation(navigations[0].id));
+    selectedNavigationId = navigations[0].id;
+    navigation = normalizeNavigation(await client.navigation.getNavigation(selectedNavigationId));
   } else {
     navigation = [];
   }
 
   const footerNavigationId = optionalString(rawWebsite.footer_navigation_id);
-  let footerNavigation: SiteNavigationItem[] = [];
-  if (footerNavigationId && footerNavigationId !== requestedNavigationId) {
-    if (!navigations.some((candidate) => candidate.id === footerNavigationId)) {
-      throw new Error("The Backstage website references a footer navigation that is missing from the account.");
-    }
-    footerNavigation = normalizeNavigation(await client.navigation.getNavigation(footerNavigationId));
-  }
+  let footerNavigation = await resolveFooterNavigation(
+    footerNavigationId,
+    selectedNavigationId,
+    navigation,
+    navigations.map((candidate) => candidate.id),
+    (id) => client.navigation.getNavigation(id),
+  );
 
   if (legacyPreview) {
     navigation = rewritePreviewNavigation(navigation, website.domain, routePaths);
