@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { isPublicLocation, locationSchemaUrl, normalizeLocation } from "../src/lib/backstage/locations";
+import { isPublicLocation, locationSchemaUrl, locationStructuredData, normalizeLocation } from "../src/lib/backstage/locations";
 
 test("builds a location-specific structured-data URL when the site origin is configured", () => {
   const site = new URL("https://fieldwork.example.test");
@@ -34,6 +34,12 @@ test("normalizes grouped Backstage hours and collapses adjacent matching days", 
   });
 
   assert.deepEqual(location.addressLines, ["9700 Franklin Ave", "Franklin Park, IL 60131"]);
+  assert.deepEqual(location.postalAddress, {
+    streetAddress: "9700 Franklin Ave",
+    addressLocality: "Franklin Park",
+    addressRegion: "IL",
+    postalCode: "60131",
+  });
   assert.deepEqual(location.hours.map(({ day, value }) => ({ day, value })), [
     { day: "Mon-Thu", value: "10 AM - 11 PM" },
     { day: "Fri", value: "10 AM - 12 AM" },
@@ -43,6 +49,16 @@ test("normalizes grouped Backstage hours and collapses adjacent matching days", 
   assert.equal(location.mapUrl, "https://maps.example.test/restaurant");
   assert.equal(location.imageWidth, 1600);
   assert.equal(location.imageHeight, 1000);
+  assert.deepEqual(location.openingHoursSpecification, [
+    ...["Monday", "Tuesday", "Wednesday", "Thursday"].map((dayOfWeek) => ({
+      dayOfWeek: `https://schema.org/${dayOfWeek}`,
+      opens: "10:00",
+      closes: "23:00",
+    })),
+    { dayOfWeek: "https://schema.org/Friday", opens: "10:00", closes: "00:00" },
+    { dayOfWeek: "https://schema.org/Saturday", opens: "11:00", closes: "00:00" },
+    { dayOfWeek: "https://schema.org/Sunday", opens: "11:00", closes: "22:00" },
+  ]);
 });
 
 test("omits unsafe map URLs and respects closed, hidden, and 24-hour days", () => {
@@ -61,6 +77,62 @@ test("omits unsafe map URLs and respects closed, hidden, and 24-hour days", () =
     { day: "Mon", value: "Closed" },
     { day: "Tue", value: "Open 24 hours" },
   ]);
+  assert.deepEqual(location.openingHoursSpecification, [
+    { dayOfWeek: "https://schema.org/Monday", opens: "00:00", closes: "00:00" },
+    { dayOfWeek: "https://schema.org/Tuesday", opens: "00:00", closes: "23:59" },
+  ]);
+});
+
+test("normalizes legacy opening hours and omits invalid or incomplete schedule rows", () => {
+  const location = normalizeLocation({
+    id: "legacy-hours",
+    hours: [
+      { day: "Mon", open_time: "9:00:00", close_time: "17:30" },
+      { day: "Tuesday", openTime: "bad", closeTime: "18:00" },
+      { day: "Funday", openTime: "09:00", closeTime: "17:00" },
+      { day: "Wednesday", hidden: true, openTime: "09:00", closeTime: "17:00" },
+      { day: "Thursday", openTime: "09:00", closeTime: "09:00" },
+    ],
+  });
+
+  assert.deepEqual(location.openingHoursSpecification, [
+    { dayOfWeek: "https://schema.org/Monday", opens: "09:00", closes: "17:30" },
+  ]);
+  assert.equal(location.postalAddress, null);
+});
+
+test("builds LocalBusiness JSON-LD with structured address and regular hours only", () => {
+  const location = normalizeLocation({
+    name: "Franklin Ave",
+    address: "9700 Franklin Ave",
+    address2: "Suite 2",
+    city: "Franklin Park",
+    state: "IL",
+    zip: "60131",
+    hours: [{ day: "Monday", openTime: "10:00", closeTime: "22:00" }],
+  });
+  const schema = locationStructuredData(location, "https://example.test/locations/franklin/");
+
+  assert.equal(schema["@type"], "LocalBusiness");
+  assert.equal(schema.url, "https://example.test/locations/franklin/");
+  assert.deepEqual(schema.address, {
+    "@type": "PostalAddress",
+    streetAddress: "9700 Franklin Ave, Suite 2",
+    addressLocality: "Franklin Park",
+    addressRegion: "IL",
+    postalCode: "60131",
+  });
+  assert.deepEqual(schema.openingHoursSpecification, [{
+    "@type": "OpeningHoursSpecification",
+    dayOfWeek: "https://schema.org/Monday",
+    opens: "10:00",
+    closes: "22:00",
+  }]);
+
+  const minimalSchema = locationStructuredData(normalizeLocation({ name: "Remote shop" }));
+  const serializedMinimalSchema = JSON.stringify(minimalSchema);
+  assert.doesNotMatch(serializedMinimalSchema, /"address"/);
+  assert.doesNotMatch(serializedMinimalSchema, /"openingHoursSpecification"/);
 });
 
 test("preserves associated menus and accepts Backstage Google Maps embed URLs", () => {

@@ -6,6 +6,19 @@ export interface SiteLocationHours {
   order: number;
 }
 
+export interface SiteLocationPostalAddress {
+  streetAddress?: string;
+  addressLocality?: string;
+  addressRegion?: string;
+  postalCode?: string;
+}
+
+export interface SiteLocationOpeningHoursSpecification {
+  dayOfWeek: string;
+  opens: string;
+  closes: string;
+}
+
 export interface SiteLocation {
   id: string;
   slug: string | null;
@@ -16,6 +29,7 @@ export interface SiteLocation {
   name: string;
   description: string | null;
   addressLines: string[];
+  postalAddress?: SiteLocationPostalAddress | null;
   phone: string | null;
   email: string | null;
   mapUrl: string | null;
@@ -29,6 +43,7 @@ export interface SiteLocation {
   imageHeight?: number;
   loyaltyUrl: string | null;
   hours: SiteLocationHours[];
+  openingHoursSpecification?: SiteLocationOpeningHoursSpecification[];
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -159,6 +174,96 @@ const locationAddressLines = (value: Record<string, unknown>): string[] => {
   ].filter((line): line is string => Boolean(line));
 };
 
+const locationPostalAddress = (value: Record<string, unknown>): SiteLocationPostalAddress | null => {
+  const address = isRecord(value.address) ? value.address : value;
+  const streetAddress = [
+    optionalString(address.streetAddress ?? address.line1 ?? address.address),
+    optionalString(address.line2 ?? address.address2),
+  ].filter(Boolean).join(", ") || undefined;
+  const postalAddress = {
+    streetAddress,
+    addressLocality: optionalString(value.city ?? address.city) ?? undefined,
+    addressRegion: optionalString(value.state ?? address.state) ?? undefined,
+    postalCode: optionalString(value.zip ?? address.zip) ?? undefined,
+  };
+
+  return Object.values(postalAddress).some(Boolean) ? postalAddress : null;
+};
+
+const schemaDays = new Map([
+  ["monday", "Monday"], ["mon", "Monday"],
+  ["tuesday", "Tuesday"], ["tue", "Tuesday"], ["tues", "Tuesday"],
+  ["wednesday", "Wednesday"], ["wed", "Wednesday"],
+  ["thursday", "Thursday"], ["thu", "Thursday"], ["thur", "Thursday"], ["thurs", "Thursday"],
+  ["friday", "Friday"], ["fri", "Friday"],
+  ["saturday", "Saturday"], ["sat", "Saturday"],
+  ["sunday", "Sunday"], ["sun", "Sunday"],
+]);
+
+const schemaTime = (value: unknown): string | null => {
+  const time = optionalString(value);
+  const match = time?.match(/^(\d{1,2}):([0-5]\d)(?::[0-5]\d)?$/);
+  if (!match || Number(match[1]) > 23) return null;
+
+  return `${match[1].padStart(2, "0")}:${match[2]}`;
+};
+
+export const normalizeLocationOpeningHours = (value: unknown): SiteLocationOpeningHoursSpecification[] =>
+  locationHourRows(value).flatMap((row) => {
+    if (row.hidden === true) return [];
+
+    const day = optionalString(row.day ?? row.name);
+    const schemaDay = day ? schemaDays.get(day.toLowerCase()) : undefined;
+    if (!schemaDay) return [];
+
+    const closedAllDay = row.closed24Hours === true || row.closed_24_hours === true || row.closed === true;
+    let opens: string | null;
+    let closes: string | null;
+    if (closedAllDay) {
+      opens = "00:00";
+      closes = "00:00";
+    } else if (row.open24Hours === true || row.open_24_hours === true) {
+      opens = "00:00";
+      closes = "23:59";
+    } else {
+      opens = schemaTime(row.openTime ?? row.open_time);
+      closes = schemaTime(row.closeTime ?? row.close_time);
+    }
+
+    if (!opens || !closes || (!closedAllDay && opens === closes)) return [];
+
+    return [{
+      dayOfWeek: `https://schema.org/${schemaDay}`,
+      opens,
+      closes,
+    }];
+  });
+
+export const locationStructuredData = (location: SiteLocation, url?: string) => ({
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  name: location.name,
+  address: location.postalAddress ? {
+    "@type": "PostalAddress",
+    ...location.postalAddress,
+  } : undefined,
+  telephone: location.phone ?? undefined,
+  email: location.email ?? undefined,
+  url,
+  image: location.imageUrl ?? undefined,
+  geo: location.latitude !== null && location.longitude !== null ? {
+    "@type": "GeoCoordinates",
+    latitude: location.latitude,
+    longitude: location.longitude,
+  } : undefined,
+  openingHoursSpecification: location.openingHoursSpecification?.length
+    ? location.openingHoursSpecification.map((hours) => ({
+        "@type": "OpeningHoursSpecification",
+        ...hours,
+      }))
+    : undefined,
+});
+
 const locationMenuIds = (value: unknown): string[] | null => {
   if (value === undefined) return null;
   const menus = Array.isArray(value)
@@ -202,6 +307,7 @@ export const normalizeLocation = (value: unknown, index = 0): SiteLocation => {
     name: optionalString(value.name) ?? "Location",
     description: optionalString(value.description),
     addressLines: locationAddressLines(value),
+    postalAddress: locationPostalAddress(value),
     phone: optionalString(value.phone),
     email: optionalString(value.email),
     mapUrl: safeHttpUrl(value.map_link),
@@ -215,5 +321,6 @@ export const normalizeLocation = (value: unknown, index = 0): SiteLocation => {
     imageHeight: dimensions?.height,
     loyaltyUrl: safeSiteLinkUrl(value.loyalty_url),
     hours: normalizeLocationHours(value.hours),
+    openingHoursSpecification: normalizeLocationOpeningHours(value.hours),
   };
 };

@@ -46,6 +46,19 @@ for (const file of htmlFiles) {
     canonicalUrls.push(canonicalUrl.href);
   }
 
+  if (routePath === "/location/") {
+    const localBusiness = [...html.matchAll(/<script type=["']application\/ld\+json["']>([\s\S]*?)<\/script>/gi)]
+      .map((match) => JSON.parse(match[1]))
+      .find((schema) => schema["@type"] === "LocalBusiness");
+
+    assert.ok(localBusiness, "The fixture location page must emit LocalBusiness JSON-LD.");
+    assert.equal(localBusiness.address["@type"], "PostalAddress");
+    assert.equal(localBusiness.address.addressLocality, "Chicago");
+    assert.equal(localBusiness.address.postalCode, "60601");
+    assert.equal(localBusiness.openingHoursSpecification.length, 7);
+    assert.equal(localBusiness.openingHoursSpecification[0].dayOfWeek, "https://schema.org/Monday");
+  }
+
   for (const imageTag of html.matchAll(/<img\b[^>]*>/gi)) {
     assert.match(imageTag[0], /\balt=["'][^"']*["']/i, `${file} contains an image without an alt attribute.`);
   }
