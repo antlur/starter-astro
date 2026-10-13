@@ -28,7 +28,7 @@
     "@astrojs/sitemap": "^3.7.4",
     "@tailwindcss/vite": "^4.3.3",
     "@types/sanitize-html": "^2.16.2",
-    "astro": "^7.3.5",
+    "astro": "^7.3.8",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^6.0.3",
