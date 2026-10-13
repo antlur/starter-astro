@@ -186,7 +186,9 @@ export const fixtureSiteContent: SiteContent = {
           fields: {
             eyebrow: "Say hello",
             heading: "We'd love to hear from you.",
-            body: "<p>Send a note and our team will get back to you.</p>",
+            body: '<p>Send a note and our team will get back to you.</p>'
+              + '<p><a href="/menu" data-type="button" class="inline-block px-4 py-2 bg-primary">View the menu</a></p>'
+              + '<img src="/favicon.svg" alt="Fieldwork Coffee icon" class="attacker-class" style="position: fixed" width="64" height="64">',
             form_id: "fixture-contact-form",
             submit_label: "Send message",
           },
