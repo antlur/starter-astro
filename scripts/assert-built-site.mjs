@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve, sep } from "node:path";
+import applicationRoutePaths from "../src/site/application-route-paths.json" with { type: "json" };
+import { assertApplicationRoutesEmitted } from "./assert-application-routes.mjs";
 
 const mode = process.argv[2];
 
@@ -14,6 +16,7 @@ const baseUrl = siteUrl || new URL("https://starter.example");
 const files = listFiles(dist);
 const htmlFiles = files.filter((file) => file.endsWith(".html"));
 
+assertApplicationRoutesEmitted(applicationRoutePaths, htmlFiles);
 assert.ok(htmlFiles.includes("index.html"), "The built site must include its home page.");
 assert.ok(htmlFiles.length > 0, "The build must contain rendered HTML pages.");
 
