@@ -86,6 +86,8 @@ async function main() {
     missing: "not configured; the site will show no page links",
     "selection-required": "multiple saved navigations need a selection",
     invalid: "selected navigation was not found",
+    empty: "selected navigation has no usable links",
+    unreadable: "selected navigation could not be read",
     unknown: "not verified",
   }[report.navigationStatus];
   console.log(`Navigation: ${navigationSummary}${report.navigationCount === null ? "" : ` (${report.navigationCount} saved)`}`);
