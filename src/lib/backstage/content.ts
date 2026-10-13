@@ -113,6 +113,11 @@ export interface SiteContent {
   pressReleases: SitePressRelease[];
 }
 
+export type SiteContentReadClient = Pick<BackstageClient,
+  "website" | "pages" | "navigation" | "locations" | "alerts" | "menus" | "media" | "modules" | "forms" |
+  "press" | "blocks" | "events" | "instagram"
+>;
+
 export type EditableBlockDefinition = Pick<AccountBlock, "slug" | "registry_identity"> & {
   schema?: { fields?: readonly Field[] };
 };
@@ -452,7 +457,7 @@ export const loadResolvedMenuMedia = async (
   return loadMenuMedia(client ?? getBackstageClient(), collectMenuMediaIds(menus));
 };
 
-const loadLegacyPageMedia = async (client: BackstageClient, ids: string[]): Promise<Map<string, unknown>> => {
+const loadLegacyPageMedia = async (client: Pick<BackstageClient, "media">, ids: string[]): Promise<Map<string, unknown>> => {
   const mediaById = new Map<string, unknown>();
 
   for (let offset = 0; offset < ids.length; offset += 8) {
@@ -750,12 +755,21 @@ export const getSiteContent = (): Promise<SiteContent> => {
   return contentPromise;
 };
 
-const loadSiteContent = async (): Promise<SiteContent> => {
-  const source = import.meta.env.BACKSTAGE_SOURCE;
+export const loadSiteContentForReadiness = (
+  client: SiteContentReadClient,
+  navigationId?: string,
+): Promise<SiteContent> => loadSiteContent(client, navigationId, false);
+
+const loadSiteContent = async (
+  clientOverride?: SiteContentReadClient,
+  navigationId?: string,
+  includeForms = true,
+): Promise<SiteContent> => {
+  const source = clientOverride ? "api" : import.meta.env?.BACKSTAGE_SOURCE;
   const legacyPreview = assertLegacyPreviewConfiguration(
     source,
-    import.meta.env.BACKSTAGE_PAGE_MODE,
-    import.meta.env.SITE_INDEXABLE === "true",
+    clientOverride ? undefined : import.meta.env?.BACKSTAGE_PAGE_MODE,
+    !clientOverride && import.meta.env?.SITE_INDEXABLE === "true",
   );
 
   if (source === "fixture") {
@@ -767,7 +781,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
     throw new Error("Set BACKSTAGE_SOURCE to api or fixture before building the site.");
   }
 
-  const client = getBackstageClient();
+  const client = clientOverride ?? getBackstageClient();
 
   const [websites, rawPages, routePaths, navigations, rawLocations, alerts] = await Promise.all([
     client.website.getWebsites(),
@@ -814,7 +828,8 @@ const loadSiteContent = async (): Promise<SiteContent> => {
   }
 
   const rawWebsite: Record<string, unknown> = isRecord(websites[0]) ? websites[0] : {};
-  const requestedNavigationId = import.meta.env.BACKSTAGE_NAVIGATION_ID?.trim()
+  const requestedNavigationId = navigationId?.trim()
+    || import.meta.env?.BACKSTAGE_NAVIGATION_ID?.trim()
     || optionalString(rawWebsite.header_navigation_id)
     || undefined;
   let selectedNavigationId: string | undefined;
@@ -1046,7 +1061,7 @@ const loadSiteContent = async (): Promise<SiteContent> => {
 
   return {
     site: website,
-    pages: await attachBackstageForms(normalizedPages, client),
+    pages: includeForms ? await attachBackstageForms(normalizedPages, client) : normalizedPages,
     routePaths,
     menus,
     locations,
