@@ -4,6 +4,7 @@ import { BackstageClient } from "@antlur/backstage";
 import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
 import {
   assertStarterBlockRegistryComplete,
+  formatStarterReadinessReport,
   inspectStarterReadiness,
   inspectStarterSetup,
   inspectStarterSiteSetup,
@@ -66,16 +67,7 @@ async function main() {
       navigationId: process.env.BACKSTAGE_NAVIGATION_ID,
     });
 
-    console.log(`Automated readiness: ${report.blockers.length === 0 ? "READY" : "BLOCKED"}${report.websiteName ? ` (${report.websiteName})` : ""}`);
-    console.log("Blockers:");
-    for (const blocker of report.blockers) console.error(`- ${blocker}`);
-    if (report.blockers.length === 0) console.log("- None");
-    console.log("Warnings:");
-    for (const warning of report.warnings) console.warn(`- ${warning}`);
-    if (report.warnings.length === 0) console.log("- None");
-    console.log("Manual launch gates (not verified by this command):");
-    for (const gate of report.manualGates) console.log(`- ${gate}`);
-    console.log("A READY result covers only the automated account checks above; it is not production launch approval.");
+    process.stdout.write(`${formatStarterReadinessReport(report)}\n`);
 
     process.exitCode = starterReadinessExitCode(report);
     return;

@@ -48,6 +48,18 @@ export interface StarterReadinessReport {
   manualGates: string[];
 }
 
+export function formatStarterReadinessReport(report: StarterReadinessReport): string {
+  const section = (title: string, items: string[]) => [title, ...(items.length > 0 ? items.map((item) => `- ${item}`) : ["- None"])];
+
+  return [
+    `Automated readiness: ${report.blockers.length === 0 ? "READY" : "BLOCKED"}${report.websiteName ? ` (${report.websiteName})` : ""}`,
+    ...section("Blockers:", report.blockers),
+    ...section("Warnings:", report.warnings),
+    ...section("Manual launch gates (not verified by this command):", report.manualGates),
+    "A READY result covers only the automated account checks above; it is not production launch approval.",
+  ].join("\n");
+}
+
 export function starterReadinessExitCode(report: Pick<StarterReadinessReport, "blockers">): 0 | 1 {
   return report.blockers.length === 0 ? 0 : 1;
 }
