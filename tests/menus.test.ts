@@ -311,7 +311,7 @@ test("formats numeric menu prices as USD and preserves descriptive values", () =
   assert.equal(formatMenuPrice("$12.00 - $18.00"), "$12.00 - $18.00");
 });
 
-test("uses pricing columns to label array and legacy fallback prices", () => {
+test("preserves unlabeled values for positional category alignment", () => {
   const menu = normalizeMenu({
     id: "menu-1",
     title: "Dinner",
@@ -326,7 +326,12 @@ test("uses pricing columns to label array and legacy fallback prices", () => {
     }],
   });
 
-  assert.deepEqual(menu.categories[0].items.map(({ prices }) => prices), [
+  const items = menu.categories[0].items;
+  assert.deepEqual(items.map(({ prices }) => prices), [
+    [{ label: "", value: "12.00" }, { label: "", value: "18.00" }],
+    [{ label: "", value: "14.00" }, { label: "", value: "20.00" }],
+  ]);
+  assert.deepEqual(items.map(({ prices }) => alignCategoryPrices(["Half", "Full"], prices).columns), [
     [{ label: "Half", value: "12.00" }, { label: "Full", value: "18.00" }],
     [{ label: "Half", value: "14.00" }, { label: "Full", value: "20.00" }],
   ]);
@@ -339,30 +344,68 @@ test("aligns category prices by label and leaves missing configured columns blan
     { label: "half", value: "18.00" },
   ]);
 
-  assert.deepEqual(prices, [
+  assert.deepEqual(prices.columns, [
     { label: "Half", value: "18.00" },
     { label: "Full", value: "" },
     { label: "Family", value: "50.00" },
   ]);
+  assert.deepEqual(prices.additional, []);
 });
 
 test("uses original price positions when category prices have no labels", () => {
-  assert.deepEqual(alignCategoryPrices(["Lunch", "Dinner"], [
+  const prices = alignCategoryPrices(["Lunch", "Dinner"], [
     { label: "", value: "12.00" },
     { label: "", value: "20.00" },
-  ]), [
+  ]);
+
+  assert.deepEqual(prices.columns, [
     { label: "Lunch", value: "12.00" },
     { label: "Dinner", value: "20.00" },
   ]);
+  assert.deepEqual(prices.additional, []);
 });
 
-test("falls back by position for labels not present in the configured columns", () => {
-  assert.deepEqual(alignCategoryPrices(["Half", "Full"], [
+test("does not positionally relabel an unmatched explicit price", () => {
+  const prices = alignCategoryPrices(["Half", "Full"], [
     { label: "Seasonal", value: "9.00" },
     { label: "Full", value: "20.00" },
-  ]), [
-    { label: "Half", value: "9.00" },
+  ]);
+
+  assert.deepEqual(prices.columns, [
+    { label: "Half", value: "" },
     { label: "Full", value: "20.00" },
+  ]);
+  assert.deepEqual(prices.additional, [{ label: "Seasonal", value: "9.00" }]);
+});
+
+test("keeps labeled overflow prices below the item without duplicating aligned prices", () => {
+  const prices = alignCategoryPrices(["Half", "Full"], [
+    { label: "Full", value: "20.00" },
+    { label: "Half", value: "12.00" },
+    { label: "Family", value: "32.00" },
+  ]);
+
+  assert.deepEqual(prices.columns, [
+    { label: "Half", value: "12.00" },
+    { label: "Full", value: "20.00" },
+  ]);
+  assert.deepEqual(prices.additional, [{ label: "Family", value: "32.00" }]);
+});
+
+test("keeps unlabeled overflow prices below the item without guessing another column", () => {
+  const prices = alignCategoryPrices(["Lunch", "Dinner"], [
+    { label: "Dinner", value: "20.00" },
+    { label: "", value: "12.00" },
+    { label: "", value: "30.00" },
+  ]);
+
+  assert.deepEqual(prices.columns, [
+    { label: "Lunch", value: "" },
+    { label: "Dinner", value: "20.00" },
+  ]);
+  assert.deepEqual(prices.additional, [
+    { label: "", value: "12.00" },
+    { label: "", value: "30.00" },
   ]);
 });
 
@@ -374,7 +417,9 @@ test("renders one shared category header above aligned price rows", async () => 
   assert.match(menuPage, /alignCategoryPrices\(category\.pricingColumns \?\? \[\], item\.hiddenPrice \? \[\] : item\.prices\)/);
   assert.ok(headerIndex >= 0 && headerIndex < itemRowsIndex, "The single category header must appear before its item rows.");
   assert.match(menuPage, /category\.pricingColumns\?\.map\(\(column\) => <div role="columnheader">\{column\}<\/div>\)/);
-  assert.match(menuPage, /categoryPrices\.map\(\(price\) => \(\s*<div class="menu-item__category-price" role="cell"/);
+  assert.match(menuPage, /alignedPrices\.columns\.map\(\(price\) => \(\s*<div class="menu-item__category-price" role="cell"/);
+  assert.match(menuPage, /const itemLevelPrices = usesCategoryPricing\s+\? alignedPrices\.additional/);
+  assert.match(menuPage, /itemLevelPrices\.map\(\(price\) => \(/);
   assert.match(menuPage, /role=\{usesCategoryPricing \? "rowheader" : undefined\}/);
   assert.match(menuPage, /aria-label=\{price\.value \? undefined : "No price listed"\}/);
   assert.doesNotMatch(menuPage, /menu-item__category-prices/);

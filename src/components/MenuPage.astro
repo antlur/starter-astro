@@ -82,11 +82,14 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
               {category.items.map((item) => {
                 const description = item.description ? sanitizeRichText(item.description) : "";
                 const usesCategoryPricing = (category.pricingColumns?.length ?? 0) > 0;
-                const categoryPrices = usesCategoryPricing
+                const alignedPrices = usesCategoryPricing
                   ? alignCategoryPrices(category.pricingColumns ?? [], item.hiddenPrice ? [] : item.prices)
-                  : [];
+                  : { columns: [], additional: [] };
                 const multiPrice = !usesCategoryPricing && (item.priceType === "multiple" || item.prices.length > 1);
                 const itemPrice = !item.hiddenPrice && !usesCategoryPricing && !multiPrice ? item.prices[0]?.value : null;
+                const itemLevelPrices = usesCategoryPricing
+                  ? alignedPrices.additional
+                  : multiPrice ? item.prices : [];
 
                 return (
                   <article
@@ -106,9 +109,9 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
                         {item.serves && <p class="menu-item__serves">Serves {item.serves}</p>}
                         {description && <div class="menu-item__description" set:html={description} />}
                         {item.dietaryTags.length > 0 && <p class="menu-item__dietary-tags">Dietary: {item.dietaryTags.join(", ")}</p>}
-                        {multiPrice && (
+                        {itemLevelPrices.length > 0 && (
                           <dl class="menu-item__prices">
-                            {item.prices.map((price) => (
+                            {itemLevelPrices.map((price) => (
                               <div>
                                 {price.label && <dt>{price.label}</dt>}
                                 <dd>{formatMenuPrice(price.value)}</dd>
@@ -119,7 +122,7 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
                       </div>
                       {item.imageUrl && <img class="menu-item__image" src={item.imageUrl} alt={item.imageAlt || item.title} width={item.imageWidth ?? 400} height={item.imageHeight ?? 400} loading="lazy" decoding="async" />}
                     </div>
-                    {categoryPrices.map((price) => (
+                    {alignedPrices.columns.map((price) => (
                       <div class="menu-item__category-price" role="cell" aria-label={price.value ? undefined : "No price listed"}>
                         {price.value ? formatMenuPrice(price.value) : ""}
                       </div>
