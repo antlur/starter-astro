@@ -327,6 +327,8 @@ export const assertPageBlockDefinitions = (
     assertFieldParity("block", type, manifest.schema.fields, definition.schema?.fields ?? []);
   }
 
+  assertPageBlockVariants(pages, manifests);
+
   const manifestsByType = new Map(manifests.map((manifest) => [manifest.slug, manifest]));
   const valueIssues = pages.flatMap((page) => page.blocks.flatMap((block) => {
     const manifest = manifestsByType.get(block.type);
@@ -335,6 +337,44 @@ export const assertPageBlockDefinitions = (
 
   if (valueIssues.length > 0) {
     throw new Error(`Required block values are missing:\n${valueIssues.map((issue) => `- ${issue}`).join("\n")}`);
+  }
+};
+
+export const assertPageBlockVariants = (
+  pages: readonly HeadlessPage[],
+  localManifests: readonly BlockManifest[] = loadBlockManifests(),
+): void => {
+  for (const page of pages) {
+    for (const block of page.blocks) {
+      const manifest = localManifests.find((candidate) => candidate.slug === block.type);
+      if (!manifest) continue;
+
+      const fieldVariant = block.fields.variant;
+      if (fieldVariant !== undefined && fieldVariant !== null && fieldVariant !== "" && typeof fieldVariant !== "string") {
+        throw new Error(
+          `Backstage page "${page.slug}" (ID "${page.id}") block "${block.id}" (${block.type}) has a non-string variant value.`,
+        );
+      }
+
+      const variant = (typeof fieldVariant === "string" && fieldVariant) || block.variant || null;
+      if (!variant) continue;
+
+      const variantField = manifest.schema.fields.find((field) => field.slug === "variant");
+      const supportedVariants = variantField?.type === "select"
+        ? (variantField.options ?? []).flatMap((option) => {
+          const value = typeof option === "string" ? option : option.value;
+          return typeof value === "string" ? [value] : [];
+        })
+        : [];
+
+      if (!supportedVariants.includes(variant)) {
+        const supported = supportedVariants.length > 0 ? supportedVariants.join(", ") : "none";
+        throw new Error(
+          `Backstage page "${page.slug}" (ID "${page.id}") block "${block.id}" (${block.type}) ` +
+          `uses unsupported variant "${variant}"; supported variants: ${supported}.`,
+        );
+      }
+    }
   }
 };
 
@@ -539,6 +579,15 @@ export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
         "Page " + value.slug + " block " + blockIndex + " is not in the Headless block shape. " +
         "Set the account rendering mode to Headless and use account blocks with a fields object."
       );
+    }
+
+    if (
+      candidate.variant !== undefined
+      && candidate.variant !== null
+      && candidate.variant !== ""
+      && typeof candidate.variant !== "string"
+    ) {
+      throw new Error(`Backstage page "${value.slug}" block "${candidate.id}" has a non-string variant value.`);
     }
 
     return {

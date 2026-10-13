@@ -908,7 +908,30 @@ test("rejects missing required block values and identifies nested repeater rows"
           ],
         },
       },
-      { id: "hero-2", type: "required-content", fields: { actions: {} } },
+      {
+        id: "hero-2",
+        type: "required-content",
+        fields: {
+          eyebrow: "Our story",
+          heading: "Welcome",
+          body: "Learn about us.",
+          image: [{ id: "image-2" }],
+          logo: { id: "logo-2" },
+          actions: [],
+        },
+      },
+      {
+        id: "hero-3",
+        type: "required-content",
+        fields: {
+          eyebrow: "Our story",
+          heading: "Welcome",
+          body: "Learn about us.",
+          image: [{ id: "image-3" }],
+          logo: { id: "logo-3" },
+          actions: {},
+        },
+      },
     ],
   });
   const definition = {
@@ -922,16 +945,20 @@ test("rejects missing required block values and identifies nested repeater rows"
     () => assertPageBlockDefinitions([page], true, [definition], [manifest]),
     (error: unknown) => {
       assert.ok(error instanceof Error);
-      assert.match(error.message, /Page "\/about\/" block "required-content" \(id "hero-1"\) field "eyebrow" is required but has no value/);
-      assert.match(error.message, /block "required-content" \(id "hero-1"\) field "heading" is required but has no value/);
-      assert.match(error.message, /field "body" is required but has no value/);
-      assert.match(error.message, /field "image" is required but has no value/);
-      assert.match(error.message, /field "logo" is required but has no value/);
-      assert.match(error.message, /field "actions\[0\]\.label" is required but has no value/);
-      assert.match(error.message, /field "actions\[1\]\.href" is required but has no value/);
-      assert.match(error.message, /field "actions\[2\]\.label" is required but has no value/);
-      assert.match(error.message, /field "actions\[2\]\.href" is required but has no value/);
-      assert.match(error.message, /block "required-content" \(id "hero-2"\) field "actions" must contain at least one row/);
+      assert.equal(error.message, [
+        "Required block values are missing:",
+        '- Page "/about/" block "required-content" (id "hero-1") field "eyebrow" is required but has no value.',
+        '- Page "/about/" block "required-content" (id "hero-1") field "heading" is required but has no value.',
+        '- Page "/about/" block "required-content" (id "hero-1") field "body" is required but has no value.',
+        '- Page "/about/" block "required-content" (id "hero-1") field "image" is required but has no value.',
+        '- Page "/about/" block "required-content" (id "hero-1") field "logo" is required but has no value.',
+        '- Page "/about/" block "required-content" (id "hero-1") field "actions[0].label" is required but has no value.',
+        '- Page "/about/" block "required-content" (id "hero-1") field "actions[1].href" is required but has no value.',
+        '- Page "/about/" block "required-content" (id "hero-1") field "actions[2].label" is required but has no value.',
+        '- Page "/about/" block "required-content" (id "hero-1") field "actions[2].href" is required but has no value.',
+        '- Page "/about/" block "required-content" (id "hero-2") field "actions" must contain at least one row.',
+        '- Page "/about/" block "required-content" (id "hero-3") field "actions" must contain at least one row.',
+      ].join("\n"));
       return true;
     },
   );
@@ -943,7 +970,7 @@ test("rejects missing required block values and identifies nested repeater rows"
     slug: "about",
     pathname: "/about/",
     blocks: [{
-      id: "hero-3",
+      id: "hero-4",
       type: "required-content",
       fields: {
         eyebrow: "Our story",
@@ -956,6 +983,36 @@ test("rejects missing required block values and identifies nested repeater rows"
     }],
   });
   assert.doesNotThrow(() => assertPageBlockDefinitions([completePage], true, [definition], [manifest]));
+});
+
+test("accepts zero and false as present required block values", () => {
+  const manifest: BlockManifest = {
+    manifest_version: 1,
+    type: "block",
+    registry_identity: "fieldwork:required-primitives@1",
+    name: "Required Primitives",
+    slug: "required-primitives",
+    schema: {
+      fields: [
+        { name: "Quantity", slug: "quantity", type: "number", required: true },
+        { name: "Enabled", slug: "enabled", type: "boolean", required: true },
+      ],
+    },
+  };
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    pathname: "/",
+    blocks: [{ id: "block-1", type: "required-primitives", fields: { quantity: 0, enabled: false } }],
+  });
+  const definition = {
+    slug: manifest.slug,
+    registry_identity: manifest.registry_identity,
+    schema: { fields: structuredClone(manifest.schema.fields) },
+  };
+
+  assert.doesNotThrow(() => assertPageBlockDefinitions([page], true, [definition], [manifest]));
 });
 
 test("allows empty optional block values", () => {
