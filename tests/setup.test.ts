@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { listRegistryBlocks } from "@antlur/backstage";
 import test from "node:test";
+import { assertPageBlockVariants, normalizePage } from "../src/lib/backstage/content";
 import type { BlockManifest } from "../src/lib/backstage/sync-blocks";
 import type { StarterSetupClient } from "../src/lib/backstage/setup";
 import {
@@ -26,12 +27,24 @@ const bundledHeroManifest = listRegistryBlocks().find(
   ({ registry_identity }) => registry_identity === "starter-astro:hero@1",
 ) as unknown as BlockManifest;
 
+const accountBlockFor = (block: BlockManifest) => ({
+  id: `account-${block.slug}`,
+  name: block.name,
+  slug: block.slug,
+  registry_identity: block.registry_identity,
+  derived_from: block.derived_from,
+  schema: block.schema,
+});
+
 function client(options: {
   customBlocks?: boolean;
   websites?: unknown[];
   pages?: unknown[];
   routes?: string[];
+  rootResolution?: unknown;
   navigations?: Array<{ id: string }>;
+  navigationData?: unknown;
+  navigationError?: Error;
   headerNavigationId?: string | null;
   socialLinks?: Array<{ name: string; url: string }>;
   homeCtaText?: string;
@@ -49,6 +62,8 @@ function client(options: {
   }>;
 } = {}) {
   const writes: string[] = [];
+  const homePage = options.pages?.find((page) => (page as { is_home?: boolean }).is_home === true) as { id?: string | number } | undefined;
+  const homeId = String(homePage?.id ?? "home");
   return {
     writes,
     client: {
@@ -72,7 +87,25 @@ function client(options: {
         },
         async getWebsiteRoutes() { return options.routes ?? ["/"]; },
       },
-      navigation: { async list() { return options.navigations ?? []; } },
+      navigation: {
+        async list() { return options.navigations ?? []; },
+        async getNavigation(id: string) {
+          if (options.navigationError) throw options.navigationError;
+          return options.navigationData ?? {
+            id,
+            items: [{ id: "home-link", text: "Home", url: "/", children: [] }],
+          };
+        },
+      },
+      routes: {
+        async resolve() {
+          return options.rootResolution ?? {
+            type: "page",
+            data: { id: homeId },
+            meta: { id: homeId, type: "page", path: "/" },
+          };
+        },
+      },
       pages: { async getHeadlessPages() { return options.pages ?? [{ id: "home", title: "Home", slug: "/", pathname: "/", is_home: true, blocks: [] }]; } },
       forms: { async getFormDefinition(id: string) { return { id: options.formIdToReturn ?? id, title: "Contact", type: "email", action: null, redirect_url: null, recaptcha_site_key: null, fields: options.formFields ?? [] }; } },
       blocks: {
@@ -233,7 +266,7 @@ test("setup check reports missing homepage and root route", async () => {
 
   assert.equal(report.homepageExists, false);
   assert.equal(report.rootRouteExists, false);
-  assert.ok(report.warnings.some((warning) => warning.includes("No Home page")));
+  assert.ok(report.warnings.some((warning) => warning.includes("Expected exactly one Backstage homepage; found 0")));
   assert.ok(report.warnings.some((warning) => warning.includes("no root route")));
 });
 
@@ -305,19 +338,13 @@ test("explicit readiness reports a complete account as ready without optional wa
     socialLinks: [{ name: "Instagram", url: "https://example.com/social" }],
     homeCtaText: "View menu",
     homeCtaUrl: "/menu",
-    existingBlocks: [{
-      id: "block-hero",
-      name: manifest.name,
-      slug: manifest.slug,
-      registry_identity: manifest.registry_identity,
-      derived_from: manifest.derived_from,
-      schema: manifest.schema,
-    }],
+    existingBlocks: [accountBlockFor(manifest)],
   });
 
   const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
 
   assert.equal(report.websiteName, "Demo");
+  assert.equal((await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] })).rootRouteMatchesHome, true);
   assert.deepEqual(report.blockers, []);
   assert.deepEqual(report.warnings, []);
   assert.ok(report.manualGates.some((gate) => gate.includes("does not expose the rendering mode")));
@@ -388,6 +415,75 @@ test("explicit readiness blocks missing Home/root routes and ambiguous navigatio
     pages: [],
     routes: ["/about/"],
     navigations: [{ id: "nav-1" }, { id: "nav-2" }],
+    existingBlocks: [accountBlockFor(manifest)],
+  });
+
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("Expected exactly one Backstage homepage; found 0")));
+  assert.ok(report.blockers.some((blocker) => blocker.includes("no root route")));
+  assert.ok(report.blockers.some((blocker) => blocker.includes("Select a Header Navigation")));
+  assert.equal(starterReadinessExitCode(report), 1);
+});
+
+test("readiness blocks duplicate Home pages even when the root resolver points at one", async () => {
+  const fake = client({
+    pages: [
+      { id: "home-1", title: "Home 1", slug: "/", pathname: "/", is_home: true, blocks: [] },
+      { id: "home-2", title: "Home 2", slug: "/", pathname: "/", is_home: true, blocks: [] },
+    ],
+    existingBlocks: [accountBlockFor(manifest)],
+  });
+
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("Home page")));
+  assert.ok(report.blockers.some((blocker) => blocker.includes('canonical root route "/"')));
+  assert.equal(starterReadinessExitCode(report), 1);
+  assert.deepEqual(fake.writes, []);
+});
+
+test("readiness blocks when the canonical root resolves to a page other than the unique Home", async () => {
+  const fake = client({
+    pages: [
+      { id: "home", title: "Home", slug: "/", pathname: "/", is_home: true, blocks: [] },
+      { id: "about", title: "About", slug: "about", pathname: "/about/", is_home: false, blocks: [] },
+    ],
+    rootResolution: {
+      type: "page",
+      data: { id: "about" },
+      meta: { id: "home", type: "page", path: "/" },
+    },
+    existingBlocks: [accountBlockFor(manifest)],
+  });
+
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("unique Home page")));
+  assert.ok(report.blockers.some((blocker) => blocker.includes('resolves to type "page", ID "about", path "/"')));
+  assert.equal(starterReadinessExitCode(report), 1);
+  assert.deepEqual(fake.writes, []);
+});
+
+test("readiness blocks a missing selected header navigation", async () => {
+  const fake = client({
+    headerNavigationId: "missing-navigation",
+    navigations: [{ id: "another-navigation" }],
+    existingBlocks: [accountBlockFor(manifest)],
+  });
+
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("selected Header Navigation was not found")));
+  assert.equal(starterReadinessExitCode(report), 1);
+  assert.deepEqual(fake.writes, []);
+});
+
+test("readiness blocks an empty selected header navigation after normalization", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    navigationData: { id: "nav-1", items: [] },
     existingBlocks: [{
       id: "block-hero",
       name: manifest.name,
@@ -400,10 +496,85 @@ test("explicit readiness blocks missing Home/root routes and ambiguous navigatio
 
   const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
 
-  assert.ok(report.blockers.some((blocker) => blocker.includes("Create or designate a Home page")));
-  assert.ok(report.blockers.some((blocker) => blocker.includes("no root route")));
-  assert.ok(report.blockers.some((blocker) => blocker.includes("Select a Header Navigation")));
+  assert.ok(report.blockers.some((blocker) => blocker.includes("no usable links")));
   assert.equal(starterReadinessExitCode(report), 1);
+  assert.deepEqual(fake.writes, []);
+});
+
+test("readiness blocks a selected header navigation that cannot be read or normalized", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    navigationError: new Error("navigation request failed"),
+    existingBlocks: [{
+      id: "block-hero",
+      name: manifest.name,
+      slug: manifest.slug,
+      registry_identity: manifest.registry_identity,
+      derived_from: manifest.derived_from,
+      schema: manifest.schema,
+    }],
+  });
+
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("Could not read or normalize selected header navigation")));
+  assert.ok(report.blockers.some((blocker) => blocker.includes("navigation request failed")));
+  assert.deepEqual(fake.writes, []);
+});
+
+test("readiness blocks an unsupported saved block variant with page and block context", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    pages: [{
+      id: "home",
+      title: "Home",
+      slug: "/",
+      pathname: "/",
+      is_home: true,
+      blocks: [{ id: "hero-block-1", type: "hero", variant: null, fields: { variant: "unsupported" } }],
+    }],
+    existingBlocks: [accountBlockFor(bundledHeroManifest)],
+  });
+
+  const report = await inspectStarterReadiness(
+    fake.client as unknown as StarterSetupClient,
+    [bundledHeroManifest],
+    { sdkRegistry: [bundledHeroManifest] },
+  );
+
+  assert.ok(report.blockers.some((blocker) =>
+    blocker.includes('Backstage page "/"')
+    && blocker.includes('block "hero-block-1" (hero)')
+    && blocker.includes('unsupported variant "unsupported"'),
+  ));
+  assert.equal(starterReadinessExitCode(report), 1);
+  assert.deepEqual(fake.writes, []);
+});
+
+test("block variant validation accepts a value supported by its local manifest", () => {
+  assert.doesNotThrow(() => assertPageBlockVariants([{
+    id: "home",
+    title: "Home",
+    slug: "/",
+    pathname: "/",
+    is_home: true,
+    settings: null,
+    layout: null,
+    blocks: [{ id: "hero-block-1", type: "hero", variant: null, fields: { variant: "full-bleed-image" } }],
+  }], [bundledHeroManifest]));
+});
+
+test("page normalization rejects a non-string saved block variant with context", () => {
+  assert.throws(() => normalizePage({
+    id: "home",
+    title: "Home",
+    slug: "/",
+    pathname: "/",
+    is_home: true,
+    blocks: [{ id: "hero-block-1", type: "hero", variant: 7, fields: {} }],
+  }), /Backstage page "\/" block "hero-block-1" has a non-string variant value/);
 });
 
 test("explicit readiness treats optional site configuration as warnings, not blockers", async () => {

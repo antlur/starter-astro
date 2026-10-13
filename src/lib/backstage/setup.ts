@@ -1,13 +1,30 @@
 import { listRegistryBlocks, parseBlockIdentity, validateBlockManifest, type BackstageClient } from "@antlur/backstage";
-import { assertPageBlockDefinitions, assertPageLayoutDefinitions, normalizePage, type HeadlessPage } from "./content";
+import {
+  assertPageBlockDefinitions,
+  assertPageLayoutDefinitions,
+  getHomePage,
+  normalizeNavigation,
+  normalizePage,
+  type HeadlessPage,
+  type SiteNavigationItem,
+} from "./content";
 import type { BlockManifest, BlockSyncClient, BlockSyncResult } from "./sync-blocks";
 import { syncBlockManifests, validateBlockManifests } from "./sync-blocks";
 import { safeLinkUrl, safeSiteLinkUrl } from "../safe-url";
 import { planStarterSitePages, type StarterSitePagePlan } from "./site-initializer";
+import { normalizeRoutePath, pageForCanonicalRoute } from "../../site/routes";
 
-export type StarterSetupClient = BlockSyncClient & Pick<BackstageClient, "modules" | "website" | "pages" | "navigation" | "forms">;
+export type StarterSetupClient = BlockSyncClient & Pick<BackstageClient, "modules" | "website" | "pages" | "navigation" | "routes" | "forms">;
 
-export type StarterNavigationStatus = "configured" | "single" | "missing" | "selection-required" | "invalid" | "unknown";
+export type StarterNavigationStatus =
+  | "configured"
+  | "single"
+  | "missing"
+  | "selection-required"
+  | "invalid"
+  | "empty"
+  | "unreadable"
+  | "unknown";
 
 export interface StarterSetupOptions {
   navigationId?: string;
@@ -22,6 +39,7 @@ export interface StarterSetupReport {
   navigationStatus: StarterNavigationStatus;
   homepageExists: boolean | null;
   rootRouteExists: boolean | null;
+  rootRouteMatchesHome: boolean | null;
   sdkRegistry: { registered: number; total: number; missingSlugs: string[] };
   socialProfileCount: number | null;
   websiteCtaConfigured: boolean | null;
@@ -67,6 +85,12 @@ export function starterReadinessExitCode(report: Pick<StarterReadinessReport, "b
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "unknown error";
 }
+
+const flattenNavigation = (items: readonly SiteNavigationItem[]): SiteNavigationItem[] =>
+  items.flatMap((item) => [item, ...flattenNavigation(item.children)]);
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 export function missingStarterBlockSlugs(
   manifests: readonly Pick<BlockManifest, "registry_identity" | "slug">[],
@@ -124,6 +148,7 @@ export async function inspectStarterSetup(
     : null;
   let homepageExists: boolean | null = null;
   let rootRouteExists: boolean | null = null;
+  let rootRouteMatchesHome: boolean | null = null;
   let navigationStatus: StarterNavigationStatus = "unknown";
 
   warnings.push("Confirm Headless rendering in Backstage Settings; the SDK does not expose this setting. The Starter uses Backstage's canonical route graph and does not require the legacy Application owned routing mode.");
@@ -147,6 +172,7 @@ export async function inspectStarterSetup(
     warnings.push(`This Starter expects exactly one Backstage website; this account has ${websites.length}.`);
   } else {
     const requestedNavigationId = options.navigationId?.trim() || websites[0].header_navigation_id || null;
+    let selectedNavigationId: string | null = null;
 
     if (requestedNavigationId) {
       navigationStatus = navigations.some((navigation) => navigation.id === requestedNavigationId)
@@ -155,15 +181,35 @@ export async function inspectStarterSetup(
 
       if (navigationStatus === "invalid") {
         warnings.push("The selected header navigation was not found in this account; verify BACKSTAGE_NAVIGATION_ID or the website's Header Navigation setting.");
+      } else {
+        selectedNavigationId = requestedNavigationId;
       }
     } else if (navigations.length === 0) {
       navigationStatus = "missing";
       warnings.push("No saved navigation is configured; the site will show no page links until one is created in Backstage.");
     } else if (navigations.length === 1) {
       navigationStatus = "single";
+      selectedNavigationId = navigations[0].id;
     } else {
       navigationStatus = "selection-required";
       warnings.push("This account has multiple navigations but none is selected; set BACKSTAGE_NAVIGATION_ID or choose a Header Navigation in Backstage.");
+    }
+
+    if (selectedNavigationId) {
+      try {
+        const selectedNavigation = normalizeNavigation(await client.navigation.getNavigation(selectedNavigationId));
+        const usableLinks = flattenNavigation(selectedNavigation).filter((item) =>
+          Boolean(item.text.trim() && safeSiteLinkUrl(item.url)),
+        );
+
+        if (usableLinks.length === 0) {
+          navigationStatus = "empty";
+          warnings.push(`Selected header navigation "${selectedNavigationId}" contains no usable links after normalization.`);
+        }
+      } catch (error) {
+        navigationStatus = "unreadable";
+        warnings.push(`Could not read or normalize selected header navigation "${selectedNavigationId}": ${errorMessage(error)}`);
+      }
     }
 
     try {
@@ -171,18 +217,51 @@ export async function inspectStarterSetup(
         client.pages.getHeadlessPages(),
         client.website.getWebsiteRoutes(websites[0].id),
       ]);
+      if (!Array.isArray(pages)) throw new Error("Backstage returned an invalid pages collection.");
+      if (!Array.isArray(routes)) throw new Error("Backstage returned an invalid website route collection.");
       const unsupportedBlockTypes = [...new Set(pages.flatMap((page) => page.blocks.map((block) => block.type)))]
         .filter((type) => !manifests.some((manifest) => manifest.slug === type));
-      homepageExists = pages.some((page) => page.is_home || page.pathname === "/" || page.slug === "/");
-      rootRouteExists = routes.some((route) => route === "/");
+      let homePage: HeadlessPage | null = null;
+      try {
+        homePage = getHomePage(pages);
+        homepageExists = true;
+      } catch (error) {
+        homepageExists = false;
+        warnings.push(errorMessage(error));
+      }
+      rootRouteExists = routes.map(normalizeRoutePath).includes("/");
 
-      if (!homepageExists) warnings.push("No Home page is configured; create one in Backstage before an API-backed site build.");
       if (!rootRouteExists) warnings.push("The website route graph has no root route; verify its Home page and routing settings.");
+      if (homePage && rootRouteExists) {
+        try {
+          const resolution: unknown = await client.routes.resolve("/");
+          const meta = isRecord(resolution) && isRecord(resolution.meta) ? resolution.meta : null;
+          const data = isRecord(resolution) && isRecord(resolution.data) ? resolution.data : null;
+          const resolvedPage = pageForCanonicalRoute("/", resolution, [homePage]);
+          rootRouteMatchesHome = resolvedPage?.id === homePage.id;
+
+          if (!rootRouteMatchesHome) {
+            const routeDescription = meta
+              ? `type "${String(meta.type)}", ID "${String(data?.id ?? meta.id)}", path "${String(meta.path)}"`
+              : "an invalid or missing route response";
+            warnings.push(`Canonical route "/" resolves to ${routeDescription}, not the unique Home page "${homePage.title}" (ID "${homePage.id}").`);
+          }
+        } catch (error) {
+          rootRouteMatchesHome = false;
+          warnings.push(`Could not resolve canonical root route "/" to Home page "${homePage.title}" (ID "${homePage.id}"): ${errorMessage(error)}`);
+        }
+      } else if (!homePage || !rootRouteExists) {
+        rootRouteMatchesHome = false;
+      }
+
       if (unsupportedBlockTypes.length > 0) {
         warnings.push(`Pages use block types without a local Starter manifest/renderer: ${unsupportedBlockTypes.join(", ")}. Add support before building.`);
       }
-    } catch {
-      warnings.push("Could not verify Headless pages and routes; confirm Headless rendering and that the expected public routes are present in Backstage's canonical site graph.");
+    } catch (error) {
+      homepageExists = null;
+      rootRouteExists = null;
+      rootRouteMatchesHome = null;
+      warnings.push(`Could not verify Headless pages and routes: ${errorMessage(error)}. Confirm Headless rendering and the public routes in Backstage's canonical site graph.`);
     }
   }
 
@@ -203,6 +282,7 @@ export async function inspectStarterSetup(
     navigationStatus,
     homepageExists,
     rootRouteExists,
+    rootRouteMatchesHome,
     sdkRegistry: {
       registered: bundledManifests.length - missingRegistrySlugs.length,
       total: bundledManifests.length,
@@ -317,8 +397,24 @@ export async function inspectStarterReadiness(
     );
   }
 
-  if (setup.homepageExists === false) blockers.push("Create or designate a Home page in Backstage before building.");
+  if (setup.homepageExists === false) {
+    const selectionError = setup.warnings.find((warning) => warning.includes("Expected exactly one Backstage homepage"));
+    blockers.push(selectionError
+      ? `Backstage Home selection is invalid: ${selectionError}`
+      : "Create or designate a Home page in Backstage before building.");
+  }
   if (setup.rootRouteExists === false) blockers.push("The Backstage route graph has no root route; fix the Home page or route configuration before building.");
+  if (setup.rootRouteMatchesHome === false) {
+    const routeError = setup.warnings.find((warning) =>
+      warning.includes('Canonical route "/" resolves')
+      || warning.includes('Could not resolve canonical root route')
+      || warning.includes('uses pathname "/"'),
+    );
+    blockers.push(routeError
+      ? `Backstage Home route is invalid: ${routeError}`
+      : 'The canonical root route "/" does not resolve to the unique Home page; ensure its route owner is that Home page at pathname "/".');
+  }
+  if (setup.rootRouteMatchesHome === null && setup.websiteCount === 1) blockers.push("Could not verify that the canonical root route resolves to the unique Home page; check route resolver access and rerun readiness.");
   if (setup.homepageExists === null || setup.rootRouteExists === null) {
     blockers.push("Could not verify the Home page and root route from Backstage; check API access and the page response, then rerun readiness.");
   }
@@ -338,6 +434,15 @@ export async function inspectStarterReadiness(
     case "invalid":
       blockers.push("The selected Header Navigation was not found; update BACKSTAGE_NAVIGATION_ID or the website setting.");
       break;
+    case "empty":
+      blockers.push("The selected Header Navigation has no usable links; add at least one link with a label and supported URL in Backstage.");
+      break;
+    case "unreadable":
+      blockers.push(
+        setup.warnings.find((warning) => warning.includes("Could not read or normalize selected header navigation"))
+          ?? "The selected Header Navigation could not be read or normalized; verify its saved items and API access, then rerun readiness.",
+      );
+      break;
     case "unknown":
       if (setup.websiteCount === 1) blockers.push("Could not verify the account navigation selection; check API access and rerun readiness.");
       break;
@@ -348,7 +453,13 @@ export async function inspectStarterReadiness(
     "exactly one Backstage website",
     "installed SDK registry is missing Starter block contracts",
     "No Home page is configured",
+    "Expected exactly one Backstage homepage",
+    "unique Home page",
     "route graph has no root route",
+    'Canonical route "/" resolves',
+    "Could not resolve canonical root route",
+    "Selected header navigation",
+    "Could not read or normalize selected header navigation",
     "block types without a local Starter manifest/renderer",
     "No saved navigation is configured",
     "multiple navigations but none is selected",

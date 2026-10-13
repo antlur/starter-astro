@@ -278,6 +278,46 @@ export const assertPageBlockDefinitions = (
 
     assertFieldParity("block", type, manifest.schema.fields, definition.schema?.fields ?? []);
   }
+
+  assertPageBlockVariants(pages, manifests);
+};
+
+export const assertPageBlockVariants = (
+  pages: readonly HeadlessPage[],
+  localManifests: readonly BlockManifest[] = loadBlockManifests(),
+): void => {
+  for (const page of pages) {
+    for (const block of page.blocks) {
+      const manifest = localManifests.find((candidate) => candidate.slug === block.type);
+      if (!manifest) continue;
+
+      const fieldVariant = block.fields.variant;
+      if (fieldVariant !== undefined && fieldVariant !== null && fieldVariant !== "" && typeof fieldVariant !== "string") {
+        throw new Error(
+          `Backstage page "${page.slug}" (ID "${page.id}") block "${block.id}" (${block.type}) has a non-string variant value.`,
+        );
+      }
+
+      const variant = (typeof fieldVariant === "string" && fieldVariant) || block.variant || null;
+      if (!variant) continue;
+
+      const variantField = manifest.schema.fields.find((field) => field.slug === "variant");
+      const supportedVariants = variantField?.type === "select"
+        ? (variantField.options ?? []).flatMap((option) => {
+          const value = typeof option === "string" ? option : option.value;
+          return typeof value === "string" ? [value] : [];
+        })
+        : [];
+
+      if (!supportedVariants.includes(variant)) {
+        const supported = supportedVariants.length > 0 ? supportedVariants.join(", ") : "none";
+        throw new Error(
+          `Backstage page "${page.slug}" (ID "${page.id}") block "${block.id}" (${block.type}) ` +
+          `uses unsupported variant "${variant}"; supported variants: ${supported}.`,
+        );
+      }
+    }
+  }
 };
 
 export const assertPageLayoutDefinitions = (
@@ -481,6 +521,15 @@ export const normalizePage = (value: unknown, index = 0): HeadlessPage => {
         "Page " + value.slug + " block " + blockIndex + " is not in the Headless block shape. " +
         "Set the account rendering mode to Headless and use account blocks with a fields object."
       );
+    }
+
+    if (
+      candidate.variant !== undefined
+      && candidate.variant !== null
+      && candidate.variant !== ""
+      && typeof candidate.variant !== "string"
+    ) {
+      throw new Error(`Backstage page "${value.slug}" block "${candidate.id}" has a non-string variant value.`);
     }
 
     return {
