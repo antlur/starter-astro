@@ -144,3 +144,82 @@ test("Astro renders editorial fixtures accessibly and shares sanitized rich-text
     await rm(outputDirectory, { recursive: true, force: true });
   }
 });
+
+test("published SDK navigation trees render nested links in the generated site", async () => {
+  const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "starter-astro-sdk-navigation-"));
+  const envKeys = [
+    "NODE_ENV",
+    "BACKSTAGE_SOURCE",
+    "BACKSTAGE_API_KEY",
+    "BACKSTAGE_ACCOUNT_ID",
+    "BACKSTAGE_API_URL",
+    "SITE_INDEXABLE",
+  ] as const;
+  const previousEnv = new Map(envKeys.map((key) => [key, process.env[key]]));
+  const previousFetch = globalThis.fetch;
+  const navigationItems = [
+    { id: "home", text: "Home", url: "/", parent_id: null },
+    { id: "section", text: "Section", url: "/#section", parent_id: "home" },
+    { id: "nested", text: "Nested page", url: "/#nested", parent_id: "section" },
+  ].map((item) => ({
+    ...item,
+    html: "",
+    new_window: false,
+    type: "link",
+    style: "link",
+    children: [],
+  }));
+  const responses: Record<string, unknown> = {
+    "/websites": {
+      data: [{ id: "website-1", app_name: "SDK Navigation Test", header_navigation_id: "navigation-1" }],
+    },
+    "/websites/website-1/routes": ["/"],
+    "/pages": {
+      data: [{
+        id: "home-page",
+        title: "Home",
+        slug: "home",
+        pathname: "/",
+        is_home: true,
+        blocks: [],
+        settings: null,
+        layout: null,
+      }],
+    },
+    "/navigations": { data: [{ id: "navigation-1", name: "Main", items: [] }] },
+    "/navigations/navigation-1": {
+      data: { id: "navigation-1", name: "Main", items: navigationItems },
+    },
+    "/locations": { data: [] },
+    "/alerts": { data: [] },
+  };
+
+  process.env.NODE_ENV = "production";
+  process.env.BACKSTAGE_SOURCE = "api";
+  process.env.BACKSTAGE_API_KEY = "test-api-key";
+  process.env.BACKSTAGE_ACCOUNT_ID = "test-account-id";
+  process.env.BACKSTAGE_API_URL = "https://backstage-api.test/api";
+  process.env.SITE_INDEXABLE = "false";
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
+    const key = `${url.pathname.replace(/^\/api/, "")}${url.search}`;
+    assert.ok(Object.hasOwn(responses, key), `Unexpected mock Backstage request: ${key}`);
+    return new Response(JSON.stringify(responses[key]), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  try {
+    await build({ root, outDir: outputDirectory, logLevel: "silent" });
+    const html = await readFile(path.join(outputDirectory, "index.html"), "utf8");
+
+    assert.match(html, /href="\/#section">Section<\/a>/);
+    assert.match(html, /class="site-nav-children site-nav-children--nested"/);
+    assert.match(html, /href="\/#nested">Nested page<\/a>/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    for (const key of envKeys) restoreEnv(key, previousEnv.get(key));
+    await rm(outputDirectory, { recursive: true, force: true });
+  }
+});
