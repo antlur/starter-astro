@@ -860,6 +860,124 @@ test("accepts required metadata omitted by older Backstage responses", () => {
   }]));
 });
 
+test("rejects missing required block values and identifies nested repeater rows", () => {
+  const manifest: BlockManifest = {
+    manifest_version: 1,
+    type: "block",
+    registry_identity: "fieldwork:required-content@1",
+    name: "Required Content",
+    slug: "required-content",
+    schema: {
+      fields: [
+        { name: "Eyebrow", slug: "eyebrow", type: "text", required: true },
+        { name: "Heading", slug: "heading", type: "text", required: true },
+        { name: "Body", slug: "body", type: "rich_text", required: true },
+        { name: "Images", slug: "image", type: "image_list", required: true },
+        { name: "Logo", slug: "logo", type: "image", required: true },
+        {
+          name: "Actions",
+          slug: "actions",
+          type: "repeater",
+          required: true,
+          fields: [
+            { name: "Label", slug: "label", type: "text", required: true },
+            { name: "URL", slug: "href", type: "url", required: true },
+          ],
+        },
+      ],
+    },
+  };
+  const page = normalizePage({
+    id: "page-1",
+    title: "About",
+    slug: "about",
+    pathname: "/about/",
+    blocks: [
+      {
+        id: "hero-1",
+        type: "required-content",
+        fields: {
+          heading: "   ",
+          body: null,
+          image: [],
+          logo: {},
+          actions: [
+            { label: "  ", href: "/menu/" },
+            { label: "Visit", href: null },
+            {},
+          ],
+        },
+      },
+      { id: "hero-2", type: "required-content", fields: { actions: {} } },
+    ],
+  });
+  const definition = {
+    slug: "required-content",
+    registry_identity: manifest.registry_identity,
+    schema: { fields: structuredClone(manifest.schema.fields) },
+  };
+  const originalBlocks = structuredClone(page.blocks);
+
+  assert.throws(
+    () => assertPageBlockDefinitions([page], true, [definition], [manifest]),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /Page "\/about\/" block "required-content" \(id "hero-1"\) field "eyebrow" is required but has no value/);
+      assert.match(error.message, /block "required-content" \(id "hero-1"\) field "heading" is required but has no value/);
+      assert.match(error.message, /field "body" is required but has no value/);
+      assert.match(error.message, /field "image" is required but has no value/);
+      assert.match(error.message, /field "logo" is required but has no value/);
+      assert.match(error.message, /field "actions\[0\]\.label" is required but has no value/);
+      assert.match(error.message, /field "actions\[1\]\.href" is required but has no value/);
+      assert.match(error.message, /field "actions\[2\]\.label" is required but has no value/);
+      assert.match(error.message, /field "actions\[2\]\.href" is required but has no value/);
+      assert.match(error.message, /block "required-content" \(id "hero-2"\) field "actions" must contain at least one row/);
+      return true;
+    },
+  );
+  assert.deepEqual(page.blocks, originalBlocks);
+
+  const completePage = normalizePage({
+    id: "page-2",
+    title: "About",
+    slug: "about",
+    pathname: "/about/",
+    blocks: [{
+      id: "hero-3",
+      type: "required-content",
+      fields: {
+        eyebrow: "Our story",
+        heading: "Welcome",
+        body: "<p>Learn about us.</p>",
+        image: [{ id: "image-1" }],
+        logo: { id: "logo-1" },
+        actions: [{ label: "Explore", href: "/menu/" }],
+      },
+    }],
+  });
+  assert.doesNotThrow(() => assertPageBlockDefinitions([completePage], true, [definition], [manifest]));
+});
+
+test("allows empty optional block values", () => {
+  const page = normalizePage({
+    id: "page-1",
+    title: "Home",
+    slug: "/",
+    pathname: "/",
+    blocks: [{
+      id: "hero-1",
+      type: "hero",
+      fields: { heading: "  ", body: null, image: [], logo: {}, actions: [] },
+    }],
+  });
+
+  assert.doesNotThrow(() => assertPageBlockDefinitions([page], true, [{
+    slug: "hero",
+    registry_identity: heroManifest.registry_identity,
+    schema: { fields: structuredClone(heroManifest.schema.fields) },
+  }]));
+});
+
 test("accepts pages when every used block has a synced account definition", () => {
   const page = normalizePage({
     id: "page-1",
