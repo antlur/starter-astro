@@ -92,6 +92,16 @@ test("Astro renders editorial fixtures accessibly and shares sanitized rich-text
     assert.match(html, /<h4\b[^>]*>Slow drip coffee<\/h4>/);
     assert.match(html, /Bright, balanced, and brewed fresh throughout the morning\./);
     assert.match(html, /\$3\.50/);
+    const categoryPriceItem = html.match(/<article\b(?=[^>]*class="menu-item menu-item--category-pricing")[^>]*>([\s\S]*?)<\/article>/)?.[1];
+    assert.ok(categoryPriceItem, "the category-priced fixture item should render");
+    assert.match(categoryPriceItem, /class="menu-item__category-price" role="cell"[^>]*>\$3\.50<\/div>/);
+    assert.match(categoryPriceItem, /class="menu-item__category-price" role="cell"[^>]*>\$4\.25<\/div>/);
+    assert.match(categoryPriceItem, /<dt[^>]*>Seasonal<\/dt>[\s\S]*?<dd[^>]*>\$5\.00<\/dd>/);
+    assert.equal([...categoryPriceItem.matchAll(/\$5\.00/g)].length, 1, "the unmatched price should render once below its item");
+    const itemPriceItem = html.match(/<article\b(?=[^>]*class="menu-item")[^>]*>([\s\S]*?<h4[^>]*>Morning bun<\/h4>[\s\S]*?)<\/article>/)?.[1];
+    assert.ok(itemPriceItem, "the item without category pricing columns should render");
+    assert.match(itemPriceItem, /<dt[^>]*>Morning<\/dt>[\s\S]*?<dd[^>]*>\$4\.50<\/dd>/);
+    assert.match(itemPriceItem, /<dt[^>]*>Afternoon<\/dt>[\s\S]*?<dd[^>]*>\$5\.00<\/dd>/);
     const menuDownload = firstTag(html, /<a\b(?=[^>]*class="menu-page__download")[^>]*>Download Menu<\/a>/, "menu PDF link");
     assert.match(menuDownload, attributePattern("href", "https://files.example.test/menus/all-day-coffee.pdf"));
     assert.match(menuDownload, attributePattern("target", "_blank"));

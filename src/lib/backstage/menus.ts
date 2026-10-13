@@ -143,62 +143,79 @@ const normalizePricingColumns = (value: unknown): string[] => {
 const hasPriceEntries = (value: unknown): boolean =>
   (Array.isArray(value) && value.length > 0) || (isRecord(value) && Object.keys(value).length > 0);
 
-const normalizePrices = (value: unknown, pricingColumns: readonly string[]): SiteMenuPrice[] => {
+const normalizePrices = (value: unknown): SiteMenuPrice[] => {
   const entries = Array.isArray(value)
     ? value.map((candidate, index) => [String(index), candidate] as const)
     : isRecord(value)
       ? Object.entries(value)
       : [];
 
-  return entries.flatMap(([key, candidate], index) => {
+  return entries.flatMap(([key, candidate]) => {
     const amount = optionalString(isRecord(candidate) ? candidate.value ?? candidate.price : candidate);
     if (!amount) return [];
 
     const keyedLabel = /^\d+$/.test(key) || /^(?:price\d*)$/i.test(key) ? null : key;
-    const position = /^\d+$/.test(key) ? Number(key) : index;
     const label = isRecord(candidate) ? optionalString(candidate.label) : null;
 
-    return [{ label: label ?? keyedLabel ?? pricingColumns[position] ?? "", value: amount }];
+    return [{ label: label ?? keyedLabel ?? "", value: amount }];
   });
 };
+
+export interface AlignedCategoryPrices {
+  columns: SiteMenuPrice[];
+  additional: SiteMenuPrice[];
+}
 
 export const alignCategoryPrices = (
   pricingColumns: readonly string[],
   prices: readonly SiteMenuPrice[],
-): SiteMenuPrice[] => {
+): AlignedCategoryPrices => {
   const aligned = new Array<SiteMenuPrice | undefined>(pricingColumns.length);
   const assignedPrices = new Set<number>();
-  const normalizedColumns = pricingColumns.map((column) => column.trim().toLowerCase());
+  const columnIndicesByLabel = new Map<string, number[]>();
+
+  pricingColumns.forEach((column, index) => {
+    const label = column.trim().toLowerCase();
+    const indices = columnIndicesByLabel.get(label) ?? [];
+    indices.push(index);
+    columnIndicesByLabel.set(label, indices);
+  });
 
   prices.forEach((price, priceIndex) => {
     const label = price.label.trim().toLowerCase();
     if (!label) return;
 
-    const columnIndex = normalizedColumns.indexOf(label);
-    if (columnIndex < 0 || aligned[columnIndex]) return;
+    const matchingColumns = columnIndicesByLabel.get(label) ?? [];
+    if (matchingColumns.length !== 1) return;
+
+    const columnIndex = matchingColumns[0];
+    if (columnIndex === undefined || aligned[columnIndex]) return;
 
     aligned[columnIndex] = price;
     assignedPrices.add(priceIndex);
   });
 
   prices.forEach((price, priceIndex) => {
-    if (assignedPrices.has(priceIndex)) return;
+    if (assignedPrices.has(priceIndex) || price.label.trim()) return;
 
-    const positionalIndex = priceIndex < aligned.length && !aligned[priceIndex]
-      ? priceIndex
-      : aligned.findIndex((candidate) => candidate === undefined);
+    const positionalIndex = priceIndex;
+    if (positionalIndex >= aligned.length || aligned[positionalIndex]) return;
 
-    if (positionalIndex >= 0) aligned[positionalIndex] = price;
+    aligned[positionalIndex] = price;
+    assignedPrices.add(priceIndex);
   });
 
-  return pricingColumns.map((label, index) => ({ label, value: aligned[index]?.value ?? "" }));
+  return {
+    columns: pricingColumns.map((label, index) => ({ label, value: aligned[index]?.value ?? "" })),
+    additional: prices.filter((_, index) => !assignedPrices.has(index)),
+  };
 };
 
-const splitPrice = (value: string | null, pricingColumns: readonly string[]): SiteMenuPrice[] => {
+const splitPrice = (value: string | null): SiteMenuPrice[] => {
   if (!value || !value.includes("|")) return [];
-  return value.split("|").flatMap((part, index) => {
+  return value.split("|").flatMap((part) => {
     const amount = part.trim();
-    return amount ? [{ label: pricingColumns[index] ?? "", value: amount }] : [];
+    return amount ? [{ label: "", value: amount }] : [];
   });
 };
 
@@ -225,7 +242,6 @@ const normalizeMenuItem = (
   value: unknown,
   index: number,
   mediaById: ReadonlyMap<string, unknown>,
-  pricingColumns: readonly string[],
 ): SiteMenuItem => {
   if (!isRecord(value)) throw new Error(`Backstage menu contains an invalid item at index ${index}.`);
   const globalItem = isRecord(value.menu_item) ? value.menu_item : {};
@@ -241,10 +257,10 @@ const normalizeMenuItem = (
     || value.has_hidden_price === true
     || (value.has_hidden_price === undefined && !hasLocalPriceOverride && globalItem.has_hidden_price === true);
   const priceSource = hasLocalPriceOverride ? value : globalItem;
-  const structuredPrices = normalizePrices(priceSource.prices, pricingColumns);
+  const structuredPrices = normalizePrices(priceSource.prices);
   const scalarPrice = optionalString(priceSource.price);
   const scalarPrice2 = optionalString(priceSource.price2);
-  const scalarPrices = splitPrice(scalarPrice, pricingColumns);
+  const scalarPrices = splitPrice(scalarPrice);
   const prices = hiddenPrice
     ? []
     : structuredPrices.length > 0
@@ -252,8 +268,8 @@ const normalizeMenuItem = (
       : scalarPrices.length > 0
         ? scalarPrices
         : [
-            ...(scalarPrice ? [{ label: pricingColumns[0] ?? "", value: scalarPrice }] : []),
-            ...(scalarPrice2 ? [{ label: pricingColumns[scalarPrice ? 1 : 0] ?? "", value: scalarPrice2 }] : []),
+            ...(scalarPrice ? [{ label: "", value: scalarPrice }] : []),
+            ...(scalarPrice2 ? [{ label: "", value: scalarPrice2 }] : []),
           ];
   const hasLocalImageOverride = value.image !== undefined || value.image_id !== undefined;
   const imageValue = mediaValue(hasLocalImageOverride ? value : globalItem, mediaById);
@@ -328,9 +344,7 @@ export const normalizeMenu = (
           serves: optionalString(candidate.serves),
           pricingColumns,
           columns: Number.isInteger(columns) && columns > 0 ? Math.min(columns, 3) : null,
-          items: candidate.items.map((item, itemIndex) =>
-            normalizeMenuItem(item, itemIndex, mediaById, pricingColumns),
-          ),
+          items: candidate.items.map((item, itemIndex) => normalizeMenuItem(item, itemIndex, mediaById)),
         };
       })
       .sort((left, right) => {
