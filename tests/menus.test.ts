@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { formatMenuPrice, normalizeMenu, selectMenuForIndex } from "../src/lib/backstage/menus";
+import { alignCategoryPrices, formatMenuPrice, normalizeMenu, selectMenuForIndex } from "../src/lib/backstage/menus";
 
 test("preserves authored currency formatting for menu prices", () => {
   assert.equal(formatMenuPrice("$13.00"), "$13.00");
@@ -330,6 +330,54 @@ test("uses pricing columns to label array and legacy fallback prices", () => {
     [{ label: "Half", value: "12.00" }, { label: "Full", value: "18.00" }],
     [{ label: "Half", value: "14.00" }, { label: "Full", value: "20.00" }],
   ]);
+});
+
+test("aligns category prices by label and leaves missing configured columns blank", () => {
+  const columns = ["Half", "Full", "Family"];
+  const prices = alignCategoryPrices(columns, [
+    { label: "Family", value: "50.00" },
+    { label: "half", value: "18.00" },
+  ]);
+
+  assert.deepEqual(prices, [
+    { label: "Half", value: "18.00" },
+    { label: "Full", value: "" },
+    { label: "Family", value: "50.00" },
+  ]);
+});
+
+test("uses original price positions when category prices have no labels", () => {
+  assert.deepEqual(alignCategoryPrices(["Lunch", "Dinner"], [
+    { label: "", value: "12.00" },
+    { label: "", value: "20.00" },
+  ]), [
+    { label: "Lunch", value: "12.00" },
+    { label: "Dinner", value: "20.00" },
+  ]);
+});
+
+test("falls back by position for labels not present in the configured columns", () => {
+  assert.deepEqual(alignCategoryPrices(["Half", "Full"], [
+    { label: "Seasonal", value: "9.00" },
+    { label: "Full", value: "20.00" },
+  ]), [
+    { label: "Half", value: "9.00" },
+    { label: "Full", value: "20.00" },
+  ]);
+});
+
+test("renders one shared category header above aligned price rows", async () => {
+  const menuPage = await readFile(new URL("../src/components/MenuPage.astro", import.meta.url), "utf8");
+  const headerIndex = menuPage.indexOf("menu-category__pricing-header");
+  const itemRowsIndex = menuPage.indexOf("category.items.map((item) =>");
+
+  assert.match(menuPage, /alignCategoryPrices\(category\.pricingColumns \?\? \[\], item\.hiddenPrice \? \[\] : item\.prices\)/);
+  assert.ok(headerIndex >= 0 && headerIndex < itemRowsIndex, "The single category header must appear before its item rows.");
+  assert.match(menuPage, /category\.pricingColumns\?\.map\(\(column\) => <div role="columnheader">\{column\}<\/div>\)/);
+  assert.match(menuPage, /categoryPrices\.map\(\(price\) => \(\s*<div class="menu-item__category-price" role="cell"/);
+  assert.match(menuPage, /role=\{usesCategoryPricing \? "rowheader" : undefined\}/);
+  assert.match(menuPage, /aria-label=\{price\.value \? undefined : "No price listed"\}/);
+  assert.doesNotMatch(menuPage, /menu-item__category-prices/);
 });
 
 test("renders category and item serving counts and normalized price labels", async () => {
