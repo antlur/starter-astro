@@ -3,7 +3,13 @@ import { listRegistryBlocks } from "@antlur/backstage";
 import test from "node:test";
 import type { BlockManifest } from "../src/lib/backstage/sync-blocks";
 import type { StarterSetupClient } from "../src/lib/backstage/setup";
-import { assertStarterBlockRegistryComplete, inspectStarterSetup, inspectStarterSiteSetup } from "../src/lib/backstage/setup";
+import {
+  assertStarterBlockRegistryComplete,
+  inspectStarterReadiness,
+  inspectStarterSetup,
+  inspectStarterSiteSetup,
+  starterReadinessExitCode,
+} from "../src/lib/backstage/setup";
 
 const manifest: BlockManifest = {
   manifest_version: 1,
@@ -26,10 +32,15 @@ function client(options: {
   routes?: string[];
   navigations?: Array<{ id: string }>;
   headerNavigationId?: string | null;
+  socialLinks?: Array<{ name: string; url: string }>;
+  homeCtaText?: string;
+  homeCtaUrl?: string;
+  customLayouts?: boolean;
   formFields?: Array<{ id: string; label: string; type: string }>;
   formIdToReturn?: string;
   existingBlocks?: Array<{
     id: string;
+    name?: string;
     slug: string;
     registry_identity?: string | null;
     derived_from?: string | null;
@@ -40,9 +51,24 @@ function client(options: {
   return {
     writes,
     client: {
-      modules: { async isEnabled() { return options.customBlocks ?? true; } },
+      modules: {
+        async isEnabled(module: string) {
+          if (module === "cms.custom_blocks") return options.customBlocks ?? true;
+          if (module === "cms.custom_layouts") return options.customLayouts ?? true;
+          return true;
+        },
+      },
       website: {
-        async getWebsites() { return options.websites ?? [{ id: "site-1", app_name: "Demo", header_navigation_id: options.headerNavigationId ?? null }]; },
+        async getWebsites() {
+          return options.websites ?? [{
+            id: "site-1",
+            app_name: "Demo",
+            header_navigation_id: options.headerNavigationId ?? null,
+            social_links: options.socialLinks ?? [],
+            home_cta_text: options.homeCtaText,
+            home_cta_url: options.homeCtaUrl,
+          }];
+        },
         async getWebsiteRoutes() { return options.routes ?? ["/"]; },
       },
       navigation: { async list() { return options.navigations ?? []; } },
@@ -268,5 +294,190 @@ test("starter site preflight refuses a Contact Form response for a different ID"
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("did not match the requested form ID")));
   assert.equal(report.plan?.actions.some(({ path }) => path === "/contact"), false);
+  assert.deepEqual(fake.writes, []);
+});
+
+test("explicit readiness reports a complete account as ready without optional warnings", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    socialLinks: [{ name: "Instagram", url: "https://example.com/social" }],
+    homeCtaText: "View menu",
+    homeCtaUrl: "/menu",
+    existingBlocks: [{
+      id: "block-hero",
+      name: manifest.name,
+      slug: manifest.slug,
+      registry_identity: manifest.registry_identity,
+      derived_from: manifest.derived_from,
+      schema: manifest.schema,
+    }],
+  });
+
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.equal(report.websiteName, "Demo");
+  assert.deepEqual(report.blockers, []);
+  assert.deepEqual(report.warnings, []);
+  assert.ok(report.manualGates.some((gate) => gate.includes("does not expose the rendering mode")));
+  assert.equal(starterReadinessExitCode(report), 0);
+  assert.deepEqual(fake.writes, []);
+});
+
+test("explicit readiness blocks missing required account setup and sync drift", async () => {
+  const fake = client({ customBlocks: false, websites: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("exactly one Backstage website")));
+  assert.ok(report.blockers.some((blocker) => blocker.includes("Enable the CMS Custom Blocks")));
+  assert.equal(starterReadinessExitCode(report), 1);
+
+  const drift = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+  });
+  const driftReport = await inspectStarterReadiness(drift.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.ok(driftReport.blockers.some((blocker) => blocker.includes("out of sync")));
+  assert.deepEqual(drift.writes, []);
+
+  const unsupported = client({
+    customBlocks: false,
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    pages: [{
+      id: "home",
+      title: "Home",
+      slug: "/",
+      pathname: "/",
+      is_home: true,
+      blocks: [{ id: "unknown", type: "unknown-block", fields: {} }],
+    }],
+    existingBlocks: [],
+  });
+  const unsupportedReport = await inspectStarterReadiness(unsupported.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.ok(unsupportedReport.blockers.some((blocker) => blocker.includes("Enable the CMS Custom Blocks")));
+  assert.ok(unsupportedReport.blockers.some((blocker) => blocker.includes("unknown-block")));
+  assert.deepEqual(unsupported.writes, []);
+});
+
+test("explicit readiness blocks missing Home/root routes and ambiguous navigation", async () => {
+  const fake = client({
+    pages: [],
+    routes: ["/about/"],
+    navigations: [{ id: "nav-1" }, { id: "nav-2" }],
+    existingBlocks: [{
+      id: "block-hero",
+      name: manifest.name,
+      slug: manifest.slug,
+      registry_identity: manifest.registry_identity,
+      derived_from: manifest.derived_from,
+      schema: manifest.schema,
+    }],
+  });
+
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("Create or designate a Home page")));
+  assert.ok(report.blockers.some((blocker) => blocker.includes("no root route")));
+  assert.ok(report.blockers.some((blocker) => blocker.includes("Select a Header Navigation")));
+  assert.equal(starterReadinessExitCode(report), 1);
+});
+
+test("explicit readiness treats optional site configuration as warnings, not blockers", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    existingBlocks: [{
+      id: "block-hero",
+      name: manifest.name,
+      slug: manifest.slug,
+      registry_identity: manifest.registry_identity,
+      derived_from: manifest.derived_from,
+      schema: manifest.schema,
+    }],
+  });
+
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.deepEqual(report.blockers, []);
+  assert.ok(report.warnings.some((warning) => warning.includes("social profile")));
+  assert.ok(report.warnings.some((warning) => warning.includes("website-level CTA")));
+  assert.equal(starterReadinessExitCode(report), 0);
+  assert.deepEqual(fake.writes, []);
+});
+
+test("explicit readiness reports invalid page responses as blockers", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    pages: [{ id: "invalid-page" }],
+    existingBlocks: [{
+      id: "block-hero",
+      name: manifest.name,
+      slug: manifest.slug,
+      registry_identity: manifest.registry_identity,
+      derived_from: manifest.derived_from,
+      schema: manifest.schema,
+    }],
+  });
+
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("invalid page at index 0")));
+  assert.equal(starterReadinessExitCode(report), 1);
+  assert.deepEqual(fake.writes, []);
+});
+
+test("explicit readiness reuses build validation for used blocks and assigned layouts", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    pages: [{
+      id: "home",
+      title: "Home",
+      slug: "/",
+      pathname: "/",
+      is_home: true,
+      blocks: [{ id: "block-1", type: "missing-renderer", fields: {} }],
+      layout: { id: "layout-1", name: "Unknown", slug: "not-in-starter", schema: { fields: [] }, data: {} },
+    }],
+    existingBlocks: [{
+      id: "block-hero",
+      name: manifest.name,
+      slug: manifest.slug,
+      registry_identity: manifest.registry_identity,
+      derived_from: manifest.derived_from,
+      schema: manifest.schema,
+    }],
+  });
+
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("no synced Custom Block definition for: missing-renderer")));
+  assert.ok(report.blockers.some((blocker) => blocker.includes("no matching definition and Astro renderer")));
+  assert.equal(starterReadinessExitCode(report), 1);
+  assert.deepEqual(fake.writes, []);
+});
+
+test("explicit readiness blocks when the SDK registry lacks a bundled Starter contract", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    existingBlocks: [{
+      id: "block-hero",
+      name: bundledHeroManifest.name,
+      slug: bundledHeroManifest.slug,
+      registry_identity: bundledHeroManifest.registry_identity,
+      derived_from: bundledHeroManifest.derived_from,
+      schema: bundledHeroManifest.schema,
+    }],
+  });
+
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [bundledHeroManifest], { sdkRegistry: [] });
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("installed SDK is missing Starter block contracts: hero")));
+  assert.equal(starterReadinessExitCode(report), 1);
   assert.deepEqual(fake.writes, []);
 });

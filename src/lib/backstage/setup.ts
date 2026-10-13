@@ -1,4 +1,5 @@
 import { listRegistryBlocks, parseBlockIdentity, validateBlockManifest, type BackstageClient } from "@antlur/backstage";
+import { assertPageBlockDefinitions, assertPageLayoutDefinitions, normalizePage, type HeadlessPage } from "./content";
 import type { BlockManifest, BlockSyncClient, BlockSyncResult } from "./sync-blocks";
 import { syncBlockManifests, validateBlockManifests } from "./sync-blocks";
 import { safeLinkUrl, safeSiteLinkUrl } from "../safe-url";
@@ -38,6 +39,21 @@ export interface StarterSiteSetupOptions {
   contactFormId?: string;
   confirmContactFormRecipient?: boolean;
   sdkRegistry?: readonly Pick<BlockManifest, "registry_identity">[];
+}
+
+export interface StarterReadinessReport {
+  websiteName: string | null;
+  blockers: string[];
+  warnings: string[];
+  manualGates: string[];
+}
+
+export function starterReadinessExitCode(report: Pick<StarterReadinessReport, "blockers">): 0 | 1 {
+  return report.blockers.length === 0 ? 0 : 1;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "unknown error";
 }
 
 export function missingStarterBlockSlugs(
@@ -242,4 +258,129 @@ export async function inspectStarterSiteSetup(
   if (!plan.canApply) blockers.push("A starter page path is already claimed by a route that is not represented by a CMS page.");
 
   return { plan, blockers, warnings };
+}
+
+export async function inspectStarterReadiness(
+  client: StarterSetupClient,
+  manifests: BlockManifest[],
+  options: StarterSetupOptions = {},
+): Promise<StarterReadinessReport> {
+  const blockers: string[] = [];
+  const warnings: string[] = [];
+  const manualGates = [
+    "Confirm Headless rendering is selected in Backstage Settings; the current SDK does not expose the rendering mode.",
+    "Review branding, SEO metadata, media, and content completeness manually; the setup APIs cannot certify these for launch.",
+    "Validate the deployed domain, canonical URLs, and hosting behavior before launch; these are outside the account setup API.",
+  ];
+
+  let setup: StarterSetupReport;
+  try {
+    setup = await inspectStarterSetup(client, manifests, options);
+  } catch (error) {
+    return {
+      websiteName: null,
+      blockers: [`Could not verify the Backstage setup response: ${errorMessage(error)}`],
+      warnings,
+      manualGates,
+    };
+  }
+
+  const websiteName = setup.websiteName;
+  if (setup.websiteCount !== 1) {
+    blockers.push(`This Starter requires exactly one Backstage website; found ${setup.websiteCount}.`);
+  }
+  if (!setup.customBlocksEnabled) {
+    blockers.push("Enable the CMS Custom Blocks module in Backstage before building this site.");
+  }
+  if (setup.sdkRegistry.missingSlugs.length > 0) {
+    blockers.push(
+      `The installed SDK is missing Starter block contracts: ${setup.sdkRegistry.missingSlugs.join(", ")}. ` +
+      "Install an SDK release that contains the complete Starter registry.",
+    );
+  }
+  if (setup.blockChanges && (setup.blockChanges.created > 0 || setup.blockChanges.updated > 0)) {
+    blockers.push(
+      `Starter block definitions are out of sync (${setup.blockChanges.created} to create, ${setup.blockChanges.updated} to update). ` +
+      "Review the setup preview, then run npm run setup -- --apply to sync them.",
+    );
+  }
+
+  if (setup.homepageExists === false) blockers.push("Create or designate a Home page in Backstage before building.");
+  if (setup.rootRouteExists === false) blockers.push("The Backstage route graph has no root route; fix the Home page or route configuration before building.");
+  if (setup.homepageExists === null || setup.rootRouteExists === null) {
+    blockers.push("Could not verify the Home page and root route from Backstage; check API access and the page response, then rerun readiness.");
+  }
+  const unsupportedBlockWarning = setup.warnings.find((warning) => warning.includes("block types without a local Starter manifest/renderer"));
+  if (unsupportedBlockWarning) blockers.push(unsupportedBlockWarning);
+
+  switch (setup.navigationStatus) {
+    case "configured":
+    case "single":
+      break;
+    case "missing":
+      blockers.push("Create a navigation in Backstage before launch; the site currently has no page links.");
+      break;
+    case "selection-required":
+      blockers.push("Select a Header Navigation in Backstage or set BACKSTAGE_NAVIGATION_ID.");
+      break;
+    case "invalid":
+      blockers.push("The selected Header Navigation was not found; update BACKSTAGE_NAVIGATION_ID or the website setting.");
+      break;
+    case "unknown":
+      if (setup.websiteCount === 1) blockers.push("Could not verify the account navigation selection; check API access and rerun readiness.");
+      break;
+  }
+
+  const handledSetupWarnings = [
+    "Confirm Headless rendering",
+    "exactly one Backstage website",
+    "installed SDK registry is missing Starter block contracts",
+    "No Home page is configured",
+    "route graph has no root route",
+    "block types without a local Starter manifest/renderer",
+    "No saved navigation is configured",
+    "multiple navigations but none is selected",
+    "selected header navigation was not found",
+    "Enable the CMS Custom Blocks module",
+    "Could not verify Headless pages and routes",
+  ];
+  warnings.push(...setup.warnings.filter((warning) => !handledSetupWarnings.some((fragment) => warning.includes(fragment))));
+
+  let pages: HeadlessPage[] | null = null;
+  if (setup.websiteCount === 1) {
+    try {
+      const response = await client.pages.getHeadlessPages();
+      if (!Array.isArray(response)) throw new Error("Backstage returned an invalid pages collection.");
+      pages = response.map(normalizePage);
+    } catch (error) {
+      blockers.push(`Could not validate Headless pages: ${errorMessage(error)}`);
+    }
+  }
+
+  if (pages) {
+    if (pages.some((page) => page.blocks.length > 0) && setup.customBlocksEnabled) {
+      try {
+        const definitions = await client.blocks.list();
+        if (!Array.isArray(definitions)) throw new Error("Backstage returned an invalid Custom Blocks collection.");
+        assertPageBlockDefinitions(pages, true, definitions, manifests);
+      } catch (error) {
+        blockers.push(`Page block definitions are not ready: ${errorMessage(error)}`);
+      }
+    }
+
+    if (pages.some((page) => page.layout !== null)) {
+      try {
+        const customLayoutsEnabled = await client.modules.isEnabled("cms.custom_layouts");
+        assertPageLayoutDefinitions(pages, customLayoutsEnabled);
+      } catch (error) {
+        blockers.push(`Assigned page layouts are not ready: ${errorMessage(error)}`);
+      }
+    }
+
+    if (pages.some((page) => page.blocks.some((block) => block.type === "contact-form"))) {
+      manualGates.push("Submit a test contact form and verify its recipient, reCAPTCHA, spam handling, and delivery; the setup API cannot verify end-to-end email delivery.");
+    }
+  }
+
+  return { websiteName, blockers, warnings, manualGates };
 }

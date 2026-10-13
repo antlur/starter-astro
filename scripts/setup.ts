@@ -2,7 +2,13 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { BackstageClient } from "@antlur/backstage";
 import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
-import { assertStarterBlockRegistryComplete, inspectStarterSetup, inspectStarterSiteSetup } from "../src/lib/backstage/setup";
+import {
+  assertStarterBlockRegistryComplete,
+  inspectStarterReadiness,
+  inspectStarterSetup,
+  inspectStarterSiteSetup,
+  starterReadinessExitCode,
+} from "../src/lib/backstage/setup";
 import { applyStarterSitePages } from "../src/lib/backstage/site-initializer";
 import { syncBlockManifests } from "../src/lib/backstage/sync-blocks";
 
@@ -16,7 +22,7 @@ async function main() {
   const flags = new Set<string>();
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
-    if (["--apply", "--site", "--confirm-contact-form-recipient"].includes(argument)) {
+    if (["--apply", "--site", "--readiness", "--confirm-contact-form-recipient"].includes(argument)) {
       flags.add(argument);
       continue;
     }
@@ -31,13 +37,16 @@ async function main() {
       if (!contactFormId) throw new Error("Provide a non-empty --contact-form-id.");
       continue;
     }
-    throw new Error(`Unknown setup argument: ${argument}. Use --site to plan starter pages and --apply to write.`);
+    throw new Error(`Unknown setup argument: ${argument}. Use --readiness for a read-only launch check, --site to plan starter pages, and --apply to write.`);
   }
   if (flags.has("--confirm-contact-form-recipient") && !contactFormId) {
     throw new Error("--confirm-contact-form-recipient requires --contact-form-id.");
   }
   if ((contactFormId || flags.has("--confirm-contact-form-recipient")) && !flags.has("--site")) {
     throw new Error("Contact form options require --site.");
+  }
+  if (flags.has("--readiness") && (flags.has("--apply") || flags.has("--site") || contactFormId || flags.has("--confirm-contact-form-recipient"))) {
+    throw new Error("--readiness is read-only and cannot be combined with setup or apply options.");
   }
   if (process.env.NODE_TLS_REJECT_UNAUTHORIZED === "0") {
     throw new Error("Setup refuses disabled TLS verification. Use NODE_OPTIONS=--use-system-ca for local certificates.");
@@ -51,6 +60,27 @@ async function main() {
   const confirmContactFormRecipient = flags.has("--confirm-contact-form-recipient");
   const manifests = loadBlockManifests(fileURLToPath(new URL("../src/blocks/", import.meta.url)));
   const client = new BackstageClient();
+
+  if (flags.has("--readiness")) {
+    const report = await inspectStarterReadiness(client, manifests, {
+      navigationId: process.env.BACKSTAGE_NAVIGATION_ID,
+    });
+
+    console.log(`Automated readiness: ${report.blockers.length === 0 ? "READY" : "BLOCKED"}${report.websiteName ? ` (${report.websiteName})` : ""}`);
+    console.log("Blockers:");
+    for (const blocker of report.blockers) console.error(`- ${blocker}`);
+    if (report.blockers.length === 0) console.log("- None");
+    console.log("Warnings:");
+    for (const warning of report.warnings) console.warn(`- ${warning}`);
+    if (report.warnings.length === 0) console.log("- None");
+    console.log("Manual launch gates (not verified by this command):");
+    for (const gate of report.manualGates) console.log(`- ${gate}`);
+    console.log("A READY result covers only the automated account checks above; it is not production launch approval.");
+
+    process.exitCode = starterReadinessExitCode(report);
+    return;
+  }
+
   const report = await inspectStarterSetup(client, manifests, {
     navigationId: process.env.BACKSTAGE_NAVIGATION_ID,
   });
