@@ -5,6 +5,7 @@ import type { BlockManifest } from "../src/lib/backstage/sync-blocks";
 import type { StarterSetupClient } from "../src/lib/backstage/setup";
 import {
   assertStarterBlockRegistryComplete,
+  formatStarterReadinessReport,
   inspectStarterReadiness,
   inspectStarterSetup,
   inspectStarterSiteSetup,
@@ -322,6 +323,26 @@ test("explicit readiness reports a complete account as ready without optional wa
   assert.ok(report.manualGates.some((gate) => gate.includes("does not expose the rendering mode")));
   assert.equal(starterReadinessExitCode(report), 0);
   assert.deepEqual(fake.writes, []);
+});
+
+test("readiness report formats blockers, warnings, and manual gates in order", () => {
+  const output = formatStarterReadinessReport({
+    websiteName: "Demo",
+    blockers: ["Create a Home page in Backstage."],
+    warnings: ["The selected form's recipient cannot be verified."],
+    manualGates: ["Confirm the deployed domain and canonical URLs."],
+  });
+
+  assert.equal(output, [
+    "Automated readiness: BLOCKED (Demo)",
+    "Blockers:",
+    "- Create a Home page in Backstage.",
+    "Warnings:",
+    "- The selected form's recipient cannot be verified.",
+    "Manual launch gates (not verified by this command):",
+    "- Confirm the deployed domain and canonical URLs.",
+    "A READY result covers only the automated account checks above; it is not production launch approval.",
+  ].join("\n"));
 });
 
 test("explicit readiness blocks missing required account setup and sync drift", async () => {
