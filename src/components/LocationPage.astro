@@ -1,6 +1,6 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import { locationSchemaUrl, type SiteLocation } from "../lib/backstage/locations";
+import { locationSchemaUrl, locationStructuredData, type SiteLocation } from "../lib/backstage/locations";
 import { menuRoutesForLocation, type SiteLocationRoute, type SiteMenuRoute } from "../site/menu-routes";
 import { normalizeRoutePath } from "../site/routes";
 
@@ -23,21 +23,9 @@ const visibleMenuRoutes = location.menuIds?.length
     })
   : [];
 const description = location.description ? sanitizeRichText(location.description) : "";
-const locationSchema = JSON.stringify({
-  "@context": "https://schema.org",
-  "@type": "LocalBusiness",
-  name: location.name,
-  address: location.addressLines.join(", "),
-  telephone: location.phone ?? undefined,
-  email: location.email ?? undefined,
-  url: locationSchemaUrl(Astro.site, routePath),
-  image: location.imageUrl ?? undefined,
-  geo: location.latitude !== null && location.longitude !== null ? {
-    "@type": "GeoCoordinates",
-    latitude: location.latitude,
-    longitude: location.longitude,
-  } : undefined,
-}).replace(/</g, "\\u003c");
+const locationSchema = JSON.stringify(
+  locationStructuredData(location, locationSchemaUrl(Astro.site, routePath)),
+).replace(/</g, "\\u003c");
 ---
 
 <script type="application/ld+json" set:html={locationSchema} />

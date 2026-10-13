@@ -129,6 +129,12 @@ export const fixtureSiteContent: SiteContent = {
       name: "Main Street",
       description: "<p>Join us in the neighborhood.</p>",
       addressLines: ["12 Market Street", "Chicago, IL 60601"],
+      postalAddress: {
+        streetAddress: "12 Market Street",
+        addressLocality: "Chicago",
+        addressRegion: "IL",
+        postalCode: "60601",
+      },
       phone: "(312) 555-0100",
       email: "hello@example.test",
       mapUrl: "https://maps.example.test/fieldwork",
@@ -143,6 +149,19 @@ export const fixtureSiteContent: SiteContent = {
         { day: "Mon-Thu", value: "7 AM - 4 PM", order: 0 },
         { day: "Fri-Sat", value: "8 AM - 8 PM", order: 4 },
         { day: "Sun", value: "8 AM - 2 PM", order: 6 },
+      ],
+      openingHoursSpecification: [
+        ...["Monday", "Tuesday", "Wednesday", "Thursday"].map((day) => ({
+          dayOfWeek: `https://schema.org/${day}`,
+          opens: "07:00",
+          closes: "16:00",
+        })),
+        ...["Friday", "Saturday"].map((day) => ({
+          dayOfWeek: `https://schema.org/${day}`,
+          opens: "08:00",
+          closes: "20:00",
+        })),
+        { dayOfWeek: "https://schema.org/Sunday", opens: "08:00", closes: "14:00" },
       ],
     },
   ],
