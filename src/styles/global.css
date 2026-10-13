@@ -74,6 +74,11 @@ button:focus-visible,
   outline-offset: 4px;
 }
 
+.site-header-shell a:focus-visible,
+.site-header-shell button:focus-visible {
+  outline-color: var(--color-header-foreground);
+}
+
 .skip-link {
   position: fixed;
   z-index: 10;
