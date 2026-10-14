@@ -50,6 +50,36 @@ test("allows a populated Instagram Feed to own the primary heading", () => {
   ]), 0);
 });
 
+test("skips headings from blocks that do not render visible content", () => {
+  assert.equal(primaryHeadingIndex([
+    block("image-gallery", { heading: "Empty gallery", images: [] }),
+    block("image-link-grid", {
+      heading: "Empty links",
+      items: [{ image: { url: "javascript:alert(1)" }, link_url: "/about", link_label: "Unsafe image" }],
+    }),
+    block("rich-text", { body: "<h1> </h1>" }),
+    block("image", { heading: "Not rendered by this block" }),
+    block("hero", { heading: "Visible heading" }),
+  ]), 4);
+});
+
+test("uses the upcoming-events title that its renderer actually displays", () => {
+  assert.equal(primaryHeadingIndex([
+    block("upcoming-events", { title: "Community Events" }),
+    block("hero", { heading: "Welcome" }),
+  ]), 0);
+});
+
+test("allows a populated image gallery heading to be primary", () => {
+  assert.equal(primaryHeadingIndex([
+    block("image-gallery", {
+      heading: "Dining room",
+      images: [{ image: { url: "https://example.com/dining-room.jpg" } }],
+    }),
+    block("hero", { heading: "Welcome" }),
+  ]), 0);
+});
+
 test("skips an Instagram Feed when its configured post count renders no posts", () => {
   assert.equal(primaryHeadingIndex([
     {

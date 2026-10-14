@@ -220,6 +220,21 @@ export const fixtureSiteContent: SiteContent = {
       },
       blocks: [
         {
+          id: "fixture-qa-empty-image-gallery",
+          type: "image-gallery",
+          fields: { heading: "Empty gallery heading must not render", images: [] },
+        },
+        {
+          id: "fixture-qa-empty-rich-text-heading",
+          type: "rich-text",
+          fields: { body: "<h1> </h1>" },
+        },
+        {
+          id: "fixture-qa-empty-image-link-grid",
+          type: "image-link-grid",
+          fields: { heading: "Empty links heading must not render", items: [] },
+        },
+        {
           id: "fixture-qa-video-hero",
           type: "video-hero",
           fields: {
@@ -284,7 +299,8 @@ export const fixtureSiteContent: SiteContent = {
               + "<p><u>Made with care.</u></p>"
               + '<img class="max-w-full h-auto rounded" style="max-width: 100%; height: auto;" '
               + 'src="/favicon.svg" alt="Fieldwork Coffee icon" title="Fieldwork Coffee" '
-              + 'width="64" height="64" alignment="center">',
+              + 'width="64" height="64" alignment="center">'
+              + '<img src="/favicon.svg" alt="" width="16" height="16">',
           },
         },
       ],
