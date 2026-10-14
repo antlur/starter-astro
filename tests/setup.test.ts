@@ -26,6 +26,9 @@ const manifest: BlockManifest = {
 const bundledHeroManifest = listRegistryBlocks().find(
   ({ registry_identity }) => registry_identity === "starter-astro:hero@1",
 ) as unknown as BlockManifest;
+const contactFormManifest = listRegistryBlocks().find(
+  ({ registry_identity }) => registry_identity === "starter-astro:contact-form@1",
+) as unknown as BlockManifest;
 
 const accountBlockFor = (block: BlockManifest) => ({
   id: `account-${block.slug}`,
@@ -52,6 +55,9 @@ function client(options: {
   customLayouts?: boolean;
   formFields?: Array<{ id: string; label: string; type: string }>;
   formIdToReturn?: string;
+  formDefinition?: unknown;
+  formError?: Error;
+  routeResolutions?: Record<string, unknown>;
   existingBlocks?: Array<{
     id: string;
     name?: string;
@@ -62,10 +68,14 @@ function client(options: {
   }>;
 } = {}) {
   const writes: string[] = [];
+  const formReads: string[] = [];
+  const reads = { pages: 0 };
   const homePage = options.pages?.find((page) => (page as { is_home?: boolean }).is_home === true) as { id?: string | number } | undefined;
   const homeId = String(homePage?.id ?? "home");
   return {
     writes,
+    formReads,
+    reads,
     client: {
       modules: {
         async isEnabled(module: string) {
@@ -86,6 +96,7 @@ function client(options: {
           }];
         },
         async getWebsiteRoutes() { return options.routes ?? ["/"]; },
+        async routes() { return options.routes ?? ["/"]; },
       },
       navigation: {
         async list() { return options.navigations ?? []; },
@@ -98,7 +109,9 @@ function client(options: {
         },
       },
       routes: {
-        async resolve() {
+        async resolve(path = "/") {
+          if (options.routeResolutions?.[path]) return options.routeResolutions[path];
+          if (path !== "/") return { type: "fixture", data: null, meta: { id: null, type: "fixture", path } };
           return options.rootResolution ?? {
             type: "page",
             data: { id: homeId },
@@ -106,8 +119,30 @@ function client(options: {
           };
         },
       },
-      pages: { async getHeadlessPages() { return options.pages ?? [{ id: "home", title: "Home", slug: "/", pathname: "/", is_home: true, blocks: [] }]; } },
-      forms: { async getFormDefinition(id: string) { return { id: options.formIdToReturn ?? id, title: "Contact", type: "email", action: null, redirect_url: null, recaptcha_site_key: null, fields: options.formFields ?? [] }; } },
+      pages: { async getHeadlessPages() { reads.pages++; return options.pages ?? [{ id: "home", title: "Home", slug: "/", pathname: "/", is_home: true, blocks: [] }]; } },
+      forms: {
+        async getFormDefinition(id: string) {
+          formReads.push(id);
+          if (options.formError) throw options.formError;
+          return options.formDefinition ?? {
+            id: options.formIdToReturn ?? id,
+            title: "Contact",
+            action: "/api/forms/contact",
+            recaptcha_site_key: null,
+            fields: options.formFields ?? [],
+          };
+        },
+      },
+      locations: { async getLocations() { return []; } },
+      alerts: { async getAlerts() { return []; } },
+      menus: {
+        async getMenus() { return []; },
+        async getMenu() { return null; },
+      },
+      media: { async get() { return null; } },
+      press: { async getPress() { return []; } },
+      events: { async getEvents() { return []; } },
+      instagram: { async latest() { return []; } },
       blocks: {
         async list() { return options.existingBlocks ?? []; },
         async create() { writes.push("create"); },
@@ -520,6 +555,181 @@ test("readiness blocks a selected header navigation that cannot be read or norma
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("Could not read or normalize selected header navigation")));
   assert.ok(report.blockers.some((blocker) => blocker.includes("navigation request failed")));
+  assert.deepEqual(fake.writes, []);
+});
+
+test("readiness blocks contact-form blocks without a selected form", async () => {
+  const fake = client({
+    pages: [{
+      id: "home",
+      title: "Home",
+      slug: "/",
+      pathname: "/",
+      is_home: true,
+      blocks: [{ id: "contact-1", type: "contact-form", fields: {} }],
+    }],
+    existingBlocks: [accountBlockFor(contactFormManifest)],
+  });
+
+  const report = await inspectStarterReadiness(
+    fake.client as unknown as StarterSetupClient,
+    [contactFormManifest],
+    { sdkRegistry: [contactFormManifest] },
+  );
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("Contact Form block contact-1 must select an existing Backstage form")));
+  assert.ok(report.manualGates.some((gate) => gate.includes("verify its recipient, reCAPTCHA, spam handling, and delivery")));
+  assert.deepEqual(fake.formReads, []);
+  assert.equal(fake.reads.pages, 2, "without loadable navigation, readiness should use the direct-page fallback");
+  assert.deepEqual(fake.writes, []);
+});
+
+test("readiness blocks unreadable, mismatched, incomplete, and fieldless contact forms", async () => {
+  const invalidDefinitions: Array<{
+    label: string;
+    options: Parameters<typeof client>[0];
+    expected: string;
+  }> = [
+    { label: "unreadable", options: { formError: new Error("form request failed") }, expected: "form request failed" },
+    { label: "mismatched", options: { formIdToReturn: "another-form" }, expected: "Backstage did not return the selected form form-1" },
+    { label: "incomplete", options: { formDefinition: { id: "form-1", fields: [] } }, expected: "Backstage returned an incomplete definition" },
+    { label: "fieldless", options: { formFields: [] }, expected: "Backstage form \"Contact\" has no configured fields" },
+  ];
+
+  for (const definition of invalidDefinitions) {
+    const fake = client({
+      ...definition.options,
+      pages: [{
+        id: "home",
+        title: "Home",
+        slug: "/",
+        pathname: "/",
+        is_home: true,
+        blocks: [{ id: "contact-1", type: "contact-form", fields: { form_id: "form-1" } }],
+      }],
+      formFields: definition.options?.formFields ?? [{ id: "name", label: "Name", type: "text" }],
+      existingBlocks: [accountBlockFor(contactFormManifest)],
+    });
+
+    const report = await inspectStarterReadiness(
+      fake.client as unknown as StarterSetupClient,
+      [contactFormManifest],
+      { sdkRegistry: [contactFormManifest] },
+    );
+
+    assert.ok(
+      report.blockers.some((blocker) => blocker.includes(`Contact Form blocks are not renderable: ${definition.expected}`)),
+      `${definition.label} form definition should block readiness`,
+    );
+    assert.deepEqual(fake.writes, []);
+  }
+});
+
+test("readiness accepts a renderable contact form but keeps the delivery gate", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    navigationData: {
+      id: "nav-1",
+      items: [{ id: "home-link", text: "Home", url: "/", children: [] }],
+    },
+    pages: [{
+      id: "home",
+      title: "Home",
+      slug: "/",
+      pathname: "/",
+      is_home: true,
+      blocks: [{ id: "contact-1", type: "contact-form", fields: { form_id: "form-1" } }],
+    }],
+    formFields: [{ id: "name", label: "Name", type: "text" }],
+    existingBlocks: [accountBlockFor(contactFormManifest)],
+  });
+
+  const report = await inspectStarterReadiness(
+    fake.client as unknown as StarterSetupClient,
+    [contactFormManifest],
+    { sdkRegistry: [contactFormManifest] },
+  );
+
+  assert.equal(report.blockers.some((blocker) => blocker.includes("Contact Form blocks are not renderable")), false);
+  assert.ok(report.manualGates.some((gate) => gate.includes("verify its recipient, reCAPTCHA, spam handling, and delivery")));
+  assert.deepEqual(fake.formReads, ["form-1"]);
+  assert.equal(fake.reads.pages, 2, "reuse loaded content pages for form validation instead of fetching a third time");
+  assert.deepEqual(fake.writes, []);
+});
+
+test("readiness blocks navigation when every usable item is filtered by the rendered route graph", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    navigationData: {
+      id: "nav-1",
+      items: [{ id: "about-link", text: "About", url: "/about/", children: [] }],
+    },
+    routes: ["/"],
+    existingBlocks: [accountBlockFor(manifest)],
+  });
+
+  const report = await inspectStarterReadiness(
+    fake.client as unknown as StarterSetupClient,
+    [manifest],
+    { sdkRegistry: [] },
+  );
+
+  assert.ok(report.blockers.some((blocker) => blocker.includes("Every usable Header Navigation link is removed by the rendered route graph")));
+  assert.equal(fake.reads.pages, 2, "reuse route content instead of fetching pages a third time");
+  assert.deepEqual(fake.writes, []);
+});
+
+test("readiness counts a safe external link retained after filtering as usable navigation", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    navigationData: {
+      id: "nav-1",
+      items: [
+        { id: "missing-link", text: "Missing", url: "/not-rendered/", children: [] },
+        { id: "external-link", text: "Reservations", url: "https://example.com/reserve", children: [] },
+      ],
+    },
+    routes: ["/"],
+    existingBlocks: [accountBlockFor(manifest)],
+  });
+
+  const report = await inspectStarterReadiness(
+    fake.client as unknown as StarterSetupClient,
+    [manifest],
+    { sdkRegistry: [] },
+  );
+
+  assert.equal(report.blockers.some((blocker) => blocker.includes("Every usable Header Navigation link is removed")), false);
+  assert.deepEqual(fake.writes, []);
+});
+
+test("readiness retains navigation links to CMS pages in the rendered route graph", async () => {
+  const fake = client({
+    headerNavigationId: "nav-1",
+    navigations: [{ id: "nav-1" }],
+    navigationData: {
+      id: "nav-1",
+      items: [{ id: "about-link", text: "About", url: "/about/", children: [] }],
+    },
+    pages: [
+      { id: "home", title: "Home", slug: "/", pathname: "/", is_home: true, blocks: [] },
+      { id: "about", title: "About", slug: "about", pathname: "/about/", is_home: false, blocks: [] },
+    ],
+    routes: ["/", "/about/"],
+    existingBlocks: [accountBlockFor(manifest)],
+  });
+
+  const report = await inspectStarterReadiness(
+    fake.client as unknown as StarterSetupClient,
+    [manifest],
+    { sdkRegistry: [] },
+  );
+
+  assert.equal(report.blockers.some((blocker) => blocker.includes("Every usable Header Navigation link is removed")), false);
+  assert.equal(fake.reads.pages, 2, "reuse route content instead of fetching pages a third time");
   assert.deepEqual(fake.writes, []);
 });
 

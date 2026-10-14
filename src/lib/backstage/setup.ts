@@ -1,20 +1,24 @@
 import { listRegistryBlocks, parseBlockIdentity, validateBlockManifest, type BackstageClient } from "@antlur/backstage";
+import { buildSiteFromContent } from "../../site/build";
 import {
   assertPageBlockDefinitions,
   assertPageLayoutDefinitions,
   getHomePage,
   normalizeNavigation,
   normalizePage,
+  loadSiteContentForReadiness,
   type HeadlessPage,
+  type SiteContentReadClient,
   type SiteNavigationItem,
 } from "./content";
+import { attachBackstageForms } from "./forms";
 import type { BlockManifest, BlockSyncClient, BlockSyncResult } from "./sync-blocks";
 import { syncBlockManifests, validateBlockManifests } from "./sync-blocks";
 import { safeLinkUrl, safeSiteLinkUrl } from "../safe-url";
 import { planStarterSitePages, type StarterSitePagePlan } from "./site-initializer";
 import { normalizeRoutePath, pageForCanonicalRoute } from "../../site/routes";
 
-export type StarterSetupClient = BlockSyncClient & Pick<BackstageClient, "modules" | "website" | "pages" | "navigation" | "routes" | "forms">;
+export type StarterSetupClient = BlockSyncClient & SiteContentReadClient & Pick<BackstageClient, "routes" | "forms">;
 
 export type StarterNavigationStatus =
   | "configured"
@@ -88,6 +92,9 @@ function errorMessage(error: unknown): string {
 
 const flattenNavigation = (items: readonly SiteNavigationItem[]): SiteNavigationItem[] =>
   items.flatMap((item) => [item, ...flattenNavigation(item.children)]);
+
+const usableNavigationItems = (items: readonly SiteNavigationItem[]): SiteNavigationItem[] =>
+  flattenNavigation(items).filter((item) => Boolean(item.text.trim() && safeSiteLinkUrl(item.url)));
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -198,9 +205,7 @@ export async function inspectStarterSetup(
     if (selectedNavigationId) {
       try {
         const selectedNavigation = normalizeNavigation(await client.navigation.getNavigation(selectedNavigationId));
-        const usableLinks = flattenNavigation(selectedNavigation).filter((item) =>
-          Boolean(item.text.trim() && safeSiteLinkUrl(item.url)),
-        );
+        const usableLinks = usableNavigationItems(selectedNavigation);
 
         if (usableLinks.length === 0) {
           navigationStatus = "empty";
@@ -469,8 +474,27 @@ export async function inspectStarterReadiness(
   ];
   warnings.push(...setup.warnings.filter((warning) => !handledSetupWarnings.some((fragment) => warning.includes(fragment))));
 
-  let pages: HeadlessPage[] | null = null;
-  if (setup.websiteCount === 1) {
+  let readinessContent: Awaited<ReturnType<typeof loadSiteContentForReadiness>> | null = null;
+  if (setup.navigationStatus === "configured" || setup.navigationStatus === "single") {
+    try {
+      const content = await loadSiteContentForReadiness(client, options.navigationId);
+      readinessContent = content;
+      const usableBeforeFiltering = usableNavigationItems(content.navigation);
+      if (usableBeforeFiltering.length > 0) {
+        const builtSite = await buildSiteFromContent(content, (path) => client.routes.resolve(path));
+        const usableAfterFiltering = usableNavigationItems(builtSite.routePlan.navigation);
+
+        if (usableAfterFiltering.length === 0) {
+          blockers.push("Every usable Header Navigation link is removed by the rendered route graph. Add or publish the linked CMS/module routes in Backstage, or update the navigation.");
+        }
+      }
+    } catch (error) {
+      blockers.push(`Could not verify Header Navigation against the rendered route graph: ${errorMessage(error)}`);
+    }
+  }
+
+  let pages: HeadlessPage[] | null = readinessContent?.pages ?? null;
+  if (!pages && setup.websiteCount === 1) {
     try {
       const response = await client.pages.getHeadlessPages();
       if (!Array.isArray(response)) throw new Error("Backstage returned an invalid pages collection.");
@@ -502,6 +526,12 @@ export async function inspectStarterReadiness(
 
     if (pages.some((page) => page.blocks.some((block) => block.type === "contact-form"))) {
       manualGates.push("Submit a test contact form and verify its recipient, reCAPTCHA, spam handling, and delivery; the setup API cannot verify end-to-end email delivery.");
+
+      try {
+        await attachBackstageForms(pages, client);
+      } catch (error) {
+        blockers.push(`Contact Form blocks are not renderable: ${errorMessage(error)}`);
+      }
     }
   }
 
