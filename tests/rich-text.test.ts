@@ -50,6 +50,12 @@ test("preserves Backstage editor images, quotes, underline, and linked buttons s
   assert.doesNotMatch(html, /max-w-full|bg-primary|alignment=|style=/);
 });
 
+test("preserves an explicitly empty alt attribute for decorative rich-text images", () => {
+  const html = sanitizeRichText('<img src="https://media.example.test/decorative.svg" alt="">');
+
+  assert.match(html, /<img class="rich-text__image" src="https:\/\/media\.example\.test\/decorative\.svg" alt="" \/>/);
+});
+
 test("drops unsafe editor image URLs and does not preserve arbitrary classes or styles", () => {
   const html = sanitizeRichText(
     '<img src="javascript:alert(1)" class="attacker-class" style="position:fixed" onerror="alert(1)">'

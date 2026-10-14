@@ -55,6 +55,7 @@ test("Astro renders editorial fixtures accessibly and shares sanitized rich-text
     }
     assert.match(html, /<h1\b[^>]*>A video hero rendered by Astro<\/h1>/);
     assert.equal([...html.matchAll(/<h1\b/g)].length, 1, "the page should have one primary heading");
+    assert.doesNotMatch(html, /Empty gallery heading must not render|Empty links heading must not render/);
     assert.match(html, /href="\/menu\/"[^>]*>Explore the menu<\/a>/);
 
     const motionButton = firstTag(html, /<button\b[^>]*data-video-hero-toggle[^>]*>/, "video motion control");
@@ -112,6 +113,7 @@ test("Astro renders editorial fixtures accessibly and shares sanitized rich-text
     assert.match(html, /<u>Made with care\.<\/u>/);
     assert.match(html, /<a href="\/contact\/" class="rich-text__button">Book now<\/a>/);
     assert.match(html, /<img class="rich-text__image" src="\/favicon\.svg" alt="Fieldwork Coffee icon" title="Fieldwork Coffee" width="64" height="64" \/>/);
+    assert.match(html, /<img class="rich-text__image" src="\/favicon\.svg" alt="" width="16" height="16" \/>/);
     assert.doesNotMatch(html, /inline-block px-4|text-primary-foreground|alignment="center"/);
 
     const contactHtml = await readFile(path.join(outputDirectory, "contact", "index.html"), "utf8");

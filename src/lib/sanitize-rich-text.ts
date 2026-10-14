@@ -94,9 +94,8 @@ export const sanitizeRichText = (
         const attribs: Record<string, string> = { class: "rich-text__image" };
 
         if (src) attribs.src = src;
-        for (const name of ["alt", "title"] as const) {
-          if (attributes[name]) attribs[name] = attributes[name];
-        }
+        if (Object.hasOwn(attributes, "alt")) attribs.alt = attributes.alt;
+        if (attributes.title) attribs.title = attributes.title;
         for (const name of ["width", "height"] as const) {
           if (/^[1-9]\d{0,4}$/.test(attributes[name] ?? "")) attribs[name] = attributes[name]!;
         }
