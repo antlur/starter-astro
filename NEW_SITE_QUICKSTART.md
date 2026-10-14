@@ -13,7 +13,7 @@ The Starter currently expects exactly one website in the account. Do not use an 
 
 ## 2. Configure the local project
 
-Create a repository from the Starter template, install dependencies, and copy `.env.example` to `.env`:
+Use Node.js 22.12 or newer. Create a repository from the Starter template, install dependencies, and copy `.env.example` to `.env`:
 
 ```sh
 npm ci
@@ -42,13 +42,13 @@ Run the read-only check first:
 npm run setup -- --readiness
 ```
 
-Resolve any reported blockers. To sync the Starter block definitions, temporarily provide the write-capable key as `BACKSTAGE_API_KEY` and run:
+Resolve any reported blockers. For setup writes, temporarily replace `BACKSTAGE_API_KEY` in the untracked `.env` file with the write-capable key. Run the sync, then restore the read-only key for builds. This avoids putting the key in shell history.
 
 ```sh
 npm run setup -- --apply
 ```
 
-Restore the read-only key for normal builds. Block sync writes block definitions only; it does not change pages, navigation, menus, or website settings.
+Block sync writes block definitions only; it does not change pages, navigation, menus, or website settings.
 
 ## 4. Plan and create starter pages
 
@@ -58,7 +58,7 @@ Review the proposed Home/About pages before writing:
 npm run setup -- --site
 ```
 
-If the plan is correct, provide the write-capable key and apply it:
+If the plan is correct, temporarily use the write-capable key in `.env` as above and apply it:
 
 ```sh
 npm run setup -- --site --apply
