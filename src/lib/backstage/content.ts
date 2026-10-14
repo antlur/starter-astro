@@ -232,6 +232,54 @@ const assertFieldParity = (
   }
 };
 
+const hasRequiredValue = (value: unknown): boolean => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  if (isRecord(value)) return Object.keys(value).length > 0;
+  return true;
+};
+
+const collectRequiredFieldIssues = (
+  fields: readonly Field[],
+  values: Record<string, unknown>,
+  page: HeadlessPage,
+  block: HeadlessBlock,
+  parentPath = "",
+): string[] => {
+  const issues: string[] = [];
+  const subject = `Page "${page.pathname}" block "${block.type}" (id "${block.id}")`;
+
+  for (const field of fields) {
+    const path = parentPath ? `${parentPath}.${field.slug}` : field.slug;
+    const value = values[field.slug];
+
+    if (field.type === "repeater") {
+      if (!Array.isArray(value) || value.length === 0) {
+        if (field.required) issues.push(`${subject} field "${path}" must contain at least one row.`);
+        continue;
+      }
+
+      value.forEach((row, index) => {
+        collectRequiredFieldIssues(
+          field.fields ?? [],
+          isRecord(row) ? row : {},
+          page,
+          block,
+          `${path}[${index}]`,
+        ).forEach((issue) => issues.push(issue));
+      });
+      continue;
+    }
+
+    if (field.required && !hasRequiredValue(value)) {
+      issues.push(`${subject} field "${path}" is required but has no value.`);
+    }
+  }
+
+  return issues;
+};
+
 export const assertPageBlockDefinitions = (
   pages: HeadlessPage[],
   customBlocksEnabled: boolean,
@@ -280,6 +328,16 @@ export const assertPageBlockDefinitions = (
   }
 
   assertPageBlockVariants(pages, manifests);
+
+  const manifestsByType = new Map(manifests.map((manifest) => [manifest.slug, manifest]));
+  const valueIssues = pages.flatMap((page) => page.blocks.flatMap((block) => {
+    const manifest = manifestsByType.get(block.type);
+    return manifest ? collectRequiredFieldIssues(manifest.schema.fields, block.fields, page, block) : [];
+  }));
+
+  if (valueIssues.length > 0) {
+    throw new Error(`Required block values are missing:\n${valueIssues.map((issue) => `- ${issue}`).join("\n")}`);
+  }
 };
 
 export const assertPageBlockVariants = (
