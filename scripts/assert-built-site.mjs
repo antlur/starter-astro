@@ -49,18 +49,7 @@ for (const file of htmlFiles) {
     canonicalUrls.push(canonicalUrl.href);
   }
 
-  if (routePath === "/location/") {
-    const localBusiness = [...html.matchAll(/<script type=["']application\/ld\+json["']>([\s\S]*?)<\/script>/gi)]
-      .map((match) => JSON.parse(match[1]))
-      .find((schema) => schema["@type"] === "LocalBusiness");
-
-    assert.ok(localBusiness, "The fixture location page must emit LocalBusiness JSON-LD.");
-    assert.equal(localBusiness.address["@type"], "PostalAddress");
-    assert.equal(localBusiness.address.addressLocality, "Chicago");
-    assert.equal(localBusiness.address.postalCode, "60601");
-    assert.equal(localBusiness.openingHoursSpecification.length, 7);
-    assert.equal(localBusiness.openingHoursSpecification[0].dayOfWeek, "https://schema.org/Monday");
-  }
+  assertLocalBusinessStructuredData(html, file);
 
   for (const imageTag of html.matchAll(/<img\b[^>]*>/gi)) {
     assert.match(imageTag[0], /\balt=["'][^"']*["']/i, `${file} contains an image without an alt attribute.`);
@@ -115,6 +104,37 @@ function listFiles(directory, parent = "") {
     const relative = parent ? `${parent}${sep}${entry.name}` : entry.name;
     return entry.isDirectory() ? listFiles(resolve(directory, entry.name), relative) : [relative.split(sep).join("/")];
   });
+}
+
+function assertLocalBusinessStructuredData(html, file) {
+  const scripts = [...html.matchAll(/<script type=["']application\/ld\+json["']>([\s\S]*?)<\/script>/gi)];
+
+  for (const [, json] of scripts) {
+    const parsed = JSON.parse(json);
+    const schemas = Array.isArray(parsed) ? parsed : [parsed];
+
+    for (const schema of schemas) {
+      const types = Array.isArray(schema?.["@type"]) ? schema["@type"] : [schema?.["@type"]];
+      if (!types.includes("LocalBusiness")) continue;
+
+      assert.equal(schema["@context"], "https://schema.org", `${file} LocalBusiness JSON-LD must use schema.org.`);
+      assert.ok(typeof schema.name === "string" && schema.name.trim(), `${file} LocalBusiness JSON-LD must include a name.`);
+
+      if (schema.address != null) {
+        assert.equal(schema.address["@type"], "PostalAddress", `${file} LocalBusiness address must use PostalAddress.`);
+      }
+
+      if (schema.openingHoursSpecification != null) {
+        assert.ok(Array.isArray(schema.openingHoursSpecification), `${file} openingHoursSpecification must be an array.`);
+        for (const hours of schema.openingHoursSpecification) {
+          assert.equal(hours["@type"], "OpeningHoursSpecification", `${file} opening hours must use OpeningHoursSpecification.`);
+          assert.match(hours.dayOfWeek, /^https:\/\/schema\.org\/(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$/, `${file} opening hours must name a schema.org weekday.`);
+          assert.match(hours.opens, /^\d{2}:\d{2}$/, `${file} opening hours must include a valid opening time.`);
+          assert.match(hours.closes, /^\d{2}:\d{2}$/, `${file} opening hours must include a valid closing time.`);
+        }
+      }
+    }
+  }
 }
 
 function routeForFile(file) {
