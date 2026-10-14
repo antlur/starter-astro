@@ -4,6 +4,8 @@ A custom-site starting point using Astro and the framework-neutral Backstage SDK
 
 The site builds to static HTML. The SDK runs only during the build, so API credentials are not sent to visitors. A content change requires a new build and deploy; cache-only publishing is not implemented in this starter.
 
+For the shortest path from a new clone to a local site, see [New Site Quickstart](NEW_SITE_QUICKSTART.md).
+
 ## Requirements
 
 - Node.js 22.12 or newer
