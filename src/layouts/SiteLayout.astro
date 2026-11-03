@@ -5,6 +5,7 @@ import SiteAlerts from "../components/SiteAlerts.astro";
 import SocialIcon from "../components/SocialIcon.astro";
 import NavigationTree from "../components/NavigationTree.astro";
 import { alertsForPath } from "../lib/backstage/alerts";
+import { getSiteContent, jsonLdForPage, serializeJsonLd } from "../lib/backstage/content";
 import { resolveSeoMetadata } from "../lib/seo-metadata";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
 import type { SiteLocation } from "../lib/backstage/locations";
@@ -26,6 +27,7 @@ interface Props {
 }
 
 const { page, pageTitle: routeTitle, pageDescription: routeDescription, pageImage, contentType = "website", site, pathname, navigation, footerNavigation = [], routePaths, alerts, locations, showLocationHours = true } = Astro.props;
+const { structuredData } = await getSiteContent();
 const siteTitle = site.meta?.title || site.name;
 const { title, description, openGraphTitle, openGraphDescription } = resolveSeoMetadata({ page, routeTitle, routeDescription, site });
 const openGraphImage = pageImage || site.openGraph?.image;
@@ -38,7 +40,7 @@ const organization = {
   url: Astro.site?.href,
   logo: site.logo?.url,
 };
-const jsonLd = JSON.stringify(organization).replace(/</g, "\\u003c");
+const jsonLd = serializeJsonLd(jsonLdForPage(structuredData, organization));
 const firstLocation = locations[0];
 const primaryAction = navigation.find((item) => item.style === "button");
 const topbarCta = site.homeCta && navigation.some((item) => item.style === "button" && item.url === site.homeCta?.url)

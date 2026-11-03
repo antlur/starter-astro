@@ -194,6 +194,10 @@ test("published SDK navigation trees render nested links in the generated site",
     },
     "/locations": { data: [] },
     "/alerts": { data: [] },
+    "/structured-data": {
+      "@context": "https://schema.org",
+      "@graph": [{ "@type": "Restaurant", identifier: "sdk-location", name: "SDK <Cafe>" }],
+    },
   };
 
   process.env.NODE_ENV = "production";
@@ -219,6 +223,10 @@ test("published SDK navigation trees render nested links in the generated site",
     assert.match(html, /href="\/#section">Section<\/a>/);
     assert.match(html, /class="site-nav-children site-nav-children--nested"/);
     assert.match(html, /href="\/#nested">Nested page<\/a>/);
+    const jsonLd = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
+    assert.ok(jsonLd, "the page should publish the Backstage JSON-LD document");
+    assert.equal(jsonLd.includes("<"), false);
+    assert.equal(JSON.parse(jsonLd)["@graph"][0].name, "SDK <Cafe>");
   } finally {
     globalThis.fetch = previousFetch;
     for (const key of envKeys) restoreEnv(key, previousEnv.get(key));

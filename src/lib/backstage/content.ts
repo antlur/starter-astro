@@ -100,6 +100,11 @@ export interface HeadlessWebsite {
   homeCta: { text: string; url: string } | null;
 }
 
+export interface SiteStructuredData {
+  "@context"?: string | string[] | Record<string, unknown>;
+  "@graph": Record<string, unknown>[];
+}
+
 export interface SiteContent {
   site: HeadlessWebsite;
   pages: HeadlessPage[];
@@ -109,6 +114,7 @@ export interface SiteContent {
   alerts: Alert[];
   menus: SiteMenu[];
   locations: SiteLocation[];
+  structuredData: SiteStructuredData | null;
   events: SiteEvent[];
   pressReleases: SitePressRelease[];
 }
@@ -413,6 +419,82 @@ export const assertPageLayoutDefinitions = (
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const structuredDataDocument = (value: unknown): SiteStructuredData | null => {
+  if (!isRecord(value) || !Array.isArray(value["@graph"]) || !value["@graph"].every(isRecord)) return null;
+  return value as unknown as SiteStructuredData;
+};
+
+export const normalizeStructuredData = (value: unknown): SiteStructuredData | null =>
+  structuredDataDocument(value) ?? (isRecord(value) ? structuredDataDocument(value.data) : null);
+
+const responseStatus = (error: unknown): number | null => {
+  if (isRecord(error) && typeof error.status === "number") return error.status;
+  if (isRecord(error) && isRecord(error.response) && typeof error.response.status === "number") return error.response.status;
+  if (error instanceof Error) {
+    const match = /^HTTP (\d{3})\b/.exec(error.message);
+    if (match) return Number(match[1]);
+  }
+  return null;
+};
+
+const structuredDataFallbackWarning = (detail: string): void => {
+  console.warn(`Could not load Backstage structured data (${detail}). The site will use its Organization fallback.`);
+};
+
+export const readStructuredData = async (client: object): Promise<SiteStructuredData | null> => {
+  const source = client as {
+    structuredData?: { get?: () => Promise<unknown> };
+    get?: (path: string) => Promise<unknown>;
+  };
+
+  if (typeof source.structuredData?.get !== "function" && typeof source.get !== "function") return null;
+
+  try {
+    const payload = typeof source.structuredData?.get === "function"
+      ? await source.structuredData.get()
+      : await source.get!("/structured-data");
+    const document = normalizeStructuredData(payload);
+    if (!document) {
+      structuredDataFallbackWarning("response was not a JSON-LD document");
+      return null;
+    }
+    return document;
+  } catch (error) {
+    if (responseStatus(error) !== 404) structuredDataFallbackWarning("request failed");
+    return null;
+  }
+};
+
+const identifierValue = (value: unknown): string | null => {
+  if (typeof value === "string" || typeof value === "number") {
+    const normalized = String(value).trim();
+    return normalized || null;
+  }
+  if (isRecord(value)) return identifierValue(value.value);
+  return null;
+};
+
+export const structuredDataNodeForLocation = (
+  document: SiteStructuredData | null | undefined,
+  locationId: string,
+): Record<string, unknown> | null => {
+  const node = document?.["@graph"].find((candidate) => identifierValue(candidate.identifier) === locationId);
+  if (!node || !document) return null;
+
+  const context = node["@context"] ?? document["@context"] ?? "https://schema.org";
+  return { ...node, "@context": context };
+};
+
+export const jsonLdForPage = <T extends object>(
+  structuredData: SiteStructuredData | null | undefined,
+  organization: T,
+): SiteStructuredData | T => {
+  if (!structuredData || structuredData["@graph"].length === 0) return organization;
+  return structuredData;
+};
+
+export const serializeJsonLd = (value: unknown): string => JSON.stringify(value).replace(/</g, "\\u003c");
 
 const normalizeObject = (value: unknown, context: string): Record<string, unknown> => {
   if (isRecord(value)) return value;
@@ -841,12 +923,13 @@ const loadSiteContent = async (
 
   const client = clientOverride ?? getBackstageClient();
 
-  const [websites, rawPages, routePaths, navigations, rawLocations, alerts] = await Promise.all([
+  const [websites, rawPages, routePaths, navigations, rawLocations, structuredData, alerts] = await Promise.all([
     client.website.getWebsites(),
     legacyPreview ? client.pages.getPages() : client.pages.getHeadlessPages(),
     client.website.routes(),
     client.navigation.list(),
     client.locations.getLocations(),
+    readStructuredData(client),
     client.alerts.getAlerts(),
   ]);
 
@@ -1123,6 +1206,7 @@ const loadSiteContent = async (
     routePaths,
     menus,
     locations,
+    structuredData,
     events,
     pressReleases,
     navigation,

@@ -338,6 +338,7 @@ export const fixtureContent: SiteContent = {
     },
   ],
   locations: [],
+  structuredData: null,
   events: [],
   pressReleases: [
     {

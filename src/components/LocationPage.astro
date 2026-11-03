@@ -1,6 +1,7 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import { locationSchemaUrl, locationStructuredData, type SiteLocation } from "../lib/backstage/locations";
+import { getSiteContent, serializeJsonLd, structuredDataNodeForLocation } from "../lib/backstage/content";
+import type { SiteLocation } from "../lib/backstage/locations";
 import { menuRoutesForLocation, type SiteLocationRoute, type SiteMenuRoute } from "../site/menu-routes";
 import { normalizeRoutePath } from "../site/routes";
 
@@ -23,12 +24,12 @@ const visibleMenuRoutes = location.menuIds?.length
     })
   : [];
 const description = location.description ? sanitizeRichText(location.description) : "";
-const locationSchema = JSON.stringify(
-  locationStructuredData(location, locationSchemaUrl(Astro.site, routePath)),
-).replace(/</g, "\\u003c");
+const { structuredData } = await getSiteContent();
+const locationNode = structuredDataNodeForLocation(structuredData, location.id);
+const locationSchema = locationNode ? serializeJsonLd(locationNode) : "";
 ---
 
-<script type="application/ld+json" set:html={locationSchema} />
+{locationSchema && <script type="application/ld+json" set:html={locationSchema} />}
 
 <section class="location-page" aria-labelledby="location-title">
   <header class="location-page__intro">
