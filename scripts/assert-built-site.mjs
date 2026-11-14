@@ -74,7 +74,7 @@ if (mode === "preview") {
   assert.doesNotMatch(robotsTxt, /^Sitemap:/im, "Preview robots.txt must not advertise a sitemap.");
   assert.equal(files.some((file) => /^sitemap.*\.xml$/i.test(file)), false, "Preview builds must not emit a sitemap.");
 } else {
-  assert.doesNotMatch(robotsTxt, /Disallow:\s*\//i, "Indexable robots.txt must not block crawling.");
+  assertIndexableRobots(robotsTxt, new URL("sitemap-index.xml", baseUrl).href);
   assert.match(robotsTxt, new RegExp(`Sitemap:\\s*${escapeRegExp(new URL("sitemap-index.xml", baseUrl).href)}`, "i"));
 
   const sitemapFiles = files.filter((file) => /^sitemap.*\.xml$/i.test(file));
@@ -156,4 +156,58 @@ function decodeEntities(value) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function assertIndexableRobots(robotsTxt, sitemapUrl) {
+  const groups = [];
+  let agents = [];
+  let rules = [];
+  const flush = () => {
+    if (agents.length === 0 && rules.length === 0) return;
+    groups.push({
+      agents: agents.map((agent) => agent.toLowerCase()),
+      rules,
+    });
+    agents = [];
+    rules = [];
+  };
+
+  for (const rawLine of robotsTxt.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const separator = line.indexOf(":");
+    if (separator === -1) continue;
+    const field = line.slice(0, separator).trim().toLowerCase();
+    const value = line.slice(separator + 1).trim();
+    if (field === "user-agent") {
+      if (rules.length > 0) flush();
+      agents.push(value);
+      continue;
+    }
+    if (field === "sitemap") {
+      flush();
+      groups.push({ agents: [], rules: [["sitemap", value]] });
+      continue;
+    }
+    rules.push([field, value]);
+  }
+  flush();
+
+  const rulesFor = (agent) => groups.find((group) => group.agents.includes(agent.toLowerCase()))?.rules ?? [];
+  const allowsRoot = (agent) => rulesFor(agent).some(([field, value]) => field === "allow" && value === "/");
+  const disallowsRoot = (agent) => rulesFor(agent).some(([field, value]) => field === "disallow" && value === "/");
+
+  assert.equal(allowsRoot("*"), true, "Indexable robots.txt must allow general crawling.");
+  assert.equal(disallowsRoot("*"), false, "Indexable robots.txt must not block general crawling.");
+  for (const agent of ["GPTBot", "OAI-SearchBot", "ChatGPT-User", "ClaudeBot", "Claude-SearchBot", "PerplexityBot", "Google-Extended", "Applebot-Extended"]) {
+    assert.equal(allowsRoot(agent), true, `Indexable robots.txt must allow ${agent}.`);
+  }
+  for (const agent of ["CCBot", "Bytespider"]) {
+    assert.equal(disallowsRoot(agent), true, `Indexable robots.txt must block ${agent}.`);
+  }
+  assert.equal(
+    groups.some((group) => group.rules.some(([field, value]) => field === "sitemap" && value === sitemapUrl)),
+    true,
+    "Indexable robots.txt must advertise the sitemap.",
+  );
 }
