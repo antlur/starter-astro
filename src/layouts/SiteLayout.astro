@@ -55,7 +55,7 @@ const visibleAlerts = alertsForPath(alerts, pathname);
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" style={site.themeVariables && Object.keys(site.themeVariables).length > 0 ? site.themeVariables : undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

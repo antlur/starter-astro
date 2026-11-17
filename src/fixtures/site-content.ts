@@ -1,8 +1,19 @@
+import { resolveWebsiteThemeTokens } from "../lib/backstage/theme-tokens";
 import { fixtureContent } from "./content";
 import type { SiteContent } from "../lib/backstage/content";
 
 export const fixtureSiteContent: SiteContent = {
   ...fixtureContent,
+  site: {
+    ...fixtureContent.site,
+    themeVariables: resolveWebsiteThemeTokens({
+      theme: { colors: { palette: [{ token: "primary", value: "#294c3d" }] } },
+      theme_tokens: {
+        tokens: { action: { type: "color", cssVariable: "--theme-color-action", default: "#000" } },
+        values: { action: "palette:primary" },
+      },
+    }),
+  },
   routePaths: [
     ...fixtureContent.routePaths,
     "/contact",
