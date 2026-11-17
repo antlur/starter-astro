@@ -1,4 +1,5 @@
 import { resolveWebsiteThemeTokens } from "../lib/backstage/theme-tokens";
+import { themeTokenDeclarations } from "../../backstage.theme-tokens";
 import { fixtureContent } from "./content";
 import type { SiteContent } from "../lib/backstage/content";
 
@@ -12,7 +13,7 @@ export const fixtureSiteContent: SiteContent = {
         tokens: { action: { type: "color", cssVariable: "--theme-color-action", default: "#000" } },
         values: { action: "palette:primary" },
       },
-    }),
+    }, themeTokenDeclarations),
   },
   routePaths: [
     ...fixtureContent.routePaths,

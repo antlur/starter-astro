@@ -7,5 +7,6 @@ for (const path of ["dist/index.html", "dist/about/index.html"]) {
   const root = html.match(/<html\b[^>]*>/i)?.[0];
   assert.match(root ?? "", /style="[^"]*--theme-color-action:\s*#294C3D/i, `${path} must contain the resolved CMS color on the document root.`);
   assert.doesNotMatch(root, /palette:|--brand-|--theme-font-|--ui-/);
+  assert.doesNotMatch(root, /--theme-color-(?:background|topbar|foreground):/i, "Unsaved defaults must stay in CSS so semantic aliases remain live.");
 }
 console.log("Theme token CSS is present in built HTML.");

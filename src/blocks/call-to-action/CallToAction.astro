@@ -53,8 +53,8 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 <style>
   .call-to-action {
     padding: clamp(3rem, 6vw, 5rem) max(1.5rem, calc((100vw - 74rem) / 2));
-    background: var(--color-ink);
-    color: var(--color-paper);
+    background: var(--theme-color-foreground);
+    color: var(--theme-color-background);
   }
 
   .call-to-action__inner {
@@ -72,7 +72,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .call-to-action__eyebrow {
     margin: 0 0 0.8rem;
-    color: var(--color-accent);
+    color: var(--theme-color-accent);
     font-size: 0.78rem;
     font-weight: 750;
     text-transform: uppercase;
@@ -91,7 +91,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .call-to-action__body {
     margin-top: 1rem;
-    color: rgb(255 255 255 / 0.78);
+    color: color-mix(in srgb, currentColor 78%, transparent);
     line-height: 1.7;
   }
 
@@ -110,9 +110,9 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     align-items: center;
     justify-content: center;
     padding: 0.8rem 1.25rem;
-    border-radius: 0.4rem;
-    background: var(--color-accent);
-    color: var(--color-ink);
+    border-radius: var(--ui-radius-sm);
+    background: var(--theme-color-accent);
+    color: var(--theme-color-accent-foreground);
     font-weight: 750;
     text-decoration: none;
   }
@@ -125,18 +125,14 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   }
 
   .call-to-action__button--secondary {
-    border: 1px solid rgb(255 255 255 / 0.5);
+    border: 1px solid color-mix(in srgb, currentColor 50%, transparent);
     background: transparent;
-    color: var(--color-paper);
+    color: var(--theme-color-background);
   }
 
   .call-to-action__button:hover {
-    background: white;
-    color: var(--color-ink);
-  }
-
-  .call-to-action__button--secondary:hover {
-    border-color: white;
+    background: var(--theme-color-background);
+    color: var(--theme-color-foreground);
   }
 
   @media (max-width: 700px) {

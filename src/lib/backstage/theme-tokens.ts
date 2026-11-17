@@ -1,9 +1,4 @@
-export interface SiteColorToken {
-  label: string;
-  type: "color";
-  cssVariable: `--${string}`;
-  default: `#${string}`;
-}
+import { validateThemeTokenDeclarations, type ColorThemeToken, type ThemeTokenDeclarations } from "@antlur/backstage";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -19,7 +14,7 @@ function hex(value: unknown): `#${string}` | null {
 }
 
 /** Explicit sync derives declarations from the canonical CSS; it never writes CSS files. */
-export function themeDeclarationsFromCss(...stylesheets: string[]): Record<string, SiteColorToken> {
+export function themeDeclarationsFromCss(...stylesheets: string[]): ThemeTokenDeclarations {
   const properties = new Map<string, string>();
   for (const stylesheet of stylesheets) {
     const css = stylesheet.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -41,7 +36,7 @@ export function themeDeclarationsFromCss(...stylesheets: string[]): Record<strin
     throw new Error(`Theme color ${name} must resolve to a hex color before syncing.`);
   };
 
-  const tokens: Record<string, SiteColorToken> = {};
+  const tokens: Record<string, ColorThemeToken> = {};
   for (const name of properties.keys()) {
     if (!name.startsWith("--theme-color-")) continue;
     const key = name.slice("--theme-color-".length);
@@ -53,11 +48,11 @@ export function themeDeclarationsFromCss(...stylesheets: string[]): Record<strin
     };
   }
   if (Object.keys(tokens).length === 0) throw new Error("No semantic theme colors were found in the token CSS.");
-  return tokens;
+  return validateThemeTokenDeclarations(tokens);
 }
 
 /** Read values from the website already fetched during the static build. */
-export function resolveWebsiteThemeTokens(website: unknown): Record<string, string> {
+export function resolveWebsiteThemeTokens(website: unknown, localDeclarations?: ThemeTokenDeclarations): Record<string, string> {
   if (!isRecord(website) || !isRecord(website.theme_tokens) || !isRecord(website.theme_tokens.tokens)) return {};
   const { tokens } = website.theme_tokens;
   const values = isRecord(website.theme_tokens.values) ? website.theme_tokens.values : {};
@@ -65,11 +60,14 @@ export function resolveWebsiteThemeTokens(website: unknown): Record<string, stri
     ? website.theme.colors.palette : [];
   const properties: Record<string, string> = {};
 
-  for (const [key, token] of Object.entries(tokens)) {
+  for (const [key, token] of Object.entries(localDeclarations ?? tokens)) {
     if (!/^[a-z][a-z0-9_-]{0,63}$/.test(key) || !isRecord(token) || token.type !== "color"
       || typeof token.cssVariable !== "string" || !/^--theme-color-[a-z][a-z0-9-]*$/.test(token.cssVariable)) continue;
     const fallback = hex(token.default);
     if (!fallback) continue;
+    // Local CSS owns the mapping. Ignore stale or remapped remote declarations.
+    const remote = tokens[key];
+    if (localDeclarations && (!isRecord(remote) || remote.type !== "color" || remote.cssVariable !== token.cssVariable)) continue;
     const value = values[key];
     let color = hex(value);
     if (typeof value === "string" && value.startsWith("palette:")) {
@@ -77,7 +75,9 @@ export function resolveWebsiteThemeTokens(website: unknown): Record<string, stri
       const entry = palette.find((candidate) => isRecord(candidate) && (candidate.token ?? candidate.name) === identifier);
       color = isRecord(entry) ? hex(entry.value) : null;
     }
-    properties[token.cssVariable] = color ?? fallback;
+    // Do not flatten CSS aliases or pin old synced defaults onto the document root.
+    if (color) properties[token.cssVariable] = color;
+    else if (!localDeclarations) properties[token.cssVariable] = fallback;
   }
   return properties;
 }
