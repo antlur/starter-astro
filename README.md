@@ -8,7 +8,7 @@ For the shortest path from a new clone to a local site, see [New Site Quickstart
 
 ## Requirements
 
-- Node.js 22.12 or newer
+- Node.js 22.23.4 or newer
 - A Backstage account with its website configured for Headless rendering
 - A read-only Backstage API key and account ID for API builds
 
@@ -167,4 +167,4 @@ The starter includes semantic header, navigation, main, and footer landmarks; a 
 - To run the rendered output checks locally after building, use `node scripts/assert-built-site.mjs preview` for the default noindex output or `node scripts/assert-built-site.mjs indexable` with the same `SITE_URL` and `SITE_INDEXABLE=true` values used for the production build.
 - After a static build, `node scripts/assert-cloudflare-output.mjs` checks that the configured asset directory contains Astro's nested route output.
 
-The Astro compiler requires Node.js 22.12 or newer. Keep the SDK and Astro versions updated through reviewed dependency changes, then run both production build modes.
+The Astro compiler requires Node.js 22.23.4 or newer. Keep the SDK and Astro versions updated through reviewed dependency changes, then run both production build modes.

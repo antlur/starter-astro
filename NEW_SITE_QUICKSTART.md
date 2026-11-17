@@ -13,7 +13,7 @@ The Starter currently expects exactly one website in the account. Do not use an 
 
 ## 2. Configure the local project
 
-Use Node.js 22.12 or newer. Create a repository from the Starter template, install dependencies, and copy `.env.example` to `.env`:
+Use Node.js 22.23.4 or newer. Create a repository from the Starter template, install dependencies, and copy `.env.example` to `.env`:
 
 ```sh
 npm ci
