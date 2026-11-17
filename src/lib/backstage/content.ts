@@ -1,7 +1,9 @@
 import { BackstageClient } from "@antlur/backstage";
 import type { AccountBlock, Alert, Field } from "@antlur/backstage";
-import { resolveWebsiteThemeTokens } from "./theme-tokens";
-import { themeTokenDeclarations } from "../../../backstage.theme-tokens";
+import { resolveWebsiteDesignTokens } from "./theme-tokens";
+import { brandTokenNames, readThemeTokenDeclarations } from "../../../backstage.theme-tokens";
+import backstageConfig from "../../../backstage.config";
+import type { BackstageUserConfig } from "@antlur/backstage/config";
 import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "./concurrency";
 import { pageLayoutDefinitions } from "../../layouts/definitions";
 import { loadBlockManifests } from "./block-manifests";
@@ -807,7 +809,7 @@ export const resolveFooterNavigation = async (
   return normalizeNavigation(await loadNavigation(footerNavigationId));
 };
 
-export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
+export const normalizeWebsite = (value: unknown, designConfig: Pick<BackstageUserConfig, "designTokens"> = backstageConfig): HeadlessWebsite => {
   if (!isRecord(value)) {
     throw new Error("Backstage did not return a website for this account.");
   }
@@ -827,7 +829,7 @@ export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
   const homeCtaUrl = safeSiteLinkUrl(value.home_cta_url);
 
   return {
-    themeVariables: resolveWebsiteThemeTokens(value, themeTokenDeclarations),
+    themeVariables: resolveWebsiteDesignTokens(value, designConfig, brandTokenNames, readThemeTokenDeclarations),
     name: optionalString(account?.name) ?? optionalString(value.app_name) ?? "Website",
     domain: optionalString(value.domain),
     meta: meta

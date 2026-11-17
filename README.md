@@ -62,11 +62,51 @@ Each assignable layout lives in `src/layouts/<slug>/` with a `manifest.json` and
 
 ## Design tokens
 
-CSS custom properties are the canonical design-token source. `src/styles/global.css` wires the token files into Tailwind CSS v4 and imports only its theme and utility layers, preserving the starter's existing native styles. `src/styles/tokens/brand.css` contains portable identity colors and font-family stacks; it remains committed and code-managed. Explicit declaration sync reads these defaults without modifying them; normal development and builds never mutate the file. Font asset loading remains site-owned.
+CSS custom properties are the canonical design-token source. `src/styles/global.css` wires the token files into Tailwind CSS v4 and imports only its theme and utility layers, preserving the starter's existing native styles. `src/styles/tokens/brand.css` defines portable identity slots and their local default colors/font stacks. Explicit declaration sync reads these defaults without modifying them; normal development and builds never mutate the file. Font asset loading remains site-owned.
 
 `src/styles/tokens/theme.css` maps identity into site-owned semantic roles such as background, surface, foreground, muted, action, accent, and heading/body fonts. Use those semantic properties or Tailwind utilities such as `bg-action`, `text-foreground`, and `font-heading` in new presentation code. `src/styles/tokens/ui.css` is reserved for a small set of site-owned mechanics such as radius, spacing, container width, and page gutter. Do not add component-specific values there unless they are genuinely reused. Existing flat color/font variables are compatibility aliases; do not add new uses of them.
 
 Brand tokens describe identity, not component appearance. Change `theme.css` for site-specific semantic choices, `ui.css` for shared interface mechanics, and component styles for one-off presentation. Do not add a UI library or a runtime Backstage theme request for token access.
+
+### Local or Backstage design
+
+Choose design ownership in `backstage.config.ts`, independently of `BACKSTAGE_SOURCE`
+and API credentials. The default is local, including when the setting is omitted:
+
+```ts
+export default defineConfig({
+  designTokens: { source: "local" }, // change to "backstage" to pull Brand + Theme
+  // Keep the existing block, layout, and themeTokens declarations here.
+});
+```
+
+- **Local:** committed CSS controls Brand, Theme, and UI. Website design values are ignored, and theme-token sync (including dry runs) makes no requests. Backstage may still supply content. Color declaration extraction is skipped, so local CSS is not constrained to Backstage's hex-only declaration API.
+- **Backstage:** the build reads Brand palette/font-family values and saved Theme color overrides from the website response already fetched for content. No additional request, account write, or CSS-file rewrite is performed. Invalid configuration fails clearly.
+- `BACKSTAGE_SOURCE=fixture` remains entirely offline in both modes. Backstage design mode uses sample website design values from the fixture rather than real account data.
+
+This switch controls design tokens, not content assets. Website logos/favicons and
+page media continue to follow the selected content source.
+
+Brand mapping is limited to slots declared in `brand.css`. A palette token `primary`
+maps to `--brand-color-primary`; custom tokens work the same way when a matching
+slot exists. Tokenless legacy names are trimmed, lowercased, and spaces become
+hyphens. Explicit tokens win over legacy names; the first valid duplicate wins.
+Generated legacy colors such as `theme.colors.primary` are not Brand values and
+are not imported. Supported colors are `#RGB` and `#RRGGBB`.
+
+Font-family mappings named `display` and `body` map to `--brand-font-display` and
+`--brand-font-body`. Other declared Brand font slots work by the same convention;
+full `--brand-font-*` names are also accepted. Legacy `heading` maps to `display`
+unless the site declares a separate heading slot. Font values must be ordinary
+comma-separated family names, optionally quoted; CSS functions, declarations and
+markup are rejected. Font URLs/downloads are not imported: load font assets in the
+site, with fallback families in each stack.
+
+The order is local CSS defaults, matching Backstage Brand values, then valid saved
+Theme overrides. Missing/cleared/invalid remote values leave CSS in control. UI
+mechanics are always site-owned, and unknown remote slots are ignored. A Brand
+color therefore updates aliased Theme roles unless a Theme override replaces that
+role. This is not a named-theme library or a universal token engine.
 
 For a new account, set Headless rendering, enable CMS Custom Blocks, sync the manifests, then optionally create the generic site skeleton. Keep Backstage's canonical site graph as the source of public content routes; the Starter does not require the legacy Application owned routing mode. An API build with page blocks stops if Custom Blocks is disabled or a page references a block definition that has not been synced, because those blocks would not be editable in Backstage.
 
@@ -81,10 +121,12 @@ Form submissions are disabled in `astro dev`, Netlify Deploy Previews, and Netli
 hex defaults from the existing brand/theme CSS. CSS remains the source of truth;
 there is no second hand-maintained default palette. Only hex colors and `var(...)`
 aliases resolving to hex can be registered with the color-only Backstage API.
-Fonts and `--ui-*` properties stay site-owned.
+This declaration API remains color-only. Brand font-family values use the separate
+existing website font mappings; font assets and `--ui-*` properties stay site-owned.
 
-The starter uses SDK **1.22.0** or later, which includes declaration sync. Register
-or preview the supported color roles explicitly:
+This design-source workflow requires SDK **1.23.0** or later. Set
+`designTokens: { source: "backstage" }`, then register or preview supported Theme
+color roles explicitly (local mode skips this step):
 
 ```bash
 npm run sync:theme-tokens -- --dry-run
@@ -95,6 +137,10 @@ Run the explicit sync with a Backstage account token that has website write acce
 Builds can keep using a read-only token. Sync replaces declarations only and retains
 saved editor values, including overrides for temporarily removed declarations.
 It does not write `brand.css`, `theme.css`, or font assets.
+
+When upgrading from SDK 1.22, add the explicit Backstage source to retain managed
+design and declaration sync. Existing account editor values are not deleted by
+choosing local mode; they are simply not used.
 
 Editors then choose palette references or custom hex colors under Backstage Settings
 → Theme Tokens. The normal build reads `theme_tokens` from the website response it
