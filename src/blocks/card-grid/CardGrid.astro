@@ -105,9 +105,10 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   .card-grid__item {
     min-width: 0;
     overflow: hidden;
-    border: 1px solid var(--color-line);
-    border-radius: 0.5rem;
-    background: white;
+    border: 1px solid var(--theme-color-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--theme-color-surface);
+    color: var(--theme-color-foreground);
   }
 
   .card-grid__item img {
@@ -149,7 +150,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     justify-content: center;
     margin-top: 1rem;
     padding: 0.65rem 1rem;
-    border-radius: 0.4rem;
+    border-radius: var(--ui-radius-sm);
     background: var(--theme-color-action);
     color: var(--theme-color-primary-foreground);
     font-weight: 700;

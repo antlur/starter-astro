@@ -6,7 +6,11 @@
   --theme-color-border: #d9dfd8;
   --theme-color-action: var(--brand-color-primary);
   --theme-color-accent: var(--brand-color-secondary);
+  --theme-color-accent-foreground: var(--theme-color-foreground);
   --theme-color-focus: var(--brand-color-accent);
+  --theme-color-input-border: #aab5ad;
+  --theme-color-success: #17613b;
+  --theme-color-error: #9b2617;
   --theme-color-primary-foreground: #fff;
   --theme-color-header: var(--brand-color-primary);
   --theme-color-header-foreground: #fff;
@@ -29,7 +33,11 @@
   --color-border: var(--theme-color-border);
   --color-action: var(--theme-color-action);
   --color-accent: var(--theme-color-accent);
+  --color-accent-foreground: var(--theme-color-accent-foreground);
   --color-focus: var(--theme-color-focus);
+  --color-input-border: var(--theme-color-input-border);
+  --color-success: var(--theme-color-success);
+  --color-error: var(--theme-color-error);
   --color-primary-foreground: var(--theme-color-primary-foreground);
   --color-header: var(--theme-color-header);
   --color-header-foreground: var(--theme-color-header-foreground);

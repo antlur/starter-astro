@@ -27,6 +27,6 @@ test("Upcoming Events View All CTA keeps the filled button's readable contrast",
   const filledEventAction = buttonColors(".upcoming-events__actions a:last-child");
 
   assert.equal(viewAll.get("background"), "var(--color-accent-strong)");
-  assert.equal(viewAll.get("color"), "white");
+  assert.equal(viewAll.get("color"), "var(--theme-color-primary-foreground)");
   assert.deepEqual(Object.fromEntries(viewAll), Object.fromEntries(filledEventAction));
 });

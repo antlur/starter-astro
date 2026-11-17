@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { themeDeclarationsFromCss } from "./src/lib/backstage/theme-tokens";
 
-// Defaults stay in CSS. This is read only by the explicitly invoked sync command.
+// Read by declaration sync and static builds; neither path writes the CSS defaults.
 export const themeTokenDeclarations = themeDeclarationsFromCss(
-  readFileSync(new URL("./src/styles/tokens/brand.css", import.meta.url), "utf8"),
-  readFileSync(new URL("./src/styles/tokens/theme.css", import.meta.url), "utf8"),
+  readFileSync(resolve(process.cwd(), "src/styles/tokens/brand.css"), "utf8"),
+  readFileSync(resolve(process.cwd(), "src/styles/tokens/theme.css"), "utf8"),
 );

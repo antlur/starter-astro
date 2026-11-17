@@ -103,8 +103,8 @@ button:focus-visible,
   padding: 0.8rem 1rem;
   transform: translateY(-150%);
   border-radius: var(--ui-radius-sm);
-  background: var(--color-ink);
-  color: white;
+  background: var(--theme-color-foreground);
+  color: var(--theme-color-background);
 }
 
 .skip-link:focus {

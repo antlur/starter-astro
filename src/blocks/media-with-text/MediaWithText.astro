@@ -49,7 +49,8 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .media-text--full-width {
     padding-inline: 0;
-    background: #e8ece8;
+    background: var(--theme-color-surface);
+    color: var(--theme-color-foreground);
   }
 
   .media-text__inner {
@@ -74,7 +75,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     min-width: 0;
     margin: 0;
     overflow: hidden;
-    background: #d9dfd8;
+    background: var(--theme-color-border);
   }
 
   .media-text__media img {
@@ -142,19 +143,19 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     justify-content: center;
     margin-top: 1.5rem;
     padding: 0.75rem 1.25rem;
-    border-radius: 999px;
-    background: var(--color-accent-strong);
-    color: white;
+    border-radius: var(--ui-radius-lg);
+    background: var(--theme-color-action);
+    color: var(--theme-color-primary-foreground);
     font-weight: 700;
     text-decoration: none;
   }
 
   .media-text__action:hover {
-    background: var(--color-ink);
+    filter: brightness(0.94);
   }
 
   .media-text__action:focus-visible {
-    outline: 2px solid var(--color-ink);
+    outline: 2px solid var(--theme-color-foreground);
     outline-offset: 3px;
   }
 

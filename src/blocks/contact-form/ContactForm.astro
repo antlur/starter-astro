@@ -304,9 +304,10 @@ document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach(
     gap: 1.1rem;
     align-content: start;
     padding: clamp(1.25rem, 3vw, 2rem);
-    border: 1px solid var(--color-line);
-    border-radius: 0.8rem;
-    background: white;
+    border: 1px solid var(--theme-color-border);
+    border-radius: var(--ui-radius-lg);
+    background: var(--theme-color-surface);
+    color: var(--theme-color-foreground);
   }
 
   .contact-form__fields {
@@ -343,7 +344,7 @@ document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach(
   .contact-form__field {
     display: grid;
     gap: 0.45rem;
-    color: var(--color-ink);
+    color: var(--theme-color-foreground);
     font-size: 0.9rem;
     font-weight: 650;
   }
@@ -354,10 +355,10 @@ document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach(
     width: 100%;
     min-height: 2.9rem;
     padding: 0.7rem 0.8rem;
-    border: 1px solid #aab5ad;
-    border-radius: 0.35rem;
-    background: white;
-    color: var(--color-ink);
+    border: 1px solid var(--theme-color-input-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--theme-color-surface);
+    color: var(--theme-color-foreground);
     font: inherit;
   }
 
@@ -393,14 +394,14 @@ document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach(
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    color: var(--color-ink);
+    color: var(--theme-color-foreground);
     font-size: 0.95rem;
   }
 
   .contact-form__choice input {
     width: 1rem;
     height: 1rem;
-    accent-color: var(--color-accent-strong);
+    accent-color: var(--theme-color-action);
   }
 
   .contact-form__status,
@@ -410,27 +411,27 @@ document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach(
   }
 
   .contact-form__status {
-    color: #17613b;
+    color: var(--theme-color-success);
   }
 
   .contact-form__error {
-    color: #9b2617;
+    color: var(--theme-color-error);
   }
 
   .contact-form__submit {
     min-height: 3rem;
     padding: 0.7rem 1.2rem;
     border: 0;
-    border-radius: 0.35rem;
-    background: var(--color-ink);
-    color: white;
+    border-radius: var(--ui-radius-sm);
+    background: var(--theme-color-action);
+    color: var(--theme-color-primary-foreground);
     cursor: pointer;
     font: inherit;
     font-weight: 700;
   }
 
   .contact-form__submit:hover {
-    background: var(--color-accent-strong);
+    filter: brightness(0.94);
   }
 
   .contact-form__submit:disabled {

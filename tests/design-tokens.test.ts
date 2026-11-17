@@ -40,3 +40,29 @@ test("brand, semantic theme, and UI tokens retain distinct ownership", async () 
   assert.match(layout, /class:list=\{\["bg-background", "text-foreground", "font-body"/);
   assert.doesNotMatch(layout, /style=\{themeStyle\}/);
 });
+
+test("shared surfaces and action controls consume semantic color pairs", async () => {
+  for (const path of [
+    "../src/blocks/card-grid/CardGrid.astro",
+    "../src/blocks/contact-form/ContactForm.astro",
+    "../src/blocks/media-with-text/MediaWithText.astro",
+    "../src/components/BlueprintRouteContent.astro",
+    "../src/components/MenuPage.astro",
+  ]) {
+    const component = await readSource(path);
+    assert.match(component, /background:\s*var\(--theme-color-surface\)/, path);
+    assert.match(component, /color:\s*var\(--theme-color-foreground\)/, path);
+    assert.doesNotMatch(component, /background:\s*(?:white|#fff)\s*;/, path);
+  }
+  for (const path of [
+    "../src/blocks/hero/Hero.astro",
+    "../src/blocks/contact-form/ContactForm.astro",
+    "../src/blocks/media-with-text/MediaWithText.astro",
+    "../src/components/EventPage.astro",
+    "../src/components/MenuPage.astro",
+  ]) {
+    const component = await readSource(path);
+    assert.match(component, /background:\s*var\(--theme-color-action\)/, path);
+    assert.match(component, /color:\s*var\(--theme-color-primary-foreground\)/, path);
+  }
+});

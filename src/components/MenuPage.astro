@@ -202,15 +202,16 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     padding: 0.65rem 1rem;
     border: 1px solid var(--color-line);
     border-radius: 0.25rem;
-    background: white;
+    background: var(--theme-color-surface);
+    color: var(--theme-color-foreground);
     font-weight: 700;
     text-decoration: none;
   }
 
   .menu-page__selector a[aria-current="page"] {
-    border-color: var(--color-accent-strong);
-    background: var(--color-accent-strong);
-    color: white;
+    border-color: var(--theme-color-action);
+    background: var(--theme-color-action);
+    color: var(--theme-color-primary-foreground);
   }
 
   .menu-page__category-nav {

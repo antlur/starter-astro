@@ -99,10 +99,16 @@ It does not write `brand.css`, `theme.css`, or font assets.
 Editors then choose palette references or custom hex colors under Backstage Settings
 → Theme Tokens. The normal build reads `theme_tokens` from the website response it
 already fetches, resolves palette tokens (or legacy palette names), and emits the
-color variables on `<html>`. Missing or invalid overrides and missing palette colors
-use the declaration's hex default. Sites without declarations keep their existing
-CSS behavior. Brand, font, and interface properties cannot be overridden through
-this color path, and no browser-side theme request is added.
+saved color overrides on `<html>`. Missing, cleared, or invalid values and missing
+palette colors leave the current CSS defaults in control; synced defaults are not
+inlined. This preserves aliases such as topbar to background when only background
+is changed. The build uses the same local CSS-derived declarations as sync and
+ignores removed keys or remotely remapped CSS variables. The published SDK validates
+the declaration contract. Sites without declarations keep their existing CSS
+behavior. Brand, font, and interface properties cannot be overridden through this
+color path, and no browser-side theme request is added. Declaration extraction
+supports the committed `:root` color definitions and direct `var(...)` aliases,
+not a selectable or conditional theme library.
 
 A baked site's colors change on its next production rebuild. Configure the site's
 opt-in Backstage build hook to rebuild after editor changes, or trigger its usual
