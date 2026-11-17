@@ -83,12 +83,10 @@ there is no second hand-maintained default palette. Only hex colors and `var(...
 aliases resolving to hex can be registered with the color-only Backstage API.
 Fonts and `--ui-*` properties stay site-owned.
 
-Declaration sync requires SDK **1.22.0** (the theme-token SDK release). Until that
-version is published, the current locked SDK continues to support normal reads and
-builds; it does not support the new sync command. After publication:
+The starter uses SDK **1.22.0** or later, which includes declaration sync. Register
+or preview the supported color roles explicitly:
 
 ```bash
-npm install @antlur/backstage@^1.22.0
 npm run sync:theme-tokens -- --dry-run
 npm run sync:theme-tokens
 ```
