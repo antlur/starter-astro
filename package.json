@@ -16,7 +16,8 @@
     "setup": "tsx scripts/setup.ts",
     "sync:blocks": "tsx scripts/sync-blocks.ts",
     "sync:layouts": "backstage sync layouts",
-    "astro": "astro"
+    "astro": "astro",
+    "sync:theme-tokens": "backstage sync theme-tokens"
   },
   "dependencies": {
     "@antlur/backstage": "^1.20.2",

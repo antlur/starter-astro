@@ -1,5 +1,6 @@
 import { BackstageClient } from "@antlur/backstage";
 import type { AccountBlock, Alert, Field } from "@antlur/backstage";
+import { resolveWebsiteThemeTokens } from "./theme-tokens";
 import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "./concurrency";
 import { pageLayoutDefinitions } from "../../layouts/definitions";
 import { loadBlockManifests } from "./block-manifests";
@@ -78,6 +79,7 @@ export interface SiteNavigationItem {
 }
 
 export interface HeadlessWebsite {
+  themeVariables?: Record<string, string>;
   name: string;
   domain: string | null;
   meta?: {
@@ -824,6 +826,7 @@ export const normalizeWebsite = (value: unknown): HeadlessWebsite => {
   const homeCtaUrl = safeSiteLinkUrl(value.home_cta_url);
 
   return {
+    themeVariables: resolveWebsiteThemeTokens(value),
     name: optionalString(account?.name) ?? optionalString(value.app_name) ?? "Website",
     domain: optionalString(value.domain),
     meta: meta

@@ -62,7 +62,7 @@ Each assignable layout lives in `src/layouts/<slug>/` with a `manifest.json` and
 
 ## Design tokens
 
-CSS custom properties are the canonical design-token source. `src/styles/global.css` wires the token files into Tailwind CSS v4 and imports only its theme and utility layers, preserving the starter's existing native styles. `src/styles/tokens/brand.css` contains portable identity colors and font-family stacks; it is committed and code-managed until an explicit Backstage sync workflow is configured. Normal development and builds never mutate it. Font asset loading remains site-owned.
+CSS custom properties are the canonical design-token source. `src/styles/global.css` wires the token files into Tailwind CSS v4 and imports only its theme and utility layers, preserving the starter's existing native styles. `src/styles/tokens/brand.css` contains portable identity colors and font-family stacks; it remains committed and code-managed. Explicit declaration sync reads these defaults without modifying them; normal development and builds never mutate the file. Font asset loading remains site-owned.
 
 `src/styles/tokens/theme.css` maps identity into site-owned semantic roles such as background, surface, foreground, muted, action, accent, and heading/body fonts. Use those semantic properties or Tailwind utilities such as `bg-action`, `text-foreground`, and `font-heading` in new presentation code. `src/styles/tokens/ui.css` is reserved for a small set of site-owned mechanics such as radius, spacing, container width, and page gutter. Do not add component-specific values there unless they are genuinely reused. Existing flat color/font variables are compatibility aliases; do not add new uses of them.
 
@@ -73,6 +73,43 @@ For a new account, set Headless rendering, enable CMS Custom Blocks, sync the ma
 To use a Contact Form block, create and configure its fields in Backstage, sync the block manifest, then select the existing form in the block editor. Older forms without configured fields need field definitions before they can be rendered. The public reCAPTCHA site key is read from Backstage; register each production hostname with the matching reCAPTCHA configuration. The secret API token is only used during the build and is never sent to site visitors.
 
 Form submissions are disabled in `astro dev`, Netlify Deploy Previews, and Netlify branch deploys. Preview forms show a notice, have disabled fields, and contain no action or form-specific submission wiring. Netlify production builds enable submissions. For a non-Netlify production build, set `BACKSTAGE_FORM_SUBMISSIONS_ENABLED=true`; it is false by default. This is a build-time setting, so rebuild after changing it. Do not enable the flag for a preview build.
+
+
+### Backstage theme color overrides
+
+`backstage.theme-tokens.ts` derives the supported `--theme-color-*` declarations and
+hex defaults from the existing brand/theme CSS. CSS remains the source of truth;
+there is no second hand-maintained default palette. Only hex colors and `var(...)`
+aliases resolving to hex can be registered with the color-only Backstage API.
+Fonts and `--ui-*` properties stay site-owned.
+
+Declaration sync requires SDK **1.22.0** (the theme-token SDK release). Until that
+version is published, the current locked SDK continues to support normal reads and
+builds; it does not support the new sync command. After publication:
+
+```bash
+npm install @antlur/backstage@^1.22.0
+npm run sync:theme-tokens -- --dry-run
+npm run sync:theme-tokens
+```
+
+Run the explicit sync with a Backstage account token that has website write access.
+Builds can keep using a read-only token. Sync replaces declarations only and retains
+saved editor values, including overrides for temporarily removed declarations.
+It does not write `brand.css`, `theme.css`, or font assets.
+
+Editors then choose palette references or custom hex colors under Backstage Settings
+→ Theme Tokens. The normal build reads `theme_tokens` from the website response it
+already fetches, resolves palette tokens (or legacy palette names), and emits the
+color variables on `<html>`. Missing or invalid overrides and missing palette colors
+use the declaration's hex default. Sites without declarations keep their existing
+CSS behavior. Brand, font, and interface properties cannot be overridden through
+this color path, and no browser-side theme request is added.
+
+A baked site's colors change on its next production rebuild. Configure the site's
+opt-in Backstage build hook to rebuild after editor changes, or trigger its usual
+production deployment manually.
+
 
 ## Search indexing
 
