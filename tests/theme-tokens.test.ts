@@ -2,9 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { validateThemeTokenDeclarations } from "@antlur/backstage";
-import { themeTokenDeclarations } from "../backstage.theme-tokens";
+import { brandTokenNames, readThemeTokenDeclarations } from "../backstage.theme-tokens";
 import { normalizeWebsite } from "../src/lib/backstage/content";
-import { resolveWebsiteThemeTokens, themeDeclarationsFromCss } from "../src/lib/backstage/theme-tokens";
+import { brandTokenNamesFromCss, resolveWebsiteDesignTokens, resolveWebsiteThemeTokens, themeDeclarationsFromCss } from "../src/lib/backstage/theme-tokens";
+
+const backstageDesign = { designTokens: { source: "backstage" as const } };
+const themeTokenDeclarations = readThemeTokenDeclarations();
+const resolveDesign = (payload: unknown) => resolveWebsiteDesignTokens(payload, backstageDesign, brandTokenNames, readThemeTokenDeclarations);
 
 const token = { label: "Action", type: "color", cssVariable: "--theme-color-action", default: "#abc" };
 const website = (value?: unknown, palette: unknown[] = []) => ({
@@ -43,7 +47,7 @@ test("build resolves saved hex colors and palette tokens, including legacy palet
   assert.deepEqual(resolveWebsiteThemeTokens(website("#123")), { "--theme-color-action": "#112233" });
   assert.deepEqual(resolveWebsiteThemeTokens(website("palette:primary", [{ token: "primary", name: "Brand", value: "#123456" } ])), { "--theme-color-action": "#123456" });
   assert.deepEqual(resolveWebsiteThemeTokens(website("palette:Brand Blue", [{ name: "Brand Blue", value: "#def" } ])), { "--theme-color-action": "#DDEEFF" });
-  assert.deepEqual(normalizeWebsite(website("#fff")).themeVariables, { "--theme-color-action": "#FFFFFF" });
+  assert.deepEqual(normalizeWebsite(website("#fff"), backstageDesign).themeVariables, { "--theme-color-action": "#FFFFFF" });
 });
 
 test("removed palette colors, cleared overrides, and invalid values fall back to declaration defaults", () => {
@@ -56,7 +60,7 @@ test("removed palette colors, cleared overrides, and invalid values fall back to
 test("static builds emit only valid saved overrides and leave current CSS defaults and aliases intact", () => {
   for (const value of [undefined, null, "", "palette:missing", "red", "#fff;display:none"]) {
     assert.deepEqual(resolveWebsiteThemeTokens(website(value), themeTokenDeclarations), {});
-    assert.deepEqual(normalizeWebsite(website(value)).themeVariables, {});
+    assert.deepEqual(normalizeWebsite(website(value), backstageDesign).themeVariables, {});
   }
   assert.deepEqual(resolveWebsiteThemeTokens(website("#123"), themeTokenDeclarations), { "--theme-color-action": "#112233" });
   assert.deepEqual(resolveWebsiteThemeTokens(website("palette:primary", [{ token: "primary", value: "#123456" }]), themeTokenDeclarations), { "--theme-color-action": "#123456" });
@@ -67,7 +71,7 @@ test("static builds emit only valid saved overrides and leave current CSS defaul
       values: { background: "#123456" },
     },
   };
-  assert.deepEqual(normalizeWebsite(background).themeVariables, { "--theme-color-background": "#123456" });
+  assert.deepEqual(normalizeWebsite(background, backstageDesign).themeVariables, { "--theme-color-background": "#123456" });
 });
 
 test("the active site rejects stale token keys and remote attempts to retarget local declarations", () => {
@@ -79,8 +83,58 @@ test("the active site rejects stale token keys and remote attempts to retarget l
   ]) {
     const payload = { theme_tokens: { tokens, values: { action: "#fff", removed: "#000" } } };
     assert.deepEqual(resolveWebsiteThemeTokens(payload, themeTokenDeclarations), {});
-    assert.deepEqual(normalizeWebsite(payload).themeVariables, {});
+    assert.deepEqual(normalizeWebsite(payload, backstageDesign).themeVariables, {});
   }
+});
+
+test("local and omitted design sources ignore remote Brand and Theme without reading their properties", () => {
+  const payload = { get theme() { throw new Error("Local mode must not read remote design."); } };
+  for (const config of [{}, { designTokens: {} }, { designTokens: { source: "local" as const } }]) {
+    assert.deepEqual(resolveWebsiteDesignTokens(payload, config, brandTokenNames, () => { throw new Error("Local CSS must not be validated against the CMS color contract."); }), {});
+  }
+  assert.deepEqual(normalizeWebsite(website("#fff")).themeVariables, {});
+});
+
+test("Backstage mode pulls explicit Brand colors and fonts even without theme declarations", () => {
+  const payload = {
+    theme: { colors: { primary: "#ff0000", palette: [{ token: "primary", value: "#123" }, { name: "Secondary", value: "#abc" }] } },
+    font_families: [{ name: "display", value: '"Example Serif", Georgia, serif' }, { name: "body", value: "Arial, sans-serif" }],
+  };
+  const expected = {
+    "--brand-color-primary": "#112233", "--brand-color-secondary": "#AABBCC",
+    "--brand-font-display": '"Example Serif", Georgia, serif', "--brand-font-body": "Arial, sans-serif",
+  };
+  assert.deepEqual(resolveDesign(payload), expected);
+  assert.deepEqual(normalizeWebsite(payload, backstageDesign).themeVariables, expected);
+  assert.deepEqual(resolveDesign({ theme: { colors: { primary: "#ff0000" } } }), {});
+});
+
+test("Brand fills local slots while saved semantic overrides win and unsaved aliases remain in CSS", () => {
+  const payload = { ...website("#456"), theme: { colors: { palette: [{ token: "primary", value: "#123" }] } } };
+  assert.deepEqual(resolveDesign(payload), { "--brand-color-primary": "#112233", "--theme-color-action": "#445566" });
+  assert.deepEqual(resolveDesign({ ...payload, theme_tokens: { ...payload.theme_tokens, values: {} } }), { "--brand-color-primary": "#112233" });
+  assert.deepEqual(resolveDesign(website("palette:missing")), {});
+});
+
+test("Brand mappings are allowlisted by CSS, not palette order or arbitrary API property names", () => {
+  assert.deepEqual(brandTokenNamesFromCss(":root { --brand-color-special: #abc; --brand-font-caption: serif; --ui-radius-sm: 1px; }"), ["--brand-color-special", "--brand-font-caption"]);
+  const palette = [
+    { name: "Primary", value: "#000" }, { token: "primary", value: "#123" }, { token: "primary", value: "#456" },
+    { token: "unknown", value: "#fff" }, { token: "--ui-radius-sm", value: "#fff" }, { token: "bad;color", value: "#fff" },
+  ];
+  assert.deepEqual(resolveDesign({ theme: { colors: { palette } } }), { "--brand-color-primary": "#112233" });
+  assert.deepEqual(resolveDesign({ font_families: [{ name: "--brand-font-display", value: "Georgia, serif" }, { name: "navigation", value: "Arial" }] }), { "--brand-font-display": "Georgia, serif" });
+  assert.deepEqual(resolveDesign({ font_families: [{ name: "heading", value: "Georgia, serif" }] }), { "--brand-font-display": "Georgia, serif" });
+});
+
+test("invalid remote Brand values and malformed collections leave CSS defaults intact", () => {
+  for (const value of [null, "", "red", "#fff;display:none", "url(evil)", "</style>"]) {
+    assert.deepEqual(resolveDesign({ theme: { colors: { palette: [{ token: "primary", value }] } } }), {});
+  }
+  for (const value of [null, "", "inherit", "unset", "revert-layer", "Arial; color:red", "url(evil)", "var(--ui-font)", "Arial/*bad*/", "Arial\nserif", '"Unclosed', "</style><script>bad</script>"]) {
+    assert.deepEqual(resolveDesign({ font_families: [{ name: "body", value }] }), {});
+  }
+  for (const payload of [{}, { theme: null, font_families: {} }, { theme: { colors: { palette: [null, [], {}] } }, font_families: [null, [], {}] }]) assert.deepEqual(resolveDesign(payload), {});
 });
 
 test("sites without declarations retain their CSS defaults and orphan overrides do not create variables", () => {

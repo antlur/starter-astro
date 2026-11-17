@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -8,6 +9,43 @@ import test from "node:test";
 import { build } from "astro";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
+
+test("static fixture builds isolate local design and pull both Brand and Theme only when opted in", async () => {
+  const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "starter-design-source-"));
+  const envKeys = ["NODE_ENV", "BACKSTAGE_SOURCE", "SITE_INDEXABLE", "SITE_URL"] as const;
+  const previousEnv = new Map(envKeys.map((key) => [key, process.env[key]]));
+  const cssPaths = ["brand", "theme", "ui"].map((name) => path.join(root, `src/styles/tokens/${name}.css`));
+  const before = await Promise.all(cssPaths.map((file) => readFile(file, "utf8")));
+  process.env.NODE_ENV = "production";
+  process.env.BACKSTAGE_SOURCE = "fixture";
+  process.env.SITE_INDEXABLE = "false";
+  process.env.SITE_URL = "https://starter.example";
+  try {
+    for (const source of ["local", "backstage"]) {
+      await build({
+        root,
+        outDir: path.join(outputDirectory, "dist"),
+        logLevel: "silent",
+        vite: { plugins: [{
+          name: "test-design-source",
+          enforce: "pre",
+          transform(code, id) {
+            if (id.split("?")[0] !== path.join(root, "backstage.config.ts")) return;
+            assert.ok(code.includes('source: "local"'), "The starter must default to local design.");
+            return code.replace('source: "local"', `source: "${source}"`);
+          },
+        }] },
+      });
+      execFileSync(process.execPath, [path.join(root, "scripts/assert-theme-token-output.mjs"), source], { cwd: outputDirectory });
+      const html = await readFile(path.join(outputDirectory, "dist/index.html"), "utf8");
+      assert.match(html, /Fieldwork Coffee/, "Design selection must not replace fixture content.");
+    }
+    assert.deepEqual(await Promise.all(cssPaths.map((file) => readFile(file, "utf8"))), before, "Builds must not rewrite local token files.");
+  } finally {
+    for (const key of envKeys) restoreEnv(key, previousEnv.get(key));
+    await rm(outputDirectory, { recursive: true, force: true });
+  }
+});
 
 const restoreEnv = (key: string, value: string | undefined): void => {
   if (value === undefined) delete process.env[key];

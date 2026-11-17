@@ -1,19 +1,23 @@
-import { resolveWebsiteThemeTokens } from "../lib/backstage/theme-tokens";
-import { themeTokenDeclarations } from "../../backstage.theme-tokens";
+import { resolveWebsiteDesignTokens } from "../lib/backstage/theme-tokens";
+import { brandTokenNames, readThemeTokenDeclarations } from "../../backstage.theme-tokens";
+import backstageConfig from "../../backstage.config";
 import { fixtureContent } from "./content";
 import type { SiteContent } from "../lib/backstage/content";
+
+export const fixtureWebsiteDesign = {
+  theme: { colors: { palette: [{ token: "primary", value: "#294c3d" }] } },
+  font_families: [{ name: "display", value: 'Georgia, "Times New Roman", serif' }],
+  theme_tokens: {
+    tokens: { action: { type: "color", cssVariable: "--theme-color-action", default: "#000" } },
+    values: { action: "palette:primary" },
+  },
+};
 
 export const fixtureSiteContent: SiteContent = {
   ...fixtureContent,
   site: {
     ...fixtureContent.site,
-    themeVariables: resolveWebsiteThemeTokens({
-      theme: { colors: { palette: [{ token: "primary", value: "#294c3d" }] } },
-      theme_tokens: {
-        tokens: { action: { type: "color", cssVariable: "--theme-color-action", default: "#000" } },
-        values: { action: "palette:primary" },
-      },
-    }, themeTokenDeclarations),
+    themeVariables: resolveWebsiteDesignTokens(fixtureWebsiteDesign, backstageConfig, brandTokenNames, readThemeTokenDeclarations),
   },
   routePaths: [
     ...fixtureContent.routePaths,

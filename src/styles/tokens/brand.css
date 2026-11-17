@@ -1,4 +1,4 @@
-/* Code-managed until this project configures an explicit Backstage sync workflow. */
+/* Local defaults. Backstage design mode overlays matching Brand slots at build time. */
 :root {
   --brand-color-primary: #294c3d;
   --brand-color-secondary: #d9ef98;
