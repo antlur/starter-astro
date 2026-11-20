@@ -203,6 +203,7 @@ export const getStaticPaths = async () => {
     },
   }));
 
+  const menuDirectoryPath = routePlan.locationChooserRoutes.find(({ purpose }) => purpose === "menu")?.path;
   const staticPages = [
     ...cmsPages,
     ...blueprintPages,
@@ -220,7 +221,7 @@ export const getStaticPaths = async () => {
       : locationRouteForPath(props.pathname, locationRoutes)?.location;
     return {
       params,
-      props: { ...props, currentLocation, locationDirectoryPath: routePlan.locationIndexPaths[0] },
+      props: { ...props, currentLocation, menuDirectoryPath, locationDirectoryPath: routePlan.locationIndexPaths[0] },
     };
   });
   assertStaticRoutesEmitted(routePlan, staticPages.map(({ props }) => props.pathname), import.meta.env.SITE_INDEXABLE === "true");
@@ -228,7 +229,7 @@ export const getStaticPaths = async () => {
   return staticPages;
 };
 
-const { page, route, routeSeo, menuRoute, menuRoutes, eventRoute, eventIndexPath, events, locationRoute, locationIndexPath, locationChooser, locationRoutes, currentLocation, locationDirectoryPath, pressRoute, pressIndexPath, pressReleases, site, pathname, navigation, footerNavigation, routePaths, alerts, locations } = Astro.props;
+const { page, route, routeSeo, menuRoute, menuRoutes, menuDirectoryPath, eventRoute, eventIndexPath, events, locationRoute, locationIndexPath, locationChooser, locationRoutes, currentLocation, locationDirectoryPath, pressRoute, pressIndexPath, pressReleases, site, pathname, navigation, footerNavigation, routePaths, alerts, locations } = Astro.props;
 const chooserTitle = locationChooser === "menu" ? "Menus by location" : locationChooser ? locationServices[locationChooser].label : null;
 const pageTitle = routeSeo?.title ?? chooserTitle ?? (pressRoute?.kind === "detail"
   ? pressRoute.release.title
@@ -268,7 +269,7 @@ const contentType = pressRoute?.kind === "detail" || eventRoute?.kind === "detai
     : route
       ? <BlueprintRouteContent route={route} />
       : menuRoute
-        ? <MenuPage menu={menuRoute.menu} menuRoutes={menuRoutes} />
+        ? <MenuPage menu={menuRoute.menu} menuRoutes={menuRoutes} menuDirectoryPath={menuDirectoryPath} />
         : eventRoute
           ? <EventPage kind={eventRoute.kind} event={eventRoute.kind === "detail" ? eventRoute.event : undefined} events={events} locations={locations} indexPath={eventIndexPath} />
         : locationIndexPath || locationChooser

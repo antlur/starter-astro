@@ -105,6 +105,12 @@ export default defineConfig({
 This switch controls design tokens, not content assets. Website logos/favicons and
 page media continue to follow the selected content source.
 
+The header uses the **Standard** logo size by default. Set
+`SITE_HEADER_LOGO_SIZE=prominent` in the site's build environment and rebuild
+for a taller mark and more room for wide logos. This changes only the header,
+not the underlying logo or its aspect ratio. Use a tightly exported logo with
+a transparent background and check contrast against the header color.
+
 Brand mapping is limited to slots declared in `brand.css`. A palette token `primary`
 maps to `--brand-color-primary`; custom tokens work the same way when a matching
 slot exists. Tokenless legacy names are trimmed, lowercased, and spaces become

@@ -21,7 +21,7 @@ const cards = locations.toSorted((left, right) => left.location.name.localeCompa
   });
 const title = purpose === "menu" ? "Choose a location" : purpose ? locationServices[purpose].label : "Our locations";
 const intro = purpose === "menu" ? "See what's on the menu at each location."
-  : purpose ? "Choose a location for this service." : "Find a location, get directions, and plan your visit.";
+  : purpose ? "Choose a location for this service." : "Find hours, menus, and visit details for each location.";
 ---
 
 <section class="location-directory" aria-labelledby="location-directory-title">
@@ -33,13 +33,15 @@ const intro = purpose === "menu" ? "See what's on the menu at each location."
   {cards.length > 0 ? (
     <div class="location-directory__grid">
       {cards.map(({ path, location, menus }) => {
-        const description = !purpose && location.description ? sanitizeRichText(location.description) : "";
+        const description = (!purpose || purpose === "menu") && location.description ? sanitizeRichText(location.description) : "";
+        const regularHours = (!purpose || purpose === "menu") && location.hours.length === 1 ? location.hours[0] : null;
         return (
           <article class="location-card">
             {location.imageUrl && <a class="location-card__image-link" href={path} aria-label={`Visit ${location.name}`}><img src={location.imageUrl} alt={location.imageAlt || location.name} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 1000} loading="lazy" decoding="async" /></a>}
             <div class="location-card__content">
               <h2><a href={path}>{location.name}</a></h2>
               {location.addressLines.length > 0 && <address>{location.addressLines.map((line) => <span>{line}</span>)}</address>}
+              {regularHours && <p class="location-card__hours">{regularHours.day}: {regularHours.value}</p>}
               {description && <div class="location-card__description" set:html={description} />}
               {purpose === "menu" ? (
                 <nav class="location-card__actions" aria-label={`Menus at ${location.name}`}>
@@ -106,6 +108,7 @@ const intro = purpose === "menu" ? "See what's on the menu at each location."
   .location-card {
     overflow: hidden;
     border: 1px solid var(--color-line);
+    border-radius: var(--ui-radius-md);
     background: var(--color-surface);
   }
 
@@ -145,6 +148,11 @@ const intro = purpose === "menu" ? "See what's on the menu at each location."
     color: var(--color-muted);
     font-style: normal;
     line-height: 1.65;
+  }
+
+  .location-card__hours {
+    margin: 0.5rem 0 0;
+    font-weight: 650;
   }
 
   .location-card__description {

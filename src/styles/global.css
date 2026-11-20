@@ -283,30 +283,46 @@ button:focus-visible,
 }
 
 .site-header {
+  --header-logo-width: 13rem;
+  --header-logo-height: 3.75rem;
+  --header-height: 5.5rem;
   display: flex;
   width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
-  min-height: 5.5rem;
+  min-height: var(--header-height);
   align-items: center;
   justify-content: space-between;
   gap: 2rem;
   margin-inline: auto;
+  padding-block: 0.5rem;
   border-bottom: 1px solid color-mix(in srgb, var(--color-header-foreground) 16%, transparent);
+}
+
+.site-header[data-logo-size="prominent"] {
+  --header-logo-width: 16rem;
+  --header-logo-height: 4.75rem;
+  --header-height: 6.5rem;
 }
 
 .site-brand {
   display: inline-flex;
+  flex: 0 0 auto;
+  max-inline-size: min(var(--header-logo-width), 48vw);
   align-items: center;
   font-family: var(--font-display);
   font-size: 1.45rem;
   font-weight: 700;
+  overflow-wrap: anywhere;
   text-decoration: none;
 }
 
 .site-brand img {
   display: block;
-  max-width: min(10rem, 35vw);
-  max-height: 3rem;
+  inline-size: auto;
+  block-size: auto;
+  max-inline-size: min(var(--header-logo-width), 48vw);
+  max-block-size: var(--header-logo-height);
   object-fit: contain;
+  object-position: left center;
 }
 
 .site-menu-toggle,
@@ -317,6 +333,7 @@ button:focus-visible,
 .site-menu-toggle {
   width: 2.75rem;
   height: 2.75rem;
+  flex: 0 0 auto;
   place-content: center;
   gap: 0.3rem;
   padding: 0;
@@ -617,12 +634,16 @@ button:focus-visible,
   }
 
   .site-header {
-    width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
-    min-height: 5rem;
+    --header-logo-height: 3.25rem;
+    --header-height: 5rem;
     flex-wrap: wrap;
-    justify-content: space-between;
     gap: 0.75rem 1rem;
     padding: 0.75rem 0;
+  }
+
+  .site-header[data-logo-size="prominent"] {
+    --header-logo-height: 4rem;
+    --header-height: 5.5rem;
   }
 
   .site-topbar__inner {

@@ -143,6 +143,8 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .hero--text-only {
     grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    padding-block: clamp(3rem, 7vw, 5rem) 1.25rem;
   }
 
   .hero--text-only .hero__copy {
@@ -154,6 +156,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   .hero--text-only h1,
   .hero--text-only h2 {
     max-width: 16ch;
+    font-size: 3.5rem;
   }
 
   .hero__copy {
@@ -219,6 +222,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     align-items: center;
     justify-content: center;
     padding: 0.75rem 1.25rem;
+    border: 1px solid var(--theme-color-action);
     border-radius: 999px;
     background: var(--theme-color-action);
     color: var(--theme-color-primary-foreground);
@@ -228,6 +232,16 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .button:hover {
     filter: brightness(0.94);
+  }
+
+  .button:not(:first-child) {
+    border-color: currentColor;
+    background: transparent;
+    color: inherit;
+  }
+
+  .button:not(:first-child):hover {
+    background: color-mix(in srgb, currentColor 10%, transparent);
   }
 
   .hero__media {
@@ -326,10 +340,10 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .hero--full-bleed {
     position: relative;
-    min-height: min(48rem, 78vh);
+    min-height: min(44rem, 72svh);
     grid-template-columns: 1fr;
     align-items: end;
-    padding-top: clamp(5rem, 14vw, 12rem);
+    padding-block: clamp(4rem, 9vw, 7rem) clamp(3rem, 7vw, 5.5rem);
     color: white;
     background: var(--color-ink);
   }
@@ -339,7 +353,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   }
 
   .hero--full-bleed .eyebrow {
-    color: #d8f28f;
+    color: color-mix(in srgb, white 82%, var(--theme-color-accent));
   }
 
   .hero--full-bleed .hero__body {
@@ -388,13 +402,22 @@ const HeadingTag = isPrimary ? "h1" : "h2";
       padding: 4rem 1.25rem;
     }
 
+    .hero--text-only {
+      padding-block: 2.75rem 1rem;
+    }
+
+    .hero--text-only h1,
+    .hero--text-only h2 {
+      font-size: 2.5rem;
+    }
+
     .hero__media,
     .hero__slide {
       min-height: 18rem;
     }
 
     .hero--full-bleed {
-      min-height: 35rem;
+      min-height: min(35rem, 72svh);
       align-content: end;
     }
 

@@ -7,10 +7,11 @@ import { uniqueMenuRoutes } from "../site/menu-routes";
 interface Props {
   menu: SiteMenu;
   menuRoutes: Array<{ path: string; label: string; menu: SiteMenu }>;
+  menuDirectoryPath?: string;
   isEmbedded?: boolean;
 }
 
-const { menu, menuRoutes, isEmbedded = false } = Astro.props;
+const { menu, menuRoutes, menuDirectoryPath, isEmbedded = false } = Astro.props;
 const pdfUrl = safeLinkUrl(menu.pdfUrl);
 const categoryAnchors = menu.categories.map((category, index) => ({
   id: `menu-category-${menu.id}-${index}`,
@@ -25,6 +26,7 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
       ? <h2 class="menu-page__title" id={`menu-title-${menu.id}`}>{menu.title}</h2>
       : <h1 class="menu-page__title" id={`menu-title-${menu.id}`}>{menu.title}</h1>}
     {menu.subtitle && <p class="menu-page__subtitle">{menu.subtitle}</p>}
+    {menuDirectoryPath && <a class="menu-page__location-link" href={menuDirectoryPath}>Menus by location</a>}
     {pdfUrl && <a class="menu-page__download" href={pdfUrl} target="_blank" rel="noopener noreferrer">Download Menu</a>}
   </header>
 
@@ -143,7 +145,7 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
   .menu-page {
     width: min(100% - 3rem, 76rem);
     margin: 0 auto;
-    padding: 1rem 0 2rem;
+    padding: clamp(2rem, 5vw, 3.5rem) 0 3rem;
   }
 
   .menu-page--embedded {
@@ -158,20 +160,38 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     align-items: center;
     justify-content: flex-start;
     gap: 1rem;
+    margin-bottom: 1.25rem;
   }
 
   .menu-page__title {
     width: 100%;
     margin: 0;
     font-family: var(--font-display);
-    font-size: clamp(1.6rem, 2.4vw, 2rem);
+    font-size: 2.75rem;
     line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  .menu-page--embedded .menu-page__title {
+    font-size: 2rem;
+  }
+
+  @media (max-width: 680px) {
+    .menu-page__title {
+      font-size: 2.15rem;
+    }
   }
 
   .menu-page__subtitle {
     margin: 0 auto 0 0;
     color: var(--color-muted);
     line-height: 1.5;
+  }
+
+  .menu-page__location-link {
+    color: var(--color-accent-strong);
+    font-weight: 650;
+    text-underline-offset: 0.2em;
   }
 
   .menu-page__download {
