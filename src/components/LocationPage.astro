@@ -23,7 +23,7 @@ const locationNode = structuredDataNodeForLocation(structuredData, location.id);
 const locationSchema = locationNode ? serializeJsonLd(locationNode) : "";
 const photoAttrs = location.imageUrl && location.imageWidth && location.imageHeight
   ? await responsivePhoto(location.imageUrl, { width: location.imageWidth, height: location.imageHeight },
-    "(min-width: 1200px) 1152px, 100vw") : {};
+    "(min-width: 1200px) 1152px, 100vw") : undefined;
 ---
 
 {locationSchema && <script type="application/ld+json" set:html={locationSchema} />}
@@ -65,7 +65,7 @@ const photoAttrs = location.imageUrl && location.imageWidth && location.imageHei
     )}
   </div>
 
-  {location.imageUrl && <img class="location-page__image" src={location.imageUrl} alt={location.imageAlt} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 800} loading="lazy" decoding="async" {...photoAttrs} />}
+  {location.imageUrl && <img class="location-page__image" src={photoAttrs?.src ?? location.imageUrl} srcset={photoAttrs?.srcset} sizes={photoAttrs?.sizes} alt={location.imageAlt} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 800} loading="lazy" decoding="async" />}
 
   {location.mapEmbedUrl && (
     <section class="location-page__map" aria-label={`${location.name} map`}>

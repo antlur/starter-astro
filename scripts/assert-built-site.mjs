@@ -56,6 +56,10 @@ for (const file of htmlFiles) {
 
   for (const imageTag of html.matchAll(/<img\b[^>]*>/gi)) {
     assert.match(imageTag[0], /\salt(?:=["'][^"']*["']|(?=\s|\/?>))/i, `${file} contains an image without an alt attribute.`);
+    const attributes = [...imageTag[0].matchAll(/\s([-\w:]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/g)].map((match) => match[1].toLowerCase());
+    if (attributes.includes("srcset")) {
+      assert.equal(attributes.filter((name) => name === "src").length, 1, `${file} must emit one src for a responsive image.`);
+    }
   }
 
   for (const anchor of html.matchAll(/<a\b[^>]*\bhref=(["'])(.*?)\1[^>]*>/gi)) {
