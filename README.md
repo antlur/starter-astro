@@ -32,6 +32,22 @@ Configure the website for **Headless** rendering in Backstage Settings. Backstag
 
 Navigation is read from Backstage. If the account has exactly one navigation, the starter uses it. If there are multiple, set `BACKSTAGE_NAVIGATION_ID` to select one. With no saved navigation, the site shows no page links; create a curated navigation in Backstage before launch. The setup check reports this as an incomplete prerequisite.
 
+## Multi-location restaurant sites
+
+Use one Backstage website with multiple public Location records. Assign published menus to the appropriate locations and configure ordering, delivery, reservation and waitlist URLs on the location records. Location pages show their own menus, services, named weekly schedules and dated exceptions. Set location time zones for date-based hours. Public pages are static: changes and the removal of past exceptions are reflected on the next build.
+
+Use the Backstage Locations directory in navigation. When a site has multiple routable locations, `/menu/` can offer menus grouped by branch if no CMS, canonical menu, or application route already owns it. Add `/order-online/`, `/delivery/`, `/reservations/` or `/waitlist/` to Backstage navigation to link to a Starter chooser: it is built only when it does not replace an existing route and at least one public, routable location has that service. To send visitors straight to a provider for a single-location site, configure that URL in navigation. No provider accounts or API access are needed for these links.
+
+For a synthetic, five-location preview, run:
+
+```sh
+BACKSTAGE_SOURCE=fixture BACKSTAGE_FIXTURE=multi-location SITE_INDEXABLE=false npm run build
+node scripts/assert-multi-location-site.mjs preview
+npm run preview
+```
+
+Omit `BACKSTAGE_FIXTURE` to use the normal single-location fixture.
+
 ## Blocks and layouts
 
 Each built-in block lives in `src/blocks/<slug>/` with its `manifest.json` and Astro renderer together. The manifest is the block's Backstage editing contract; the explicit renderer map in `src/components/BlockRenderer.astro` connects its slug to local Astro code. An unregistered block or unsupported variant fails the build until its renderer is implemented. The shared site shell lives in `src/layouts/SiteLayout.astro` and is not a Backstage-assignable page layout.

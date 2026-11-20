@@ -14,10 +14,8 @@ test("location pages use actual location routes to scope menu links", async () =
     readFile(dynamicPageSource, "utf8"),
   ]);
 
-  assert.match(source, /menuRoutesForLocation\(menuRoutes, routePath/);
+  assert.match(source, /menusForLocation\(\{ path: routePath, location \}, menuRoutes, locationRoutes\)/);
   assert.match(source, /locationRoutes:\s*SiteLocationRoute\[\]/);
-  assert.match(source, /otherLocationPaths:\s*locationRoutes\s*\.filter\(\(\{ location: candidate \}\) => candidate\.id !== location\.id\)/);
-  assert.match(source, /location\.menuIds\?\.length\s*\?\s*menuRoutesForLocation/);
   assert.match(dynamicPage, /<LocationPage[^>]*locationRoutes=\{locationRoutes(?: \?\? \[\])?\}/);
   assert.doesNotMatch(source, /uniqueMenuRoutes/);
 });

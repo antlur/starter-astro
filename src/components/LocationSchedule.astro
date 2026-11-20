@@ -1,0 +1,68 @@
+---
+import type { SiteLocation } from "../lib/backstage/locations";
+
+interface Props {
+  location: SiteLocation;
+  groupHeading?: "h3" | "h5";
+}
+
+const { location, groupHeading: Heading = "h3" } = Astro.props;
+const groups = location.hourGroups?.length ? location.hourGroups : [{ label: null, hours: location.hours }];
+const now = new Date();
+let today = now.toISOString().slice(0, 10);
+if (location.timezone) {
+  try {
+    const parts = new Intl.DateTimeFormat("en", {
+      timeZone: location.timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(now);
+    today = ["year", "month", "day"].map((part) => parts.find(({ type }) => type === part)?.value).join("-");
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error;
+  }
+}
+const exceptions = (location.specialHours ?? []).filter(({ date }) => date >= today)
+  .toSorted((left, right) => left.date.localeCompare(right.date));
+const dateLabel = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" });
+---
+
+{groups.filter(({ hours }) => hours.length > 0).map(({ label, hours }) => (
+  <div class="schedule-group">
+    {label && <Heading>{label}</Heading>}
+    <dl>
+      {hours.map(({ day, value }) => <div><dt>{day}</dt><dd>{value}</dd></div>)}
+    </dl>
+  </div>
+))}
+
+{exceptions.length > 0 && (
+  <div class="schedule-group">
+    <Heading>Special hours</Heading>
+    <dl>
+      {exceptions.map(({ date, label, value }) => (
+        <div>
+          <dt>{label !== "Special hours" && <span>{label}<br /></span>}<time datetime={date}>{dateLabel.format(new Date(date))}</time></dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  </div>
+)}
+
+<style>
+  .schedule-group + .schedule-group { margin-top: 1.25rem; }
+  h3, h5 { margin: 0 0 0.55rem; font-size: 1rem; }
+  dl { display: grid; gap: 0.55rem; margin: 0; }
+  dl > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.65rem;
+    padding-bottom: 0.55rem;
+    border-bottom: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  }
+  dt { font-weight: 650; }
+  dd { margin: 0; text-align: right; }
+  dt, dd { overflow-wrap: anywhere; }
+</style>

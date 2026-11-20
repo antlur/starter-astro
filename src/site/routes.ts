@@ -1,10 +1,12 @@
 import type { HeadlessPage, SiteContent, SiteNavigationItem } from "../lib/backstage/content";
 import { normalizeEvent, resolveEventTimezone, type SiteEvent } from "../lib/backstage/events";
-import { normalizeLocation, type SiteLocation } from "../lib/backstage/locations";
-import { normalizeMenu, type SiteMenu } from "../lib/backstage/menus";
+import { isPublicLocation, normalizeLocation, type LocationService, type SiteLocation } from "../lib/backstage/locations";
+import { normalizeMenu } from "../lib/backstage/menus";
 import { normalizePressRelease, type SitePressRelease } from "../lib/backstage/press";
 import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "../lib/backstage/concurrency";
 import type { BlueprintRoute } from "./blueprint-routes";
+import { locationServiceLinks, locationServices, type LocationChoice } from "./location-choices";
+import { menusForLocation, type SiteMenuRoute } from "./menu-routes";
 import declaredApplicationRoutePaths from "./application-route-paths.json" with { type: "json" };
 
 export interface CmsPageRoute {
@@ -16,8 +18,9 @@ export interface SiteRoutePlan {
   cmsPages: CmsPageRoute[];
   blueprintRoutes: BlueprintRoute[];
   applicationPaths: string[];
-  menuRoutes: Array<{ path: string; label: string; menu: SiteMenu }>;
+  menuRoutes: SiteMenuRoute[];
   menuIndexPaths: string[];
+  locationChooserRoutes: Array<{ path: string; purpose: LocationChoice }>;
   eventRoutes: Array<{ path: string; kind: "index" } | { path: string; kind: "detail"; event: SiteEvent }>;
   eventsIndexPath: string | null;
   locationRoutes: Array<{ path: string; location: SiteLocation }>;
@@ -258,6 +261,7 @@ export const buildSiteRoutePlan = (
   const routePaths = [...new Set(normalizedRoutePaths)];
   const cmsPagePaths = new Set(content.pages.map((page) => normalizeRoutePath(page.pathname)));
   const canonicalRoutesByPath = new Map<string, { type: string; id: string | null }>();
+  const menuLocationsByPath = new Map<string, { id: string; label?: string }>();
   for (const entry of resolvedRoutes) {
     if (!isRecord(entry.value) || !isRecord(entry.value.meta) || typeof entry.value.meta.type !== "string") continue;
     const path = normalizeRoutePath(entry.path);
@@ -273,6 +277,17 @@ export const buildSiteRoutePlan = (
       throw new Error(`Backstage returned multiple canonical route owners for ${path}.`);
     }
     canonicalRoutesByPath.set(path, { type, id });
+    const location = entry.value.meta.location;
+    if (type === "menu" && isRecord(location)
+      && (typeof location.id === "string" || typeof location.id === "number")) {
+      const association = Array.isArray(location.menus) && id !== null
+        ? location.menus.find((menu) => isRecord(menu) && String(menu.id) === id)
+        : undefined;
+      const label = isRecord(association) && typeof association.title === "string"
+        ? association.title.trim() || undefined
+        : undefined;
+      menuLocationsByPath.set(path, { id: String(location.id), label });
+    }
   }
 
   const isCanonicalOwner = (path: string): boolean => {
@@ -286,7 +301,7 @@ export const buildSiteRoutePlan = (
       + content.pressReleases.filter((item) => item.slug === slug).length;
 
   const eventRoutes: SiteRoutePlan["eventRoutes"] = [];
-  const menuRoutesByPath = new Map<string, { path: string; label: string; menu: SiteMenu }>();
+  const menuRoutesByPath = new Map<string, SiteMenuRoute>();
   const menusById = new Map(content.menus.map((menu) => [menu.id, menu]));
   const locationRoutes: SiteRoutePlan["locationRoutes"] = [];
   const locationIndexPaths: string[] = [];
@@ -319,7 +334,13 @@ export const buildSiteRoutePlan = (
         const navigationItem = navigationItems.find((item) =>
           navigationPath(item.url) === path && item.menuId === route.id,
         );
-        menuRoutesByPath.set(path, { path, label: navigationItem?.text ?? menu.title, menu });
+        const location = menuLocationsByPath.get(path);
+        menuRoutesByPath.set(path, {
+          path,
+          label: location?.label ?? navigationItem?.text ?? menu.title,
+          menu: location?.label ? { ...menu, title: location.label } : menu,
+          ...(location && { locationId: location.id }),
+        });
       }
     } else if (route.type === "location" && route.id !== null) {
       const location = content.locations.find((candidate) => candidate.id === route.id);
@@ -394,7 +415,7 @@ export const buildSiteRoutePlan = (
     }
     return (routePathOrder.get(left.path) ?? 0) - (routePathOrder.get(right.path) ?? 0);
   });
-  const menuIndexPaths = routePaths.filter((path) =>
+  let menuIndexPaths = routePaths.filter((path) =>
     path === "/menu/" && !ownedPaths.has(path) && !cmsPagePaths.has(path) && menuRoutes.length > 0
       && !menuRoutes.some((route) => route.path === path),
   );
@@ -436,9 +457,33 @@ export const buildSiteRoutePlan = (
       ownedPaths.add(path);
     }
   }
+  const publicLocations = locationRoutes.filter(({ location }) => isPublicLocation(location));
+  const publicMenus = menuRoutes.filter(({ menu }) => menu.isPublished !== false);
+  const locationChooserRoutes: SiteRoutePlan["locationChooserRoutes"] = [];
+  const appOwnsPath = (path: string) => applicationPaths.some((candidate) => normalizeRoutePath(candidate) === path);
+  const canAddChooser = (path: string) => !appOwnsPath(path) && !cmsPagePaths.has(path)
+    && !ownedPaths.has(path) && !blueprintRoutes.some((route) => normalizeRoutePath(route.path) === path);
+
+  const menuLandingPath = "/menu/";
+  if (new Set(publicLocations.map(({ location }) => location.id)).size > 1
+    && canAddChooser(menuLandingPath)
+    && publicLocations.some((location) => menusForLocation(location, publicMenus, publicLocations).length > 0)) {
+    locationChooserRoutes.push({ path: menuLandingPath, purpose: "menu" });
+    menuIndexPaths = menuIndexPaths.filter((path) => path !== menuLandingPath);
+  }
+
+  for (const purpose of Object.keys(locationServices) as LocationService[]) {
+    const { path } = locationServices[purpose];
+    if (!routePaths.includes(path) && canAddChooser(path)
+      && publicLocations.some(({ location }) => locationServiceLinks(location, purpose).length > 0)) {
+      locationChooserRoutes.push({ path, purpose });
+    }
+  }
+
   const generatedRoutes = [
     ...menuRoutes.map(({ path }) => path),
     ...menuIndexPaths,
+    ...locationChooserRoutes.map(({ path }) => path),
     ...eventRoutes.map(({ path }) => path),
     ...locationRoutes.map(({ path }) => path),
     ...locationIndexPaths,
@@ -523,6 +568,7 @@ export const buildSiteRoutePlan = (
     applicationPaths: appPaths,
     menuRoutes,
     menuIndexPaths,
+    locationChooserRoutes,
     eventRoutes,
     eventsIndexPath: canonicalEventsIndexPaths.length === 1
       ? canonicalEventsIndexPaths[0]
@@ -561,6 +607,7 @@ export const assertStaticRoutesEmitted = (
     ...routePlan.blueprintRoutes.map(({ path }) => path),
     ...routePlan.menuRoutes.map(({ path }) => path),
     ...routePlan.menuIndexPaths,
+    ...routePlan.locationChooserRoutes.map(({ path }) => path),
     ...routePlan.eventRoutes.map(({ path }) => path),
     ...routePlan.locationRoutes.map(({ path }) => path),
     ...routePlan.locationIndexPaths,

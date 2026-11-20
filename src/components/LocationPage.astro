@@ -2,8 +2,9 @@
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import { getSiteContent, serializeJsonLd, structuredDataNodeForLocation } from "../lib/backstage/content";
 import type { SiteLocation } from "../lib/backstage/locations";
-import { menuRoutesForLocation, type SiteLocationRoute, type SiteMenuRoute } from "../site/menu-routes";
-import { normalizeRoutePath } from "../site/routes";
+import { menusForLocation, type SiteLocationRoute, type SiteMenuRoute } from "../site/menu-routes";
+import LocationActions from "./LocationActions.astro";
+import LocationSchedule from "./LocationSchedule.astro";
 
 interface Props {
   location: SiteLocation;
@@ -13,16 +14,7 @@ interface Props {
 }
 
 const { location, routePath, menuRoutes, locationRoutes } = Astro.props;
-const normalizedLocationPath = normalizeRoutePath(routePath);
-const visibleMenuRoutes = location.menuIds?.length
-  ? menuRoutesForLocation(menuRoutes, routePath, {
-      path: normalizedLocationPath,
-      menuIds: location.menuIds,
-      otherLocationPaths: locationRoutes
-        .filter(({ location: candidate }) => candidate.id !== location.id)
-        .map(({ path }) => path),
-    })
-  : [];
+const visibleMenuRoutes = menusForLocation({ path: routePath, location }, menuRoutes, locationRoutes);
 const description = location.description ? sanitizeRichText(location.description) : "";
 const { structuredData } = await getSiteContent();
 const locationNode = structuredDataNodeForLocation(structuredData, location.id);
@@ -54,6 +46,7 @@ const locationSchema = locationNode ? serializeJsonLd(locationNode) : "";
         {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Get directions</a>}
         {location.loyaltyUrl && <a href={location.loyaltyUrl} target="_blank" rel="noopener noreferrer">Join rewards</a>}
       </div>
+      <LocationActions location={location} />
       {visibleMenuRoutes.length > 0 && (
         <nav class="location-page__menus" aria-label={`${location.name} menus`}>
           <h3>Explore the menu</h3>
@@ -62,12 +55,10 @@ const locationSchema = locationNode ? serializeJsonLd(locationNode) : "";
       )}
     </section>
 
-    {location.hours.length > 0 && (
+    {(location.hours.length > 0 || Boolean(location.specialHours?.length)) && (
       <section class="location-page__hours" aria-labelledby="location-hours-title">
         <h2 id="location-hours-title">Hours</h2>
-        <dl>
-          {location.hours.map((hours) => <div><dt>{hours.day}</dt><dd>{hours.value}</dd></div>)}
-        </dl>
+        <LocationSchedule location={location} />
       </section>
     )}
   </div>
@@ -168,23 +159,6 @@ const locationSchema = locationNode ? serializeJsonLd(locationNode) : "";
     font-weight: 700;
     text-underline-offset: 0.2em;
   }
-
-  .location-page__hours dl {
-    display: grid;
-    gap: 0.55rem;
-    margin: 0;
-  }
-
-  .location-page__hours dl > div {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    border-bottom: 1px solid var(--color-line);
-    padding-bottom: 0.55rem;
-  }
-
-  .location-page__hours dt { font-weight: 650; }
-  .location-page__hours dd { margin: 0; color: var(--color-muted); text-align: right; }
 
   .location-page__menus { margin-top: 1.75rem; }
   .location-page__menus h3 { margin: 0 0 0.65rem; font-size: 1rem; }

@@ -81,6 +81,106 @@ test("omits unsafe map URLs and respects closed, hidden, and 24-hour days", () =
     { dayOfWeek: "https://schema.org/Monday", opens: "00:00", closes: "00:00" },
     { dayOfWeek: "https://schema.org/Tuesday", opens: "00:00", closes: "23:59" },
   ]);
+  assert.deepEqual(location.hourGroups, [{ label: null, hours: location.hours }]);
+});
+
+test("preserves ordered provider links by service and discards duplicates and unsafe entries", () => {
+  const location = normalizeLocation({
+    ordering_links: [
+      { service: " Toast ", url: " HTTPS://ORDER.example.test:443/menu?location=north#pickup " },
+      { service: "Toast", url: "https://order.example.test/menu?location=north#pickup" },
+      { service: "other", url: "http://order.example.test/direct" },
+      { service: "Toast", url: "https://order.example.test/south" },
+      null,
+      { service: "", url: "https://order.example.test" },
+      { url: "https://order.example.test" },
+      ...[
+        "javascript:alert(1)",
+        "mailto:order@example.test",
+        "ftp://order.example.test",
+        "//order.example.test/menu",
+        "/order",
+        "https:order.example.test",
+        "https:///order.example.test",
+        "https://",
+        "https://order.example.test:bad",
+        "https://alice@order.example.test",
+        "https://alice:secret@order.example.test",
+        "https://@order.example.test",
+      ].map((url) => ({ service: "other", url })),
+    ],
+    delivery_links: [{ service: "DoorDash", url: "https://delivery.example.test/store" }],
+    reservation_links: [{ service: "OpenTable", url: "https://reserve.example.test/book" }],
+    waitlist_links: [{ service: "Yelp", url: "https://wait.example.test/join" }],
+  });
+
+  assert.deepEqual(location.providerLinks, {
+    ordering: [
+      { service: "Toast", url: "https://order.example.test/menu?location=north#pickup" },
+      { service: "other", url: "http://order.example.test/direct" },
+      { service: "Toast", url: "https://order.example.test/south" },
+    ],
+    delivery: [{ service: "DoorDash", url: "https://delivery.example.test/store" }],
+    reservation: [{ service: "OpenTable", url: "https://reserve.example.test/book" }],
+    waitlist: [{ service: "Yelp", url: "https://wait.example.test/join" }],
+  });
+  assert.deepEqual(normalizeLocation({
+    ordering_links: null,
+    delivery_links: { service: "other", url: "https://delivery.example.test/store" },
+    reservation_links: [{ service: "other", url: false }],
+  }).providerLinks, {});
+});
+
+test("normalizes dated exceptions with titles and notes without filtering by the current date", () => {
+  const location = normalizeLocation({
+    timezone: "Pacific/Honolulu",
+    special_hours: [
+      { date: "2000-12-25", title: " Christmas ", closed24Hours: true, notes: " Private event " },
+      { date: "2096-02-29", title: null, openTime: "9:00:00", closeTime: "16:30", notes: "Bar closes early" },
+      { date: "2096-03-01", title: "Overnight event", open24Hours: true, notes: "Lobby only" },
+      { date: "2097-02-29", closed24Hours: true },
+      { date: "2096-03-02", openTime: "bad", closeTime: "16:00" },
+      { date: "2096-03-03", openTime: "09:00" },
+      { date: "2096-03-04", hidden: true, closed24Hours: true },
+      { date: "03/05/2096", closed24Hours: true },
+      null,
+    ],
+  });
+
+  assert.deepEqual(location.specialHours, [
+    { date: "2000-12-25", label: "Christmas", value: "Closed (Private event)" },
+    { date: "2096-02-29", label: "Special hours", value: "9 AM - 4:30 PM (Bar closes early)" },
+    { date: "2096-03-01", label: "Overnight event", value: "Open 24 hours (Lobby only)" },
+  ]);
+  assert.deepEqual(location.hours, []);
+  assert.deepEqual(location.openingHoursSpecification, []);
+  assert.deepEqual(normalizeLocation({ special_hours: null }).specialHours, []);
+});
+
+test("keeps named Backstage hour groups separate without changing flat hours", () => {
+  const location = normalizeLocation({
+    hours: [
+      { label: null, days: [{ day: "Friday", closed24Hours: true }] },
+      { label: " Kitchen ", days: [
+        { day: "Tuesday", openTime: "11:00", closeTime: "21:00" },
+        { day: "Monday", openTime: "11:00", closeTime: "21:00" },
+        { day: "Thursday", hidden: true, openTime: "11:00", closeTime: "21:00" },
+      ] },
+      { label: "Patio", days: [{ day: "Wednesday", openTime: "11:00", closeTime: "21:00" }] },
+      { label: "Empty", days: [null, { day: "Funday", closed24Hours: true }] },
+      null,
+    ],
+  });
+
+  assert.deepEqual(location.hourGroups, [
+    { label: null, hours: [{ day: "Fri", value: "Closed", order: 4 }] },
+    { label: "Kitchen", hours: [{ day: "Mon-Tue", value: "11 AM - 9 PM", order: 1 }] },
+    { label: "Patio", hours: [{ day: "Wed", value: "11 AM - 9 PM", order: 2 }] },
+  ]);
+  assert.deepEqual(location.hours, [
+    { day: "Mon-Wed", value: "11 AM - 9 PM", order: 2 },
+    { day: "Fri", value: "Closed", order: 4 },
+  ]);
 });
 
 test("normalizes legacy opening hours and omits invalid or incomplete schedule rows", () => {

@@ -45,3 +45,14 @@ jobs:
           SITE_INDEXABLE: "true"
       - name: Verify production forms are enabled
         run: node scripts/assert-form-output.mjs enabled
+      - name: Build and verify multi-location restaurant
+        run: |
+          npm run build
+          node scripts/assert-built-site.mjs indexable
+          node scripts/assert-multi-location-site.mjs indexable
+        env:
+          BACKSTAGE_SOURCE: fixture
+          BACKSTAGE_FIXTURE: multi-location
+          BACKSTAGE_FORM_SUBMISSIONS_ENABLED: "false"
+          SITE_URL: https://starter.example
+          SITE_INDEXABLE: "true"

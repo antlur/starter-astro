@@ -883,8 +883,10 @@ const getBackstageClient = (): BackstageClient => {
 
 export const resolveBackstageRoute = async (path: string): Promise<unknown> => {
   if (import.meta.env.BACKSTAGE_SOURCE === "fixture") {
-    const { fixtureRouteResolutions } = await import("../../fixtures/routes");
-    return fixtureRouteResolutions[path] ?? {
+    const resolutions = import.meta.env.BACKSTAGE_FIXTURE === "multi-location"
+      ? (await import("../../fixtures/multi-location")).multiLocationRouteResolutions
+      : (await import("../../fixtures/routes")).fixtureRouteResolutions;
+    return resolutions[path] ?? {
       type: "fixture",
       data: null,
       meta: { id: null, type: "fixture", path },
@@ -919,6 +921,10 @@ const loadSiteContent = async (
   );
 
   if (source === "fixture") {
+    if (import.meta.env.BACKSTAGE_FIXTURE === "multi-location") {
+      const { multiLocationSiteContent } = await import("../../fixtures/multi-location");
+      return multiLocationSiteContent;
+    }
     const { fixtureSiteContent } = await import("../../fixtures/site-content");
     return fixtureSiteContent;
   }
