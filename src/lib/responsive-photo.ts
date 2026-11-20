@@ -1,6 +1,7 @@
 import { getImage } from "astro:assets";
 
-export async function responsivePhoto(src: string, dimensions: { width: number; height: number } | null, sizes: string) {
+export async function responsivePhoto(src: string, dimensions: { width: number; height: number } | null, sizes: string):
+  Promise<{ src?: string; srcset?: string; sizes?: string }> {
   if (!dimensions || !/^https:\/\/cdn\.bckstg\.app\/media\/[^?#]+\.(?:jpe?g|png|webp|avif)$/i.test(src)) return {};
 
   const width = Math.min(dimensions.width, 1600);

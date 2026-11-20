@@ -64,7 +64,9 @@ const HeadingTag = isPrimary ? "h1" : "h2";
       {heroImages.map((image, index) => (
         <img
           class="hero__slide"
-          src={image.src}
+          src={slideSources[index]?.src ?? image.src}
+          srcset={slideSources[index]?.srcset}
+          sizes={slideSources[index]?.sizes}
           alt={image.alt}
           width={image.dimensions?.width ?? 1200}
           height={image.dimensions?.height ?? 900}
@@ -73,7 +75,6 @@ const HeadingTag = isPrimary ? "h1" : "h2";
           fetchpriority={isPrimary && index === 0 ? "high" : "auto"}
           loading={index > 0 || !isPrimary ? "lazy" : undefined}
           data-hero-slide
-          {...slideSources[index]}
         />
       ))}
       {heroImages.length > 1 && (
