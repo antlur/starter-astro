@@ -27,11 +27,6 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
 <section class:list={["media-text", `media-text--${imagePosition}`, `media-text--${sectionWidth}`]}>
   <div class="media-text__inner">
-    {image && (
-      <figure class="media-text__media">
-        <img src={image} alt={imageAlt} width={dimensions.width} height={dimensions.height} loading="lazy" decoding="async" />
-      </figure>
-    )}
     <div class="media-text__copy">
       {eyebrow && <p class="media-text__eyebrow">{eyebrow}</p>}
       {heading && <HeadingTag>{heading}</HeadingTag>}
@@ -39,6 +34,11 @@ const HeadingTag = isPrimary ? "h1" : "h2";
       {body && <div class="media-text__body" set:html={body} />}
       {actionLabel && actionHref && <a class="media-text__action" href={actionHref}>{actionLabel}</a>}
     </div>
+    {image && (
+      <figure class="media-text__media">
+        <img src={image} alt={imageAlt} width={dimensions.width} height={dimensions.height} loading="lazy" decoding="async" />
+      </figure>
+    )}
   </div>
 </section>
 
@@ -62,8 +62,8 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     margin-inline: auto;
   }
 
-  .media-text--right .media-text__media {
-    order: 2;
+  .media-text--left .media-text__media {
+    order: -1;
   }
 
   .media-text--full-width .media-text__inner {
@@ -82,6 +82,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     display: block;
     width: 100%;
     aspect-ratio: 4 / 3;
+    height: auto;
     object-fit: cover;
   }
 
@@ -173,7 +174,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
       gap: 1.5rem;
     }
 
-    .media-text--right .media-text__media {
+    .media-text--left .media-text__media {
       order: 0;
     }
 

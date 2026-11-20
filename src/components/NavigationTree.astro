@@ -6,9 +6,10 @@ interface Props {
   variant: "header" | "footer";
   pathname?: string;
   depth?: number;
+  activeSectionPaths?: string[];
 }
 
-const { items, variant, pathname, depth = 0 } = Astro.props;
+const { items, variant, pathname, depth = 0, activeSectionPaths = [] } = Astro.props;
 const listClass = variant === "header"
   ? depth === 0 ? "site-nav" : depth === 1 ? "site-nav-children" : "site-nav-children site-nav-children--nested"
   : depth === 0 ? "site-footer-nav-list" : "site-footer-nav-list site-footer-nav-list--nested";
@@ -23,11 +24,12 @@ const listClass = variant === "header"
         target={item.newWindow ? "_blank" : undefined}
         rel={item.newWindow ? "noopener noreferrer" : undefined}
         aria-current={pathname === item.url ? "page" : undefined}
+        data-active-section={activeSectionPaths.includes(item.url) ? "" : undefined}
       >{item.text}</a>
       {item.children.length > 0 && variant === "header" && (
         <details class="site-nav-menu">
           <summary aria-label={`Show ${item.text} pages`}><span aria-hidden="true"></span></summary>
-          <Astro.self items={item.children} variant={variant} pathname={pathname} depth={depth + 1} />
+          <Astro.self items={item.children} variant={variant} pathname={pathname} depth={depth + 1} activeSectionPaths={activeSectionPaths} />
         </details>
       )}
       {item.children.length > 0 && variant === "footer" && (

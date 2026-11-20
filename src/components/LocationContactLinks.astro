@@ -1,0 +1,42 @@
+---
+import type { SiteLocation } from "../lib/backstage/locations";
+import { phoneLabel } from "../lib/phone-label";
+
+interface Props {
+  routes: Array<{ path: string; location: SiteLocation }>;
+}
+
+const { routes } = Astro.props;
+---
+
+{routes.length > 0 && (
+  <section class="contact-locations" aria-labelledby="contact-locations-title">
+    <h2 id="contact-locations-title">Contact a location</h2>
+    <ul>
+      {routes.map(({ path, location }) => (
+        <li>
+          <h3><a href={path}>{location.name}</a></h3>
+          {location.addressLines.length > 0 && <address>{location.addressLines.join(", ")}</address>}
+          <div class="contact-locations__actions">
+            {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>Call {phoneLabel(location.phone)}</a>}
+            {location.email && <a href={`mailto:${location.email}`}>Email<span class="sr-only"> {location.name}</span></a>}
+            {location.mapUrl && <a href={location.mapUrl}>Directions<span class="sr-only"> to {location.name}</span></a>}
+            <a href={path}>Hours and details<span class="sr-only"> for {location.name}</span></a>
+          </div>
+        </li>
+      ))}
+    </ul>
+  </section>
+)}
+
+<style>
+  .contact-locations { width: min(calc(100% - 2.5rem), 54rem); margin: 0 auto 3.5rem; }
+  h2, h3 { font-family: var(--theme-font-heading); }
+  h2 { margin: 0 0 1rem; font-size: 1.8rem; }
+  h3 { margin: 0 0 0.25rem; font-size: 1.2rem; }
+  ul { display: grid; margin: 0; padding: 0; list-style: none; }
+  li { padding-block: 1rem; border-top: 1px solid var(--theme-color-border); }
+  address { font-style: normal; color: var(--theme-color-muted); }
+  .contact-locations__actions { display: flex; flex-wrap: wrap; gap: 0 1.25rem; margin-top: 0.35rem; }
+  .contact-locations__actions a { display: inline-flex; min-height: 2.75rem; align-items: center; color: var(--theme-color-action); text-underline-offset: 0.2em; }
+</style>

@@ -407,7 +407,7 @@ export const buildSiteRoutePlan = (
     if (path && !navigationPathOrder.has(path)) navigationPathOrder.set(path, index);
   });
   const routePathOrder = new Map(routePaths.map((path, index) => [path, index]));
-  const menuRoutes = [...menuRoutesByPath.values()].sort((left, right) => {
+  let menuRoutes = [...menuRoutesByPath.values()].sort((left, right) => {
     const leftNavigationOrder = navigationPathOrder.get(left.path);
     const rightNavigationOrder = navigationPathOrder.get(right.path);
     if (leftNavigationOrder !== undefined || rightNavigationOrder !== undefined) {
@@ -466,14 +466,22 @@ export const buildSiteRoutePlan = (
   const canAddChooser = (path: string) => !appOwnsPath(path) && !cmsPagePaths.has(path)
     && !ownedPaths.has(path) && !blueprintRoutes.some((route) => normalizeRoutePath(route.path) === path);
 
-  const menuLandingPath = canAddChooser("/menu/") ? "/menu/"
-    : restaurant && !routePaths.includes("/menus-by-location/") && canAddChooser("/menus-by-location/")
-      ? "/menus-by-location/" : null;
+  const root = "/menu/";
+  const alias = "/menus-by-location/";
+  const generatedRootMenu = restaurant && canonicalRoutesByPath.get(root)?.type === "menu"
+    && !menuLocationsByPath.has(root) && !appOwnsPath(root) && !cmsPagePaths.has(root)
+    && !blueprintRoutes.some((route) => normalizeRoutePath(route.path) === root)
+    && !navigationItems.some((item) => item.menuId && navigationPath(item.url) === root);
+  const menuLandingPath = canAddChooser(root) || generatedRootMenu ? root
+    : restaurant && canAddChooser(alias) ? alias : null;
+  const branchMenus = generatedRootMenu ? publicMenus.filter(({ path }) => path !== root) : publicMenus;
   if (new Set(publicLocations.map(({ location }) => location.id)).size > 1
     && menuLandingPath
-    && publicLocations.some((location) => menusForLocation(location, publicMenus, publicLocations).length > 0)) {
+    && publicLocations.some((location) => menusForLocation(location, branchMenus, publicLocations).length > 0)) {
     locationChooserRoutes.push({ path: menuLandingPath, purpose: "menu" });
     menuIndexPaths = menuIndexPaths.filter((path) => path !== menuLandingPath);
+    if (generatedRootMenu) menuRoutes = menuRoutes.filter(({ path }) => path !== root);
+    if (generatedRootMenu && canAddChooser(alias)) locationChooserRoutes.push({ path: alias, purpose: "menu" });
   }
 
   for (const purpose of Object.keys(locationServices) as LocationService[]) {

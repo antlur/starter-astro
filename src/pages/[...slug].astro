@@ -4,6 +4,7 @@ import BlueprintRouteContent from "../components/BlueprintRouteContent.astro";
 import EventPage from "../components/EventPage.astro";
 import LocationPage from "../components/LocationPage.astro";
 import LocationDirectoryPage from "../components/LocationDirectoryPage.astro";
+import LocationContactLinks from "../components/LocationContactLinks.astro";
 import MenuPage from "../components/MenuPage.astro";
 import PressPage from "../components/PressPage.astro";
 import SiteLayout from "../layouts/SiteLayout.astro";
@@ -14,6 +15,7 @@ import { getSiteBuild, resolveGeneratedRouteSeo } from "../site/build";
 import { locationRouteForPath, menuLocationScopeForRoute, menuRoutesForLocation, type SiteMenuRoute } from "../site/menu-routes";
 import { locationServices } from "../site/location-choices";
 import { assertStaticRoutesEmitted } from "../site/routes";
+import { isRestaurantProfile } from "../site/profile";
 
 export const getStaticPaths = async () => {
   const { content, routePlan, resolvedRoutes } = await getSiteBuild();
@@ -59,6 +61,7 @@ export const getStaticPaths = async () => {
       params: { slug: path.replace(/^\/|\/$/g, "") },
       props: {
         page,
+        ...(isRestaurantProfile() && path === "/contact/" && { locationRoutes }),
         site: content.site,
         locations,
         pathname: path,
@@ -203,7 +206,8 @@ export const getStaticPaths = async () => {
     },
   }));
 
-  const menuDirectoryPath = routePlan.locationChooserRoutes.find(({ purpose }) => purpose === "menu")?.path;
+  const menuSectionPaths = routePlan.locationChooserRoutes.filter(({ purpose }) => purpose === "menu").map(({ path }) => path);
+  const menuDirectoryPath = menuSectionPaths[0];
   const staticPages = [
     ...cmsPages,
     ...blueprintPages,
@@ -221,7 +225,7 @@ export const getStaticPaths = async () => {
       : locationRouteForPath(props.pathname, locationRoutes)?.location;
     return {
       params,
-      props: { ...props, currentLocation, menuDirectoryPath, locationDirectoryPath: routePlan.locationIndexPaths[0] },
+      props: { ...props, currentLocation, menuDirectoryPath, menuSectionPaths: "menuRoute" in props || ("locationChooser" in props && props.locationChooser === "menu") ? menuSectionPaths : [], locationDirectoryPath: routePlan.locationIndexPaths[0] },
     };
   });
   assertStaticRoutesEmitted(routePlan, staticPages.map(({ props }) => props.pathname), import.meta.env.SITE_INDEXABLE === "true");
@@ -229,7 +233,7 @@ export const getStaticPaths = async () => {
   return staticPages;
 };
 
-const { page, route, routeSeo, menuRoute, menuRoutes, menuDirectoryPath, eventRoute, eventIndexPath, events, locationRoute, locationIndexPath, locationChooser, locationRoutes, currentLocation, locationDirectoryPath, pressRoute, pressIndexPath, pressReleases, site, pathname, navigation, footerNavigation, routePaths, alerts, locations } = Astro.props;
+const { page, route, routeSeo, menuRoute, menuRoutes, menuDirectoryPath, menuSectionPaths, eventRoute, eventIndexPath, events, locationRoute, locationIndexPath, locationChooser, locationRoutes, currentLocation, locationDirectoryPath, pressRoute, pressIndexPath, pressReleases, site, pathname, navigation, footerNavigation, routePaths, alerts, locations } = Astro.props;
 const chooserTitle = locationChooser === "menu" ? "Menus by location" : locationChooser ? locationServices[locationChooser].label : null;
 const pageTitle = routeSeo?.title ?? chooserTitle ?? (pressRoute?.kind === "detail"
   ? pressRoute.release.title
@@ -263,9 +267,9 @@ const pageImage = pressRoute?.kind === "detail"
 const contentType = pressRoute?.kind === "detail" || eventRoute?.kind === "detail" ? "article" : "website";
 ---
 
-<SiteLayout page={page} pageTitle={route?.seoTitle ?? routeSeo?.title ?? route?.title ?? menuRoute?.menu.title ?? pageTitle} pageDescription={route?.seoDescription ?? routeSeo?.description ?? menuRoute?.menu.subtitle ?? pageDescription} pageImage={pageImage} contentType={contentType} site={site} pathname={pathname} navigation={navigation} footerNavigation={footerNavigation} routePaths={routePaths} alerts={alerts} locations={locations} currentLocation={currentLocation} locationDirectoryPath={locationDirectoryPath} showLocationHours={!locationRoute}>
+<SiteLayout page={page} pageTitle={route?.seoTitle ?? routeSeo?.title ?? route?.title ?? menuRoute?.menu.title ?? pageTitle} pageDescription={route?.seoDescription ?? routeSeo?.description ?? menuRoute?.menu.subtitle ?? pageDescription} pageImage={pageImage} contentType={contentType} site={site} pathname={pathname} navigation={navigation} footerNavigation={footerNavigation} routePaths={routePaths} alerts={alerts} locations={locations} currentLocation={currentLocation} locationDirectoryPath={locationDirectoryPath} showLocationHours={!locationRoute} menuSectionPaths={menuSectionPaths}>
   {page
-    ? <PageContent page={page} />
+    ? <><PageContent page={page} />{locationRoutes && <LocationContactLinks routes={locationRoutes} />}</>
     : route
       ? <BlueprintRouteContent route={route} />
       : menuRoute

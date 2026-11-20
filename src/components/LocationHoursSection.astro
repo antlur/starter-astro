@@ -1,4 +1,5 @@
 ---
+import { phoneLabel } from "../lib/phone-label";
 import type { SiteLocation } from "../lib/backstage/locations";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import LocationSchedule from "./LocationSchedule.astro";
@@ -31,7 +32,7 @@ const { locations } = Astro.props;
                 </address>
               )}
               <div class="location-hours__contact">
-                {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{location.phone}</a>}
+                {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{phoneLabel(location.phone)}</a>}
                 {location.mapUrl && <a class="location-hours__directions" href={location.mapUrl} target="_blank" rel="noopener noreferrer">Get directions<span class="sr-only"> to {location.name}</span></a>}
               </div>
             </div>

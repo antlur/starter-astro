@@ -1,7 +1,8 @@
 ---
 import { sanitizeRichText } from "../../lib/sanitize-rich-text";
 import type { HeadlessBlock } from "../../lib/backstage/content";
-import { mediaAltText, safeAltText, safeImageUrl, safeSiteLinkUrl } from "../../lib/safe-url";
+import { mediaAltText, mediaDimensions, safeAltText, safeImageUrl, safeSiteLinkUrl } from "../../lib/safe-url";
+import { responsivePhoto } from "../../lib/responsive-photo";
 
 interface Props {
   block: HeadlessBlock;
@@ -23,7 +24,7 @@ const eyebrow = text("eyebrow");
 const body = text("body") ? sanitizeRichText(text("body")) : "";
 const heroImages = (Array.isArray(fields.image) ? fields.image : [fields.image]).flatMap((media) => {
   const src = safeImageUrl(media);
-  return src ? [{ src, alt: safeAltText(text("imageAlt")) || mediaAltText(media) }] : [];
+  return src ? [{ src, dimensions: mediaDimensions(media), alt: safeAltText(text("imageAlt")) || mediaAltText(media) }] : [];
 });
 const logoSrc = safeImageUrl(fields.logo);
 const logoAlt = safeAltText(text("logoAlt")) || mediaAltText(fields.logo);
@@ -41,6 +42,8 @@ const safeActions = actions.flatMap((action) => {
 });
 const imageOnly = heroImages.length > 0 && !eyebrow && !heading && !body && safeActions.length === 0;
 const fullBleed = variant === "full-bleed-image" || imageOnly;
+const slideSources = await Promise.all(heroImages.map(({ src, dimensions }) =>
+  responsivePhoto(src, dimensions, fullBleed ? "100vw" : "(max-width: 760px) 100vw, 55vw")));
 const HeadingTag = isPrimary ? "h1" : "h2";
 ---
 
@@ -63,13 +66,14 @@ const HeadingTag = isPrimary ? "h1" : "h2";
           class="hero__slide"
           src={image.src}
           alt={image.alt}
-          width="1200"
-          height="900"
+          width={image.dimensions?.width ?? 1200}
+          height={image.dimensions?.height ?? 900}
           hidden={index > 0}
           aria-hidden={index > 0 ? "true" : "false"}
           fetchpriority={isPrimary && index === 0 ? "high" : "auto"}
           loading={index > 0 || !isPrimary ? "lazy" : undefined}
           data-hero-slide
+          {...slideSources[index]}
         />
       ))}
       {heroImages.length > 1 && (
@@ -419,6 +423,10 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     .hero--full-bleed {
       min-height: min(35rem, 72svh);
       align-content: end;
+    }
+
+    .hero--full-bleed:not(.hero--image-only) .hero__media::after {
+      background: linear-gradient(0deg, rgb(16 28 22 / 0.9) 12%, rgb(16 28 22 / 0.65) 66%, rgb(16 28 22 / 0.16));
     }
 
     .hero--full-bleed.hero--image-only {

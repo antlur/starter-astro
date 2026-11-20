@@ -33,14 +33,34 @@ test("does not replace an explicit canonical brand menu with a branch chooser", 
   assert.ok(routePlan.menuRoutes.some(({ path }) => path === "/menu/"));
 });
 
-test("gives the restaurant profile a reachable branch menu chooser without replacing the canonical menu", () => {
+test("replaces the generated unscoped root with a branch chooser in the restaurant profile", () => {
   const [menu] = content.menus;
   const canonicalMenu = { path: "/menu/", value: { type: "menu", data: menu, meta: { type: "menu", id: menu.id, path: "/menu/", location: null } } };
   const plan = buildSiteRoutePlan(content, [], [], [...resolutions, canonicalMenu], true);
-  assert.ok(plan.menuRoutes.some(({ path }) => path === "/menu/"));
-  assert.deepEqual(plan.locationChooserRoutes.filter(({ purpose }) => purpose === "menu"), [{ path: "/menus-by-location/", purpose: "menu" }]);
+  assert.ok(!plan.menuRoutes.some(({ path }) => path === "/menu/"));
+  assert.ok(plan.menuRoutes.some(({ path }) => path.startsWith("/locations/riverfront/menu/")));
+  assert.deepEqual(plan.locationChooserRoutes.filter(({ purpose }) => purpose === "menu").map(({ path }) => path),
+    ["/menu/", "/menus-by-location/"]);
   const reserved = buildSiteRoutePlan(content, ["/menus-by-location/"], [], [...resolutions, canonicalMenu], true);
-  assert.equal(reserved.locationChooserRoutes.some(({ purpose }) => purpose === "menu"), false);
+  assert.deepEqual(reserved.locationChooserRoutes.filter(({ purpose }) => purpose === "menu").map(({ path }) => path), ["/menu/"]);
+});
+
+test("preserves a restaurant root menu explicitly chosen in navigation", () => {
+  const [menu] = content.menus;
+  const canonicalMenu = { path: "/menu/", value: { type: "menu", data: menu, meta: { type: "menu", id: menu.id, path: "/menu/", location: null } } };
+  const navigation = [{ id: "root-menu", text: "Menu", url: "/menu/", newWindow: false, menuId: menu.id, children: [] }];
+  const plan = buildSiteRoutePlan({ ...content, navigation }, [], [], [...resolutions, canonicalMenu], true);
+  assert.ok(plan.menuRoutes.some(({ path }) => path === "/menu/"));
+  assert.deepEqual(plan.locationChooserRoutes.filter(({ purpose }) => purpose === "menu").map(({ path }) => path), ["/menus-by-location/"]);
+});
+
+test("preserves a location-owned root alias in the restaurant profile", () => {
+  const [menu] = content.menus;
+  const [location] = content.locations;
+  const scopedMenu = { path: "/menu/", value: { type: "menu", data: menu, meta: { type: "menu", id: menu.id, path: "/menu/", location: { id: location.id } } } };
+  const plan = buildSiteRoutePlan(content, [], [], [...resolutions, scopedMenu], true);
+  assert.ok(plan.menuRoutes.some(({ path, locationId }) => path === "/menu/" && locationId === location.id));
+  assert.ok(!plan.locationChooserRoutes.some(({ path }) => path === "/menu/"));
 });
 
 test("uses explicit location ownership for shared menu aliases outside location prefixes", () => {
