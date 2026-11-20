@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import "./load-env";
 import { fileURLToPath } from "node:url";
 import { BackstageClient } from "@antlur/backstage";
 import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
@@ -12,10 +12,7 @@ import {
 } from "../src/lib/backstage/setup";
 import { applyStarterSitePages } from "../src/lib/backstage/site-initializer";
 import { syncBlockManifests } from "../src/lib/backstage/sync-blocks";
-
-for (const envFile of [".env.development.local", ".env.local", ".env.development", ".env"]) {
-  if (existsSync(envFile)) process.loadEnvFile(envFile);
-}
+import { isRestaurantProfile } from "../src/site/profile";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -57,6 +54,7 @@ async function main() {
   }
 
   const apply = flags.has("--apply");
+  const restaurant = isRestaurantProfile();
   const initializeSite = flags.has("--site");
   const confirmContactFormRecipient = flags.has("--confirm-contact-form-recipient");
   const manifests = loadBlockManifests(fileURLToPath(new URL("../src/blocks/", import.meta.url)));
@@ -65,6 +63,7 @@ async function main() {
   if (flags.has("--readiness")) {
     const report = await inspectStarterReadiness(client, manifests, {
       navigationId: process.env.BACKSTAGE_NAVIGATION_ID,
+      restaurant,
     });
 
     process.stdout.write(`${formatStarterReadinessReport(report)}\n`);
@@ -77,7 +76,7 @@ async function main() {
     navigationId: process.env.BACKSTAGE_NAVIGATION_ID,
   });
 
-  console.log("Backstage Astro Starter setup");
+  console.log(restaurant ? "Backstage Astro restaurant setup" : "Backstage Astro Starter setup");
   console.log(`Websites: ${report.websiteCount}${report.websiteName ? ` (${report.websiteName})` : ""}`);
   console.log(`CMS Custom Blocks: ${report.customBlocksEnabled ? "enabled" : "disabled"}`);
   const navigationSummary = {
@@ -103,7 +102,7 @@ async function main() {
   for (const warning of report.warnings) console.warn(`- ${warning}`);
 
   const siteSetup = initializeSite
-    ? await inspectStarterSiteSetup(client, manifests, { contactFormId, confirmContactFormRecipient })
+    ? await inspectStarterSiteSetup(client, manifests, { contactFormId, confirmContactFormRecipient, restaurant })
     : null;
   if (siteSetup?.plan) {
     console.log("Starter page plan:");

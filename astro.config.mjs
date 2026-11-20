@@ -21,6 +21,9 @@ export default defineConfig({
   trailingSlash: "always",
   integrations: indexable ? [sitemap()] : [],
   vite: {
+    define: {
+      "process.env.BACKSTAGE_SITE_PROFILE": JSON.stringify(env.BACKSTAGE_SITE_PROFILE ?? ""),
+    },
     plugins: [tailwindcss()],
   },
 });

@@ -2,6 +2,8 @@
 
 Use this flow for a new Backstage account and a new repository based on the canonical `antlur/starter-astro` template. It creates a small Home/About scaffold; branding and real business content remain yours to configure.
 
+For a standard restaurant on the shared template, use the [restaurant launch runbook](RESTAURANT_LAUNCH.md) instead. It covers multi-location setup, editor-managed branding, and the timed rehearsal.
+
 ## 1. Prepare Backstage
 
 - Create the account and its website.

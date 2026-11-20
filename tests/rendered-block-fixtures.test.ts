@@ -12,7 +12,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 
 test("static fixture builds isolate local design and pull both Brand and Theme only when opted in", async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "starter-design-source-"));
-  const envKeys = ["NODE_ENV", "BACKSTAGE_SOURCE", "SITE_INDEXABLE", "SITE_URL"] as const;
+  const envKeys = ["NODE_ENV", "BACKSTAGE_SOURCE", "BACKSTAGE_SITE_PROFILE", "SITE_INDEXABLE", "SITE_URL"] as const;
   const previousEnv = new Map(envKeys.map((key) => [key, process.env[key]]));
   const cssPaths = ["brand", "theme", "ui"].map((name) => path.join(root, `src/styles/tokens/${name}.css`));
   const before = await Promise.all(cssPaths.map((file) => readFile(file, "utf8")));
@@ -22,19 +22,11 @@ test("static fixture builds isolate local design and pull both Brand and Theme o
   process.env.SITE_URL = "https://starter.example";
   try {
     for (const source of ["local", "backstage"]) {
+      process.env.BACKSTAGE_SITE_PROFILE = source === "backstage" ? "restaurant" : "";
       await build({
         root,
         outDir: path.join(outputDirectory, "dist"),
         logLevel: "silent",
-        vite: { plugins: [{
-          name: "test-design-source",
-          enforce: "pre",
-          transform(code, id) {
-            if (id.split("?")[0] !== path.join(root, "backstage.config.ts")) return;
-            assert.ok(code.includes('source: "local"'), "The starter must default to local design.");
-            return code.replace('source: "local"', `source: "${source}"`);
-          },
-        }] },
       });
       execFileSync(process.execPath, [path.join(root, "scripts/assert-theme-token-output.mjs"), source], { cwd: outputDirectory });
       const html = await readFile(path.join(outputDirectory, "dist/index.html"), "utf8");

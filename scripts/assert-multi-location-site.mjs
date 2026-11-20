@@ -78,7 +78,17 @@ const assertMenuLinks = (root, expected, path) => {
   assert.deepEqual([...new Set(actual)].sort(), [...expected].sort(), `${path} menu links must stay within the active branch.`);
 };
 
-const { doc: home } = readPage("/", "Fieldwork Kitchen");
+const { doc: home, main: homeMain } = readPage("/", "Fieldwork Kitchen");
+assert.ok(links(homeMain).includes("/menu/") && links(homeMain).includes("/locations/"), "Home must lead to the menu and location directory.");
+readPage("/about/", "About Fieldwork Kitchen");
+const { main: contact } = readPage("/contact/", "Get in touch");
+assert.ok(elements(contact, "fieldset").some(({ attribs }) => "disabled" in attribs), "The synthetic Contact form must be disabled.");
+assert.ok(elements(contact, "form").every(({ attribs }) => !attribs.action), "The synthetic Contact form must not submit.");
+if (process.env.BACKSTAGE_SITE_PROFILE === "restaurant") {
+  const html = elements(home, "html")[0];
+  assert.match(html.attribs.style ?? "", /--brand-color-primary:\s*#583124/i);
+  assert.match(html.attribs.style ?? "", /--theme-color-action:\s*#874027/i);
+}
 const homeTopbar = topbar(home);
 assert.ok(elements(homeTopbar, "a").some((node) =>
   node.attribs.href === "/locations/" && text(node) === "Find a location"

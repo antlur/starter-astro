@@ -34,6 +34,8 @@ Navigation is read from Backstage. If the account has exactly one navigation, th
 
 ## Multi-location restaurant sites
 
+Follow the [standard restaurant launch runbook](RESTAURANT_LAUNCH.md) to set up a shared-template site without changing source files. Set `BACKSTAGE_SITE_PROFILE=restaurant` in the site build and setup environment to opt into the restaurant page recipe, launch checks, and Backstage-managed design. The generic starter stays local-first when the variable is unset.
+
 Use one Backstage website with multiple public Location records. Assign published menus to the appropriate locations and configure ordering, delivery, reservation and waitlist URLs on the location records. Location pages show their own menus, services, named weekly schedules and dated exceptions. Set location time zones for date-based hours. Public pages are static: changes and the removal of past exceptions are reflected on the next build.
 
 Use the Backstage Locations directory in navigation. When a site has multiple routable locations, `/menu/` can offer menus grouped by branch if no CMS, canonical menu, or application route already owns it. Add `/order-online/`, `/delivery/`, `/reservations/` or `/waitlist/` to Backstage navigation to link to a Starter chooser: it is built only when it does not replace an existing route and at least one public, routable location has that service. To send visitors straight to a provider for a single-location site, configure that URL in navigation. No provider accounts or API access are needed for these links.
@@ -41,8 +43,8 @@ Use the Backstage Locations directory in navigation. When a site has multiple ro
 For a synthetic, five-location preview, run:
 
 ```sh
-BACKSTAGE_SOURCE=fixture BACKSTAGE_FIXTURE=multi-location SITE_INDEXABLE=false npm run build
-node scripts/assert-multi-location-site.mjs preview
+BACKSTAGE_SOURCE=fixture BACKSTAGE_FIXTURE=multi-location BACKSTAGE_SITE_PROFILE=restaurant SITE_INDEXABLE=false npm run build
+BACKSTAGE_SITE_PROFILE=restaurant node scripts/assert-multi-location-site.mjs preview
 npm run preview
 ```
 

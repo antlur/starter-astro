@@ -33,6 +33,16 @@ test("does not replace an explicit canonical brand menu with a branch chooser", 
   assert.ok(routePlan.menuRoutes.some(({ path }) => path === "/menu/"));
 });
 
+test("gives the restaurant profile a reachable branch menu chooser without replacing the canonical menu", () => {
+  const [menu] = content.menus;
+  const canonicalMenu = { path: "/menu/", value: { type: "menu", data: menu, meta: { type: "menu", id: menu.id, path: "/menu/", location: null } } };
+  const plan = buildSiteRoutePlan(content, [], [], [...resolutions, canonicalMenu], true);
+  assert.ok(plan.menuRoutes.some(({ path }) => path === "/menu/"));
+  assert.deepEqual(plan.locationChooserRoutes.filter(({ purpose }) => purpose === "menu"), [{ path: "/menus-by-location/", purpose: "menu" }]);
+  const reserved = buildSiteRoutePlan(content, ["/menus-by-location/"], [], [...resolutions, canonicalMenu], true);
+  assert.equal(reserved.locationChooserRoutes.some(({ purpose }) => purpose === "menu"), false);
+});
+
 test("uses explicit location ownership for shared menu aliases outside location prefixes", () => {
   const plan = buildSiteRoutePlan(content, [], [], resolutions);
   const market = plan.locationRoutes.find(({ path }) => path === "/locations/market-street/")!;

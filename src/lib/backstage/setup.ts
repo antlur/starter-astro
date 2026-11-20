@@ -11,12 +11,13 @@ import {
   type SiteContentReadClient,
   type SiteNavigationItem,
 } from "./content";
-import { attachBackstageForms } from "./forms";
+import { attachBackstageForms, normalizeFormDefinition } from "./forms";
 import type { BlockManifest, BlockSyncClient, BlockSyncResult } from "./sync-blocks";
 import { syncBlockManifests, validateBlockManifests } from "./sync-blocks";
 import { safeLinkUrl, safeSiteLinkUrl } from "../safe-url";
 import { planStarterSitePages, type StarterSitePagePlan } from "./site-initializer";
 import { normalizeRoutePath, pageForCanonicalRoute } from "../../site/routes";
+import { inspectRestaurantLaunch } from "./restaurant-readiness";
 
 export type StarterSetupClient = BlockSyncClient & SiteContentReadClient & Pick<BackstageClient, "routes" | "forms">;
 
@@ -33,6 +34,7 @@ export type StarterNavigationStatus =
 export interface StarterSetupOptions {
   navigationId?: string;
   sdkRegistry?: readonly Pick<BlockManifest, "registry_identity">[];
+  restaurant?: boolean;
 }
 
 export interface StarterSetupReport {
@@ -61,10 +63,12 @@ export interface StarterSiteSetupOptions {
   contactFormId?: string;
   confirmContactFormRecipient?: boolean;
   sdkRegistry?: readonly Pick<BlockManifest, "registry_identity">[];
+  restaurant?: boolean;
 }
 
 export interface StarterReadinessReport {
   websiteName: string | null;
+  details?: string[];
   blockers: string[];
   warnings: string[];
   manualGates: string[];
@@ -75,6 +79,7 @@ export function formatStarterReadinessReport(report: StarterReadinessReport): st
 
   return [
     `Automated readiness: ${report.blockers.length === 0 ? "READY" : "BLOCKED"}${report.websiteName ? ` (${report.websiteName})` : ""}`,
+    ...(report.details ? section("Restaurant setup:", report.details) : []),
     ...section("Blockers:", report.blockers),
     ...section("Warnings:", report.warnings),
     ...section("Manual launch gates (not verified by this command):", report.manualGates),
@@ -345,12 +350,17 @@ export async function inspectStarterSiteSetup(
     } else if (!Array.isArray(form.fields) || form.fields.length === 0) {
       blockers.push("The selected Contact Form has no configured fields; configure the form in Backstage before applying starter pages.");
     } else {
-      contactFormId = form.id;
-      warnings.push("The selected form's recipient and delivery behavior cannot be verified by the Starter API check.");
+      try {
+        if (options.restaurant) normalizeFormDefinition(form, form.id);
+        contactFormId = form.id;
+        warnings.push("The selected form's recipient and delivery behavior cannot be verified by the Starter API check.");
+      } catch (error) {
+        blockers.push(`The selected Contact Form is not renderable: ${errorMessage(error)}`);
+      }
     }
   }
 
-  const plan = planStarterSitePages(website, pages, routes, contactFormId);
+  const plan = planStarterSitePages(website, pages, routes, contactFormId, options.restaurant);
   warnings.push(...plan.warnings);
   if (!plan.canApply) blockers.push("A starter page path is already claimed by a route that is not represented by a CMS page.");
 
@@ -369,6 +379,7 @@ export async function inspectStarterReadiness(
     "Review branding, SEO metadata, media, and content completeness manually; the setup APIs cannot certify these for launch.",
     "Validate the deployed domain, canonical URLs, and hosting behavior before launch; these are outside the account setup API.",
   ];
+  let restaurantDetails: string[] | undefined;
 
   let setup: StarterSetupReport;
   try {
@@ -480,12 +491,18 @@ export async function inspectStarterReadiness(
       const content = await loadSiteContentForReadiness(client, options.navigationId);
       readinessContent = content;
       const usableBeforeFiltering = usableNavigationItems(content.navigation);
-      if (usableBeforeFiltering.length > 0) {
+      if (usableBeforeFiltering.length > 0 || options.restaurant) {
         const builtSite = await buildSiteFromContent(content, (path) => client.routes.resolve(path));
         const usableAfterFiltering = usableNavigationItems(builtSite.routePlan.navigation);
 
-        if (usableAfterFiltering.length === 0) {
+        if (usableBeforeFiltering.length > 0 && usableAfterFiltering.length === 0) {
           blockers.push("Every usable Header Navigation link is removed by the rendered route graph. Add or publish the linked CMS/module routes in Backstage, or update the navigation.");
+        }
+        if (options.restaurant) {
+          const launch = inspectRestaurantLaunch(builtSite.content, builtSite.routePlan);
+          restaurantDetails = launch.details;
+          warnings.push(...launch.warnings);
+          blockers.push(...launch.blockers);
         }
       }
     } catch (error) {
@@ -535,5 +552,5 @@ export async function inspectStarterReadiness(
     }
   }
 
-  return { websiteName, blockers, warnings, manualGates };
+  return { websiteName, blockers, warnings, manualGates, ...(restaurantDetails && { details: restaurantDetails }) };
 }

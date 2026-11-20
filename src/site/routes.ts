@@ -7,6 +7,7 @@ import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "../lib/backst
 import type { BlueprintRoute } from "./blueprint-routes";
 import { locationServiceLinks, locationServices, type LocationChoice } from "./location-choices";
 import { menusForLocation, type SiteMenuRoute } from "./menu-routes";
+import { isRestaurantProfile } from "./profile";
 import declaredApplicationRoutePaths from "./application-route-paths.json" with { type: "json" };
 
 export interface CmsPageRoute {
@@ -254,6 +255,7 @@ export const buildSiteRoutePlan = (
   applicationPaths: readonly string[] = applicationRoutePaths,
   blueprintRoutes: readonly BlueprintRoute[] = [],
   resolvedRoutes: readonly ResolvedSiteRoute[] = [],
+  restaurant = isRestaurantProfile(),
 ): SiteRoutePlan => {
   const normalizedRoutePaths = content.routePaths.map(normalizeRoutePath);
   const routeCounts = new Map<string, number>();
@@ -464,9 +466,11 @@ export const buildSiteRoutePlan = (
   const canAddChooser = (path: string) => !appOwnsPath(path) && !cmsPagePaths.has(path)
     && !ownedPaths.has(path) && !blueprintRoutes.some((route) => normalizeRoutePath(route.path) === path);
 
-  const menuLandingPath = "/menu/";
+  const menuLandingPath = canAddChooser("/menu/") ? "/menu/"
+    : restaurant && !routePaths.includes("/menus-by-location/") && canAddChooser("/menus-by-location/")
+      ? "/menus-by-location/" : null;
   if (new Set(publicLocations.map(({ location }) => location.id)).size > 1
-    && canAddChooser(menuLandingPath)
+    && menuLandingPath
     && publicLocations.some((location) => menusForLocation(location, publicMenus, publicLocations).length > 0)) {
     locationChooserRoutes.push({ path: menuLandingPath, purpose: "menu" });
     menuIndexPaths = menuIndexPaths.filter((path) => path !== menuLandingPath);
