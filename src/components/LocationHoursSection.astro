@@ -1,6 +1,7 @@
 ---
 import type { SiteLocation } from "../lib/backstage/locations";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import LocationSchedule from "./LocationSchedule.astro";
 
 interface Props {
   locations: SiteLocation[];
@@ -34,14 +35,10 @@ const { locations } = Astro.props;
                 {location.mapUrl && <a class="location-hours__directions" href={location.mapUrl} target="_blank" rel="noopener noreferrer">Get directions<span class="sr-only"> to {location.name}</span></a>}
               </div>
             </div>
-            {location.hours.length > 0 && (
+            {(location.hours.length > 0 || Boolean(location.specialHours?.length)) && (
               <section class="location-hours__hours" aria-label={`${location.name} hours`}>
                 <h4>Hours</h4>
-                <dl>
-                  {location.hours.map((hours) => (
-                    <div><dt>{hours.day}</dt><dd>{hours.value}</dd></div>
-                  ))}
-                </dl>
+                <LocationSchedule location={location} groupHeading="h5" />
               </section>
             )}
             {location.mapEmbedUrl && (
@@ -175,28 +172,6 @@ const { locations } = Astro.props;
     margin: 0 0 0.75rem;
     font-size: 0.9rem;
     font-weight: 750;
-  }
-
-  .location-hours__hours dl {
-    display: grid;
-    gap: 0.35rem;
-    margin: 0;
-  }
-
-  .location-hours__hours dl > div {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-  }
-
-  .location-hours__hours dt {
-    font-weight: 650;
-  }
-
-  .location-hours__hours dd {
-    margin: 0;
-    opacity: 0.9;
-    text-align: right;
   }
 
   @media (max-width: 680px) {

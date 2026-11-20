@@ -6,6 +6,24 @@ export interface SiteLocationHours {
   order: number;
 }
 
+export type LocationService = "ordering" | "delivery" | "reservation" | "waitlist";
+
+export interface LocationProviderLink {
+  service: string;
+  url: string;
+}
+
+export interface SiteSpecialHours {
+  date: string;
+  label: string;
+  value: string;
+}
+
+export interface SiteLocationHourGroup {
+  label: string | null;
+  hours: SiteLocationHours[];
+}
+
 export interface SiteLocationPostalAddress {
   streetAddress?: string;
   addressLocality?: string;
@@ -43,6 +61,9 @@ export interface SiteLocation {
   imageHeight?: number;
   loyaltyUrl: string | null;
   hours: SiteLocationHours[];
+  providerLinks?: Partial<Record<LocationService, LocationProviderLink[]>>;
+  specialHours?: SiteSpecialHours[];
+  hourGroups?: SiteLocationHourGroup[];
   openingHoursSpecification?: SiteLocationOpeningHoursSpecification[];
 }
 
@@ -75,6 +96,34 @@ const safeMapEmbedUrl = (value: unknown): string | null => {
     && ["/maps/embed", "/maps/embed/v1/place"].includes(url.pathname)
     ? url.href
     : null;
+};
+
+const locationServices: readonly LocationService[] = ["ordering", "delivery", "reservation", "waitlist"];
+
+const normalizeProviderLinks = (location: Record<string, unknown>): NonNullable<SiteLocation["providerLinks"]> => {
+  const providers: NonNullable<SiteLocation["providerLinks"]> = {};
+  for (const service of locationServices) {
+    const rows = location[`${service}_links`];
+    if (!Array.isArray(rows)) continue;
+
+    const seen = new Set<string>();
+    const links = rows.flatMap((row) => {
+      if (!isRecord(row) || typeof row.service !== "string" || typeof row.url !== "string") return [];
+      const label = row.service.trim();
+      const candidate = row.url.trim();
+      // Require an explicit authority and reject credentials before URL normalization.
+      if (!label || /[\s\\]/.test(candidate) || !/^https?:\/\/[^/?#@]+(?=[/?#]|$)/i.test(candidate)) return [];
+      const url = safeHttpUrl(candidate);
+      if (!url) return [];
+
+      const key = JSON.stringify([label, url]);
+      if (seen.has(key)) return [];
+      seen.add(key);
+      return [{ service: label, url }];
+    });
+    if (links.length) providers[service] = links;
+  }
+  return providers;
 };
 
 export const locationSchemaUrl = (site: URL | undefined, pathname: string): string | undefined =>
@@ -154,6 +203,18 @@ export const groupLocationHours = (hours: SiteLocationHours[]): SiteLocationHour
   return grouped;
 };
 
+const normalizeHourGroups = (value: unknown, legacyHours: SiteLocationHours[]): SiteLocationHourGroup[] => {
+  if (!Array.isArray(value)) return [];
+
+  const groups = value.flatMap((group) => {
+    if (!isRecord(group) || !Array.isArray(group.days)) return [];
+    const hours = normalizeLocationHours(group.days);
+    const label = typeof group.label === "string" ? optionalString(group.label) : null;
+    return hours.length ? [{ label, hours }] : [];
+  });
+  return groups.length ? groups : legacyHours.length ? [{ label: null, hours: legacyHours }] : [];
+};
+
 const locationAddressLines = (value: Record<string, unknown>): string[] => {
   const cityRegion = [optionalString(value.city), optionalString(value.state)].filter(Boolean).join(", ");
   const cityLine = [cityRegion, optionalString(value.zip)].filter(Boolean).join(" ");
@@ -206,6 +267,32 @@ const schemaTime = (value: unknown): string | null => {
   if (!match || Number(match[1]) > 23) return null;
 
   return `${match[1].padStart(2, "0")}:${match[2]}`;
+};
+
+const normalizeSpecialHours = (value: unknown): SiteSpecialHours[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((row) => {
+    if (!isRecord(row) || row.hidden === true || typeof row.date !== "string") return [];
+    const date = row.date.trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || new Date(date).toJSON()?.slice(0, 10) !== date) return [];
+
+    let hours: string;
+    if (row.closed24Hours === true) {
+      hours = "Closed";
+    } else if (row.open24Hours === true) {
+      hours = "Open 24 hours";
+    } else {
+      const open = schemaTime(row.openTime);
+      const close = schemaTime(row.closeTime);
+      if (!open || !close) return [];
+      hours = `${formatTime(open)} - ${formatTime(close)}`;
+    }
+
+    const label = typeof row.title === "string" ? row.title.trim() : "";
+    const notes = typeof row.notes === "string" ? row.notes.trim() : "";
+    return [{ date, label: label || "Special hours", value: notes ? `${hours} (${notes})` : hours }];
+  });
 };
 
 export const normalizeLocationOpeningHours = (value: unknown): SiteLocationOpeningHoursSpecification[] =>
@@ -288,6 +375,7 @@ export const isPublicLocation = (location: Pick<SiteLocation, "isPublic" | "stat
 export const normalizeLocation = (value: unknown, index = 0): SiteLocation => {
   if (!isRecord(value)) throw new Error(`Backstage returned an invalid location at index ${index}.`);
   const dimensions = mediaDimensions(value.featured_media);
+  const hours = normalizeLocationHours(value.hours);
 
   return {
     id: optionalString(value.id) ?? `location-${index}`,
@@ -320,7 +408,10 @@ export const normalizeLocation = (value: unknown, index = 0): SiteLocation => {
     imageWidth: dimensions?.width,
     imageHeight: dimensions?.height,
     loyaltyUrl: safeSiteLinkUrl(value.loyalty_url),
-    hours: normalizeLocationHours(value.hours),
+    hours,
+    providerLinks: normalizeProviderLinks(value),
+    specialHours: normalizeSpecialHours(value.special_hours),
+    hourGroups: normalizeHourGroups(value.hours, hours),
     openingHoursSpecification: normalizeLocationOpeningHours(value.hours),
   };
 };

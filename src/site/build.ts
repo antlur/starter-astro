@@ -134,7 +134,7 @@ const heuristicModuleCandidatePaths = (content: SiteContent): string[] => {
   candidates.add("/events/");
 
   const menuNavigationItems = flattenNavigation(content.navigation).filter((item) => item.menuId);
-  if (menuNavigationItems.length > 0) candidates.add("/menu/");
+  candidates.add("/menu/");
 
   for (const location of content.locations) {
     if (!location.slug || !uniqueModuleSlug(location.slug)) continue;

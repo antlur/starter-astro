@@ -16,6 +16,6 @@ test("homepage shares only public locations with its layout and location-hours s
   ]);
   assert.match(homePage, /const publicLocations = content\.locations\.filter\(isPublicLocation\);/);
   assert.match(homePage, /locations=\{publicLocations\}/);
-  assert.match(homePage, /publicLocations\.length > 0 && <LocationHoursSection locations=\{publicLocations\} \/>/);
+  assert.match(homePage, /publicLocations\.length === 1 && <LocationHoursSection locations=\{publicLocations\} \/>/);
   assert.doesNotMatch(homePage, /locations=\{content\.locations\}/);
 });

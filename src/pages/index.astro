@@ -11,7 +11,7 @@ const page = getHomePage(content.pages);
 const publicLocations = content.locations.filter(isPublicLocation);
 ---
 
-<SiteLayout page={page} site={content.site} pathname="/" navigation={routePlan.navigation} footerNavigation={routePlan.footerNavigation} routePaths={content.routePaths} alerts={content.alerts} locations={publicLocations} showLocationHours={false}>
+<SiteLayout page={page} site={content.site} pathname="/" navigation={routePlan.navigation} footerNavigation={routePlan.footerNavigation} routePaths={content.routePaths} alerts={content.alerts} locations={publicLocations} locationDirectoryPath={routePlan.locationIndexPaths[0]} showLocationHours={false}>
   <PageContent page={page} />
-  {publicLocations.length > 0 && <LocationHoursSection locations={publicLocations} />}
+  {publicLocations.length === 1 && <LocationHoursSection locations={publicLocations} />}
 </SiteLayout>

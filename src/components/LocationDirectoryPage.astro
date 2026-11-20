@@ -1,25 +1,39 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import type { SiteLocation } from "../lib/backstage/locations";
+import LocationActions from "./LocationActions.astro";
+import { locationServiceLinks, locationServices, type LocationChoice } from "../site/location-choices";
+import { menusForLocation, type SiteMenuRoute } from "../site/menu-routes";
 
 interface Props {
   locations: Array<{ path: string; location: SiteLocation }>;
+  purpose?: LocationChoice;
+  menuRoutes?: SiteMenuRoute[];
 }
 
-const locations = Astro.props.locations.toSorted((left, right) => left.location.name.localeCompare(right.location.name));
+const { locations, purpose, menuRoutes = [] } = Astro.props;
+const cards = locations.toSorted((left, right) => left.location.name.localeCompare(right.location.name))
+  .flatMap((route) => {
+    const menus = purpose === "menu" ? menusForLocation(route, menuRoutes, locations) : [];
+    if (purpose === "menu" && menus.length === 0) return [];
+    if (purpose && purpose !== "menu" && locationServiceLinks(route.location, purpose).length === 0) return [];
+    return [{ ...route, menus }];
+  });
+const title = purpose === "menu" ? "Choose a location" : purpose ? locationServices[purpose].label : "Our locations";
+const intro = purpose === "menu" ? "See what's on the menu at each location."
+  : purpose ? "Choose a location for this service." : "Find a location, get directions, and plan your visit.";
 ---
 
 <section class="location-directory" aria-labelledby="location-directory-title">
   <header class="location-directory__intro">
-    <p class="location-directory__eyebrow">Find us</p>
-    <h1 id="location-directory-title">Our locations</h1>
-    <p>Find a location, get directions, and plan your visit.</p>
+    <h1 id="location-directory-title">{title}</h1>
+    <p>{intro}</p>
   </header>
 
-  {locations.length > 0 ? (
+  {cards.length > 0 ? (
     <div class="location-directory__grid">
-      {locations.map(({ path, location }) => {
-        const description = location.description ? sanitizeRichText(location.description) : "";
+      {cards.map(({ path, location, menus }) => {
+        const description = !purpose && location.description ? sanitizeRichText(location.description) : "";
         return (
           <article class="location-card">
             {location.imageUrl && <a class="location-card__image-link" href={path} aria-label={`Visit ${location.name}`}><img src={location.imageUrl} alt={location.imageAlt || location.name} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 1000} loading="lazy" decoding="async" /></a>}
@@ -27,11 +41,22 @@ const locations = Astro.props.locations.toSorted((left, right) => left.location.
               <h2><a href={path}>{location.name}</a></h2>
               {location.addressLines.length > 0 && <address>{location.addressLines.map((line) => <span>{line}</span>)}</address>}
               {description && <div class="location-card__description" set:html={description} />}
-              <div class="location-card__actions">
-                <a class="location-card__visit" href={path}>Location details</a>
-                {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {location.name}</span></a>}
-                {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{location.phone}</a>}
-              </div>
+              {purpose === "menu" ? (
+                <nav class="location-card__actions" aria-label={`Menus at ${location.name}`}>
+                  {menus.map((menu) => <a class="location-card__visit" href={menu.path}>{menu.label}<span class="sr-only"> at {location.name}</span></a>)}
+                </nav>
+              ) : (
+                <>
+                  {!purpose && (
+                    <div class="location-card__actions">
+                      <a class="location-card__visit" href={path}>Location details<span class="sr-only"> for {location.name}</span></a>
+                      {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {location.name}</span></a>}
+                      {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{location.phone}</a>}
+                    </div>
+                  )}
+                  <LocationActions location={location} service={purpose} />
+                </>
+              )}
             </div>
           </article>
         );
@@ -52,14 +77,6 @@ const locations = Astro.props.locations.toSorted((left, right) => left.location.
   .location-directory__intro {
     max-width: 48rem;
     margin-bottom: 2.5rem;
-  }
-
-  .location-directory__eyebrow {
-    margin: 0 0 0.75rem;
-    color: var(--color-accent-strong);
-    font-size: 0.82rem;
-    font-weight: 750;
-    text-transform: uppercase;
   }
 
   h1,
@@ -149,6 +166,7 @@ const locations = Astro.props.locations.toSorted((left, right) => left.location.
   .location-card__actions a {
     color: var(--color-ink);
     font-weight: 650;
+    overflow-wrap: anywhere;
     text-underline-offset: 0.18em;
   }
 

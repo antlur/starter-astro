@@ -1,0 +1,44 @@
+---
+import type { LocationService, SiteLocation } from "../lib/backstage/locations";
+import { locationServiceLinks, locationServices } from "../site/location-choices";
+
+interface Props {
+  location: SiteLocation;
+  service?: LocationService;
+}
+
+const { location, service } = Astro.props;
+const services = service ? [service] : Object.keys(locationServices) as LocationService[];
+const actions = services.flatMap((kind) => {
+  const links = locationServiceLinks(location, kind);
+  return links.map((link) => ({
+    ...link,
+    label: links.length > 1 ? `${locationServices[kind].label} via ${link.service}` : locationServices[kind].label,
+  }));
+});
+---
+
+{actions.length > 0 && (
+  <ul class="location-actions" aria-label={`Services at ${location.name}`}>
+    {actions.map(({ url, label }) => (
+      <li><a href={url}>{label}<span class="sr-only"> at {location.name}</span></a></li>
+    ))}
+  </ul>
+)}
+
+<style>
+  .location-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; padding: 0; margin: 1rem 0 0; list-style: none; }
+  .location-actions a {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    padding: 0.55rem 0.85rem;
+    color: var(--theme-color-action);
+    border: 1px solid currentColor;
+    border-radius: var(--ui-radius-sm);
+    font-weight: 650;
+    overflow-wrap: anywhere;
+    text-underline-offset: 0.18em;
+  }
+  .location-actions a:hover { background: var(--theme-color-action); color: var(--theme-color-primary-foreground); }
+</style>

@@ -6,6 +6,7 @@ export interface SiteMenuRoute {
   path: string;
   label: string;
   menu: SiteMenu;
+  locationId?: string;
 }
 
 export interface SiteLocationRoute {
@@ -15,6 +16,7 @@ export interface SiteLocationRoute {
 
 export interface SiteMenuLocationScope {
   path: string | null;
+  locationId?: string;
   menuIds: readonly string[] | null;
   otherLocationPaths: readonly string[];
   ambiguous?: boolean;
@@ -27,19 +29,29 @@ const pathWithin = (path: string, parentPath: string): boolean => {
   return normalizedPath === normalizedParent || normalizedPath.startsWith(normalizedParent);
 };
 
+export function locationRouteForPath<T extends SiteLocationRoute>(path: string, routes: readonly T[]) {
+  return routes.filter((route) => pathWithin(path, route.path))
+    .sort((left, right) => right.path.length - left.path.length)[0];
+}
+
 export const menuLocationScopeForRoute = (
   currentPath: string,
   currentMenuId: string,
   locations: readonly Pick<SiteLocation, "id" | "menuIds">[],
   locationRoutes: readonly SiteLocationRoute[],
+  locationId?: string,
 ): SiteMenuLocationScope | null => {
-  const pathLocation = [...locationRoutes]
-    .filter(({ path }) => pathWithin(currentPath, path))
-    .sort((left, right) => normalizeRoutePath(right.path).length - normalizeRoutePath(left.path).length)[0];
+  const pathLocation = locationId
+    ? locationRoutes.find(({ location }) => location.id === locationId)
+    : locationRouteForPath(currentPath, locationRoutes);
+  if (locationId && !pathLocation) {
+    return { path: null, locationId, menuIds: null, otherLocationPaths: [], ambiguous: true };
+  }
 
   if (pathLocation) {
     return {
       path: normalizeRoutePath(pathLocation.path),
+      locationId: pathLocation.location.id,
       menuIds: pathLocation.location.menuIds ?? null,
       otherLocationPaths: locationRoutes
         .filter(({ location }) => location.id !== pathLocation.location.id)
@@ -63,6 +75,7 @@ export const menuLocationScopeForRoute = (
 
   return {
     path: locationRoute ? normalizeRoutePath(locationRoute.path) : null,
+    locationId: location.id,
     menuIds: location.menuIds ?? null,
     otherLocationPaths: locationRoutes
       .filter(({ location: candidate }) => candidate.id !== location.id)
@@ -97,21 +110,22 @@ export const menuRoutesForLocation = (
 ): SiteMenuRoute[] => {
   if (!scope) return uniqueMenuRoutes(routes, currentPath);
 
-  const currentRoute = routes.find(({ path }) => normalizeRoutePath(path) === normalizeRoutePath(currentPath));
+  const currentRoute = routes.find(({ path, locationId }) => normalizeRoutePath(path) === normalizeRoutePath(currentPath)
+    && (!locationId || !scope.locationId || locationId === scope.locationId));
   if (scope.ambiguous || scope.menuIds === null) return currentRoute ? [currentRoute] : [];
 
   const allowedIds = new Set(scope.menuIds);
   const routesByMenu = new Map<string, SiteMenuRoute[]>();
   for (const route of routes) {
-    if (!allowedIds.has(route.menu.id)) continue;
+    if (!allowedIds.has(route.menu.id) || (route.locationId && route.locationId !== scope.locationId)) continue;
     routesByMenu.set(route.menu.id, [...(routesByMenu.get(route.menu.id) ?? []), route]);
   }
 
   const scopedRoutes: SiteMenuRoute[] = [];
   for (const candidates of routesByMenu.values()) {
-    const localRoutes = scope.path
-      ? candidates.filter(({ path }) => pathWithin(path, scope.path!))
-      : [];
+    const localRoutes = candidates.filter((route) => route.locationId
+      ? route.locationId === scope.locationId
+      : scope.path && pathWithin(route.path, scope.path));
 
     if (localRoutes.length > 0) {
       scopedRoutes.push(...localRoutes);
@@ -133,4 +147,25 @@ export const menuRoutesForLocation = (
   }
 
   return uniqueMenuRoutes(scopedRoutes, currentPath);
+};
+
+export const menusForLocation = (
+  route: SiteLocationRoute,
+  menus: readonly SiteMenuRoute[],
+  locations: readonly SiteLocationRoute[],
+): SiteMenuRoute[] => {
+  const { path, location } = route;
+  if (!location.menuIds?.length) return [];
+  const scoped = menuRoutesForLocation(menus, path, {
+    path,
+    locationId: location.id,
+    menuIds: location.menuIds,
+    otherLocationPaths: locations.filter((candidate) => candidate.location.id !== location.id).map((candidate) => candidate.path),
+  });
+  // Backstage serializes the location's menu associations in editorial order.
+  const byId = new Map(scoped.map((menu) => [menu.menu.id, menu]));
+  return location.menuIds.flatMap((id) => {
+    const menu = byId.get(id);
+    return menu ? [menu] : [];
+  });
 };
