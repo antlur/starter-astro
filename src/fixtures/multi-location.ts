@@ -1,6 +1,7 @@
-import type { SiteContent, SiteNavigationItem } from "../lib/backstage/content";
+import { normalizeWebsite, type BackstageFormDefinition, type HeadlessPage, type SiteContent, type SiteNavigationItem } from "../lib/backstage/content";
 import { normalizeLocation } from "../lib/backstage/locations";
 import { normalizeMenu } from "../lib/backstage/menus";
+import { createStarterSitePages } from "../lib/backstage/site-initializer";
 
 const makeMenu = (slug: string, title: string, item: string, price: string) => ({
   id: `fixture-menu-${slug}`,
@@ -119,32 +120,62 @@ const nav = (slug: string, text: string, style: SiteNavigationItem["style"] = "l
   children: [],
 });
 
+const siteName = "Fieldwork Kitchen";
+const diningRoom = { url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=85", alt: "Warmly lit dining room with tables set for guests" };
+const contactForm: BackstageFormDefinition = {
+  id: "fixture-restaurant-contact",
+  title: "Contact Fieldwork Kitchen",
+  action: "https://backstage.example.test/api/wa/forms/fixture-restaurant-contact",
+  recaptchaSiteKey: null,
+  fields: [
+    { id: "name", name: "name", label: "Name", type: "text", required: true, options: [] },
+    { id: "email", name: "email", label: "Email", type: "email", required: true, options: [] },
+    { id: "message", name: "message", label: "Message", type: "textarea", required: true, options: [] },
+  ],
+};
+const pages: HeadlessPage[] = createStarterSitePages({ id: "fixture-restaurant", app_name: siteName }, contactForm.id, true).map((page) => ({
+  id: `fixture-restaurant-${page.slug === "/" ? "home" : page.slug}`,
+  title: page.title,
+  slug: page.slug,
+  pathname: page.slug === "/" ? "/" : `/${page.slug}/`,
+  is_home: page.is_home === true,
+  layout: null,
+  settings: {},
+  blocks: (page.blocks?.blocks ?? []).map((block, index) => ({
+    id: `fixture-restaurant-${page.slug === "/" ? "home" : page.slug}-${index}`,
+    type: block.type,
+    fields: {
+      ...block.data,
+      ...(page.is_home && block.type === "hero" && {
+        variant: "full-bleed-image",
+        image: [diningRoom],
+        body: "<p>Seasonal cooking across five neighborhoods.</p>",
+        actions: [{ label: "Explore the menu", href: "/menu/" }, { label: "Find a location", href: "/locations/" }],
+      }),
+      ...(page.is_home && block.type === "call-to-action" && { button_label: "Find a location", button_url: "/locations/" }),
+    },
+    ...(block.type === "contact-form" && { form: contactForm }),
+  })),
+}));
+
 export const multiLocationSiteContent: SiteContent = {
-  site: {
-    name: "Fieldwork Kitchen",
-    domain: null,
-    socialLinks: [],
-    homeCta: null,
-  },
-  pages: [{
-    id: "fixture-restaurant-home",
-    title: "Fieldwork Kitchen",
-    slug: "/",
-    pathname: "/",
-    is_home: true,
-    settings: {},
-    layout: null,
-    blocks: [{
-      id: "fixture-restaurant-intro",
-      type: "rich-text",
-      fields: { body: "<h1>Fieldwork Kitchen</h1><p>Seasonal cooking across five neighborhoods.</p>" },
-    }],
-  }],
+  site: normalizeWebsite({
+    app_name: siteName,
+    meta: { title: siteName, description: "Seasonal cooking across five neighborhoods." },
+    theme: { colors: { palette: [{ token: "primary", value: "#583124" }] } },
+    theme_tokens: {
+      tokens: { action: { type: "color", cssVariable: "--theme-color-action", default: "#294c3d" } },
+      values: { action: "#874027" },
+    },
+  }),
+  pages,
   // /menu/ is a placeholder in the public graph. Service pickers are starter-owned.
-  routePaths: ["/", "/menu/", ...Object.keys(multiLocationRouteResolutions)],
+  routePaths: [...pages.map(({ pathname }) => pathname), "/menu/", ...Object.keys(multiLocationRouteResolutions)],
   navigation: [
     nav("locations", "Locations"),
     nav("menu", "Menu"),
+    nav("about", "About"),
+    nav("contact", "Contact"),
     nav("order-online", "Order online", "button"),
     nav("reservations", "Reservations"),
     nav("waitlist", "Waitlist"),

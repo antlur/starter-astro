@@ -37,8 +37,10 @@ function block(type: string, data: Record<string, unknown>): PageBlockWriteInput
 export function createStarterSitePages(
   website: StarterWebsite,
   contactFormId?: string,
+  restaurant = false,
 ): CreatePageParams[] {
-  const name = website.app_name?.trim() || "your business";
+  const websiteName = website.app_name?.trim();
+  const name = websiteName || "your business";
   const pages: CreatePageParams[] = [
     {
       title: "Home",
@@ -46,7 +48,23 @@ export function createStarterSitePages(
       website_id: website.id,
       is_home: true,
       blocks: {
-        blocks: [
+        blocks: restaurant ? [
+          block("hero", {
+            heading: websiteName || "Welcome to the restaurant",
+            body: "<p>Get to know the restaurant and find information for your visit.</p>",
+            actions: [{ label: "About the restaurant", href: "/about/" }],
+          }),
+          block("media-with-text", {
+            heading: "Behind the table",
+            body: "<p>Food, hospitality, and the people behind the restaurant.</p>",
+          }),
+          block("call-to-action", {
+            heading: "Planning a visit?",
+            body: "<p>Find contact information for questions about your visit.</p>",
+            button_label: "Contact",
+            button_url: "/contact/",
+          }),
+        ] : [
           block("hero", {
             eyebrow: "Welcome",
             heading: `Welcome to ${name}`,
@@ -67,7 +85,13 @@ export function createStarterSitePages(
       slug: "about",
       website_id: website.id,
       blocks: {
-        blocks: [
+        blocks: restaurant ? [
+          block("hero", { heading: websiteName ? `About ${websiteName}` : "About the restaurant" }),
+          block("rich-text", {
+            heading: "Around the table",
+            body: "<p>A meal is a chance to slow down and spend time together.</p>",
+          }),
+        ] : [
           block("hero", { heading: "Our story" }),
           block("rich-text", {
             heading: `About ${name}`,
@@ -78,16 +102,19 @@ export function createStarterSitePages(
     },
   ];
 
-  if (contactFormId) {
+  if (contactFormId || restaurant) {
     pages.push({
       title: "Contact",
       slug: "contact",
       website_id: website.id,
       blocks: {
-        blocks: [block("contact-form", {
+        blocks: [contactFormId ? block("contact-form", {
           heading: "Get in touch",
           form_id: contactFormId,
           submit_label: "Send message",
+        }) : block("rich-text", {
+          heading: "Get in touch",
+          body: "<p>Contact details are not listed yet.</p>",
         })],
       },
     });
@@ -101,10 +128,11 @@ export function planStarterSitePages(
   pages: HeadlessPage[],
   routes: string[],
   contactFormId?: string,
+  restaurant = false,
 ): StarterSitePagePlan {
   const existingPagePaths = new Set(pages.map(pagePath));
   const existingRoutes = new Set(routes.map(normalizePath));
-  const definitions = createStarterSitePages(website, contactFormId);
+  const definitions = createStarterSitePages(website, contactFormId, restaurant);
   const actions = definitions.map((params): StarterSitePageAction => {
     const path = normalizePath(params.slug);
     if (existingPagePaths.has(path)) {
@@ -122,7 +150,15 @@ export function planStarterSitePages(
     "Page metadata and business branding remain manual. The page-create API does not accept SEO fields, and no media is invented.",
   ];
 
-  if (!contactFormId) {
+  if (restaurant) {
+    if (actions.some(({ path, status }) => (path === "/" || path === "/contact") && status === "exists")) {
+      warnings.push("Existing Home and Contact pages are preserved, including account defaults. Replace any empty Home or legacy Contact block in the Backstage editor before launch.");
+    }
+    warnings.push("Review the starter copy before launch. After readiness, select the actual canonical Menu and Locations targets in Backstage; this scaffold does not create or link to them.");
+    if (!contactFormId && actions.some(({ path, status }) => path === "/contact" && status === "create")) {
+      warnings.push("The starter Contact page has no form. Edit it in Backstage to add verified contact details or an existing Contact Form with a confirmed recipient; test delivery before launch.");
+    }
+  } else if (!contactFormId) {
     warnings.push("Contact page was not created. Configure a form and its recipient in Backstage, then rerun with --contact-form-id and --confirm-contact-form-recipient.");
   }
 

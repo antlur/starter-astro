@@ -53,6 +53,7 @@ jobs:
         env:
           BACKSTAGE_SOURCE: fixture
           BACKSTAGE_FIXTURE: multi-location
+          BACKSTAGE_SITE_PROFILE: restaurant
           BACKSTAGE_FORM_SUBMISSIONS_ENABLED: "false"
           SITE_URL: https://starter.example
           SITE_INDEXABLE: "true"
