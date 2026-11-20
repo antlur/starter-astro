@@ -1316,7 +1316,7 @@ test("reuses selected header navigation as footer navigation when IDs match", as
 });
 
 test("renders all navigation depths in header and footer trees", () => {
-  assert.match(siteLayoutSource, /<NavigationTree items=\{navigation\} variant="header" pathname=\{pathname\} \/>/);
+  assert.match(siteLayoutSource, /<NavigationTree items=\{navigation\} variant="header" pathname=\{pathname\} activeSectionPaths=\{menuSectionPaths\} \/>/);
   assert.match(siteLayoutSource, /<NavigationTree items=\{footerNavigation\} variant="footer" pathname=\{pathname\} \/>/);
   assert.match(navigationTreeSource, /item\.children\.length > 0 && variant === "header"/);
   assert.match(navigationTreeSource, /item\.children\.length > 0 && variant === "footer"/);

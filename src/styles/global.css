@@ -456,6 +456,7 @@ button:focus-visible,
 }
 
 .site-header nav a:hover,
+.site-header nav a[data-active-section],
 .site-header nav a[aria-current="page"] {
   text-decoration: underline;
   text-underline-offset: 0.25em;

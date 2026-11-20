@@ -19,7 +19,8 @@ export default defineConfig({
   site: siteUrl,
   output: "static",
   trailingSlash: "always",
-  integrations: indexable ? [sitemap()] : [],
+  integrations: indexable ? [sitemap({ filter: (url) => !["/404/", "/404.html"].includes(new URL(url).pathname) })] : [],
+  image: { remotePatterns: [{ protocol: "https", hostname: "cdn.bckstg.app", pathname: "/media/**" }] },
   vite: {
     define: {
       "process.env.BACKSTAGE_SITE_PROFILE": JSON.stringify(env.BACKSTAGE_SITE_PROFILE ?? ""),

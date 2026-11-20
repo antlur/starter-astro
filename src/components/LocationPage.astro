@@ -1,5 +1,7 @@
 ---
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
+import { phoneLabel } from "../lib/phone-label";
+import { responsivePhoto } from "../lib/responsive-photo";
 import { getSiteContent, serializeJsonLd, structuredDataNodeForLocation } from "../lib/backstage/content";
 import type { SiteLocation } from "../lib/backstage/locations";
 import { menusForLocation, type SiteLocationRoute, type SiteMenuRoute } from "../site/menu-routes";
@@ -19,18 +21,18 @@ const description = location.description ? sanitizeRichText(location.description
 const { structuredData } = await getSiteContent();
 const locationNode = structuredDataNodeForLocation(structuredData, location.id);
 const locationSchema = locationNode ? serializeJsonLd(locationNode) : "";
+const photoAttrs = location.imageUrl && location.imageWidth && location.imageHeight
+  ? await responsivePhoto(location.imageUrl, { width: location.imageWidth, height: location.imageHeight },
+    "(min-width: 1200px) 1152px, 100vw") : {};
 ---
 
 {locationSchema && <script type="application/ld+json" set:html={locationSchema} />}
 
 <section class="location-page" aria-labelledby="location-title">
   <header class="location-page__intro">
-    <p class="location-page__eyebrow">Find us</p>
     <h1 id="location-title">Visit {location.name}</h1>
     {description && <div class="location-page__description" set:html={description} />}
   </header>
-
-  {location.imageUrl && <img class="location-page__image" src={location.imageUrl} alt={location.imageAlt || location.name} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 800} fetchpriority="high" />}
 
   <div class="location-page__details">
     <section class="location-page__visit" aria-labelledby="location-address-title">
@@ -41,7 +43,7 @@ const locationSchema = locationNode ? serializeJsonLd(locationNode) : "";
         </address>
       )}
       <div class="location-page__links">
-        {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{location.phone}</a>}
+        {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{phoneLabel(location.phone)}</a>}
         {location.email && <a href={`mailto:${location.email}`}>{location.email}</a>}
         {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Get directions</a>}
         {location.loyaltyUrl && <a href={location.loyaltyUrl} target="_blank" rel="noopener noreferrer">Join rewards</a>}
@@ -62,6 +64,8 @@ const locationSchema = locationNode ? serializeJsonLd(locationNode) : "";
       </section>
     )}
   </div>
+
+  {location.imageUrl && <img class="location-page__image" src={location.imageUrl} alt={location.imageAlt} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 800} loading="lazy" decoding="async" {...photoAttrs} />}
 
   {location.mapEmbedUrl && (
     <section class="location-page__map" aria-label={`${location.name} map`}>
@@ -86,14 +90,6 @@ const locationSchema = locationNode ? serializeJsonLd(locationNode) : "";
   .location-page__intro {
     max-width: 48rem;
     margin-bottom: 2.5rem;
-  }
-
-  .location-page__eyebrow {
-    margin: 0 0 0.75rem;
-    color: var(--color-accent-strong);
-    font-size: 0.82rem;
-    font-weight: 750;
-    text-transform: uppercase;
   }
 
   h1,
@@ -121,8 +117,9 @@ const locationSchema = locationNode ? serializeJsonLd(locationNode) : "";
     width: 100%;
     max-height: 34rem;
     aspect-ratio: 16 / 8;
+    height: auto;
     object-fit: cover;
-    margin-bottom: 2.5rem;
+    margin-top: 2.5rem;
     border-radius: var(--ui-radius-md);
   }
 
@@ -179,7 +176,8 @@ const locationSchema = locationNode ? serializeJsonLd(locationNode) : "";
   }
 
   @media (max-width: 680px) {
-    .location-page { width: calc(100% - 2rem); }
+    .location-page { width: calc(100% - 2rem); padding-block: 2rem 3rem; }
+    .location-page__intro { margin-bottom: 1.5rem; }
     .location-page__details { grid-template-columns: 1fr; gap: 2rem; }
     .location-page__image { aspect-ratio: 4 / 3; }
   }

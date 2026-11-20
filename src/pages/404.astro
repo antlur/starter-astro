@@ -1,0 +1,32 @@
+---
+import SiteLayout from "../layouts/SiteLayout.astro";
+import { isPublicLocation } from "../lib/backstage/locations";
+import { getSiteBuild } from "../site/build";
+
+const { content, routePlan } = await getSiteBuild();
+const menu = routePlan.locationChooserRoutes.find(({ purpose }) => purpose === "menu")?.path
+  ?? routePlan.cmsPages.find(({ path }) => path === "/menu/")?.path
+  ?? routePlan.menuIndexPaths[0] ?? routePlan.menuRoutes.find(({ menu }) => menu.isPublished !== false)?.path;
+const visit = routePlan.locationIndexPaths[0] ?? routePlan.locationRoutes.find(({ location }) => isPublicLocation(location))?.path;
+---
+
+<SiteLayout site={content.site} pageTitle="Page not found" pathname="/404/" navigation={routePlan.navigation}
+  footerNavigation={routePlan.footerNavigation} routePaths={content.routePaths} alerts={[]} locations={[]} notFound showLocationHours={false}>
+  <section class="not-found">
+    <h1>Page not found</h1>
+    <p>This page may have moved. You can still look through the site using the links below.</p>
+    <ul>
+      <li><a href="/">Home</a></li>
+      {menu && <li><a href={menu}>View menu</a></li>}
+      {visit && <li><a href={visit}>Plan a visit</a></li>}
+    </ul>
+  </section>
+</SiteLayout>
+
+<style>
+  .not-found { width: min(calc(100% - 2.5rem), 54rem); margin: 0 auto; padding-block: 4rem; }
+  h1 { margin: 0; font: 600 2.75rem/1.1 var(--theme-font-heading); }
+  p { color: var(--theme-color-muted); line-height: 1.6; }
+  ul { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; list-style: none; padding: 0; }
+  a { display: inline-flex; min-height: 2.75rem; align-items: center; color: var(--theme-color-action); font-weight: 700; text-underline-offset: 0.2em; }
+</style>

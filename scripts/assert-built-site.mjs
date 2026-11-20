@@ -35,7 +35,10 @@ for (const file of htmlFiles) {
   assert.match(html, /<main\b[^>]*\bid=["']main-content["']/i, `${file} must render the main landmark.`);
   assert.ok(robots, `${file} must render a robots directive.`);
 
-  if (mode === "preview") {
+  if (file === "404.html") {
+    assert.match(robots, /noindex\s*,\s*nofollow/i, "The 404 recovery page must not be indexed.");
+    assert.match(html, /href=["']\/["'][^>]*>Home<\/a>/i, "The 404 recovery page must link to Home.");
+  } else if (mode === "preview") {
     assert.match(robots, /noindex\s*,\s*nofollow/i, `${file} must remain noindex in preview builds.`);
   } else {
     assert.match(robots, /index\s*,\s*follow/i, `${file} must be indexable in production builds.`);
@@ -52,7 +55,7 @@ for (const file of htmlFiles) {
   assertLocalBusinessStructuredData(html, file);
 
   for (const imageTag of html.matchAll(/<img\b[^>]*>/gi)) {
-    assert.match(imageTag[0], /\balt=["'][^"']*["']/i, `${file} contains an image without an alt attribute.`);
+    assert.match(imageTag[0], /\salt(?:=["'][^"']*["']|(?=\s|\/?>))/i, `${file} contains an image without an alt attribute.`);
   }
 
   for (const anchor of html.matchAll(/<a\b[^>]*\bhref=(["'])(.*?)\1[^>]*>/gi)) {

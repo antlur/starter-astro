@@ -74,13 +74,13 @@ const eventDescription = event?.description ? sanitizeRichText(event.description
   ) : event && details ? (
     <article class="event-detail">
       {indexPath && <a class="event-detail__back" href={indexPath}>All events</a>}
-      {event.imageUrl && <img class="event-detail__image" src={event.imageUrl} alt={event.imageAlt || event.title} width={event.imageWidth ?? 1600} height={event.imageHeight ?? 800} fetchpriority="high" />}
       <header class="event-detail__header">
         <p class="event-page__eyebrow">{details.startDate}{details.endDate ? ` - ${details.endDate}` : ""}</p>
         <h1 id="event-page-title">{event.title}</h1>
         <p class="event-detail__time">{details.startTime}{details.endTime ? ` - ${details.endTime}` : ""}</p>
       </header>
       {event.shortDescription && <p class="event-detail__summary">{event.shortDescription}</p>}
+      {event.imageUrl && <img class="event-detail__image" src={event.imageUrl} alt={event.imageAlt} width={event.imageWidth ?? 1600} height={event.imageHeight ?? 800} loading="lazy" decoding="async" />}
       {eventDescription && <div class="event-detail__content" set:html={eventDescription} />}
       {location && (
         <address class="event-detail__location">
@@ -150,6 +150,7 @@ const eventDescription = event?.description ? sanitizeRichText(event.description
   .event-list__item > img {
     width: 100%;
     aspect-ratio: 4 / 3;
+    height: auto;
     object-fit: cover;
   }
 
@@ -206,6 +207,7 @@ const eventDescription = event?.description ? sanitizeRichText(event.description
     width: 100%;
     max-height: 38rem;
     aspect-ratio: 16 / 8;
+    height: auto;
     object-fit: cover;
     margin-bottom: 2.5rem;
   }

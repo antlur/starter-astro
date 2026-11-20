@@ -5,8 +5,10 @@ import SiteAlerts from "../components/SiteAlerts.astro";
 import SocialIcon from "../components/SocialIcon.astro";
 import NavigationTree from "../components/NavigationTree.astro";
 import { alertsForPath } from "../lib/backstage/alerts";
-import { getSiteContent, jsonLdForPage, serializeJsonLd } from "../lib/backstage/content";
+import { getHomePage, getSiteContent, jsonLdForPage, serializeJsonLd } from "../lib/backstage/content";
 import { resolveSeoMetadata } from "../lib/seo-metadata";
+import { phoneLabel } from "../lib/phone-label";
+import { safeImageUrl } from "../lib/safe-url";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
 import type { SiteLocation } from "../lib/backstage/locations";
 
@@ -26,15 +28,21 @@ interface Props {
   currentLocation?: SiteLocation;
   locationDirectoryPath?: string;
   showLocationHours?: boolean;
+  notFound?: boolean;
+  menuSectionPaths?: string[];
 }
 
-const { page, pageTitle: routeTitle, pageDescription: routeDescription, pageImage, contentType = "website", site, pathname, navigation, footerNavigation = [], routePaths, alerts, locations, currentLocation, locationDirectoryPath, showLocationHours = true } = Astro.props;
-const { structuredData } = await getSiteContent();
+const { page, pageTitle: routeTitle, pageDescription: routeDescription, pageImage, contentType = "website", site, pathname, navigation, footerNavigation = [], routePaths, alerts, locations, currentLocation, locationDirectoryPath, showLocationHours = true, notFound = false, menuSectionPaths = [] } = Astro.props;
+const { structuredData, pages } = await getSiteContent();
 const siteTitle = site.meta?.title || site.name;
 const { title, description, openGraphTitle, openGraphDescription } = resolveSeoMetadata({ page, routeTitle, routeDescription, site });
-const openGraphImage = pageImage || site.openGraph?.image;
-const canonicalUrl = Astro.site ? new URL(pathname, Astro.site).href : undefined;
-const indexable = import.meta.env.SITE_INDEXABLE === "true" && Boolean(Astro.site);
+const homeImage = getHomePage(pages).blocks.filter(({ type }) => type === "hero")
+  .flatMap(({ fields }) => [fields.image].flat()).map(safeImageUrl).find(Boolean);
+const shareImage = !notFound && (pageImage || site.openGraph?.image || homeImage);
+const openGraphImage = shareImage && (Astro.site ? new URL(shareImage, Astro.site).href : shareImage);
+const canonicalUrl = !notFound && Astro.site ? new URL(pathname, Astro.site).href : undefined;
+const indexable = !notFound && import.meta.env.SITE_INDEXABLE === "true" && Boolean(Astro.site);
+const themeColor = site.themeVariables?.["--theme-color-header"];
 const organization = {
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -65,7 +73,7 @@ const visibleAlerts = alertsForPath(alerts, pathname);
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content={indexable ? "index,follow" : "noindex,nofollow"} />
     <meta name="description" content={description} />
-    <meta name="theme-color" content="#294c3d" />
+    {themeColor && <meta name="theme-color" content={themeColor} />}
     <link rel="icon" href={site.faviconUrl || "/favicon.svg"} />
     {site.appleIconUrl && <link rel="apple-touch-icon" href={site.appleIconUrl} />}
     {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
@@ -77,7 +85,7 @@ const visibleAlerts = alertsForPath(alerts, pathname);
     {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
     <meta name="twitter:card" content={openGraphImage ? "summary_large_image" : "summary"} />
     <title>{title}</title>
-    <script type="application/ld+json" set:html={jsonLd} />
+    {!notFound && <script type="application/ld+json" set:html={jsonLd} />}
   </head>
   <body class:list={["bg-background", "text-foreground", "font-body", mobileAction && "has-mobile-action"]}>
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -90,7 +98,7 @@ const visibleAlerts = alertsForPath(alerts, pathname);
               {contactLocation?.addressLines.length && contactLocation.mapUrl
                 ? <a class="site-topbar__address" href={contactLocation.mapUrl} target="_blank" rel="noopener noreferrer">{contactLocation.addressLines.map((line) => <span>{line}</span>)}</a>
                 : contactLocation?.addressLines.length ? <span>{contactLocation.addressLines.join(", ")}</span> : null}
-              {contactLocation?.phone && <a href={`tel:${contactLocation.phone.replace(/[^\d+]/g, "")}`}>{contactLocation.phone}</a>}
+              {contactLocation?.phone && <a href={`tel:${contactLocation.phone.replace(/[^\d+]/g, "")}`}>{phoneLabel(contactLocation.phone)}</a>}
               {!contactLocation?.addressLines.length && contactLocation?.mapUrl && <a href={contactLocation.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {contactLocation.name}</span></a>}
               {directoryLink && <a href={directoryLink}>{currentLocation ? "All locations" : "Find a location"}</a>}
             </div>
@@ -119,7 +127,7 @@ const visibleAlerts = alertsForPath(alerts, pathname);
               <span aria-hidden="true"></span>
             </button>
             <nav class="site-header__navigation" id="site-primary-navigation" aria-label="Primary navigation">
-              <NavigationTree items={navigation} variant="header" pathname={pathname} />
+              <NavigationTree items={navigation} variant="header" pathname={pathname} activeSectionPaths={menuSectionPaths} />
             </nav>
           </>
         )}
