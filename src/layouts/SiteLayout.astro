@@ -53,6 +53,7 @@ const mobileAction = primaryAction
   ? { text: primaryAction.text, url: primaryAction.url, newWindow: primaryAction.newWindow }
   : site.homeCta ? { ...site.homeCta, newWindow: false } : null;
 const showTopbar = Boolean(contactLocation?.phone || contactLocation?.addressLines.length || contactLocation?.mapUrl || directoryLink || topbarCta);
+const headerLogoSize = site.logo && import.meta.env.SITE_HEADER_LOGO_SIZE === "prominent" ? "prominent" : "standard";
 const socialLinks = site.socialLinks;
 const visibleAlerts = alertsForPath(alerts, pathname);
 ---
@@ -97,7 +98,7 @@ const visibleAlerts = alertsForPath(alerts, pathname);
           </div>
         </div>
       )}
-      <div class="site-header">
+      <div class="site-header" data-logo-size={headerLogoSize}>
         <a class="site-brand" href="/" aria-label={site.name + " home"}>
           {site.logo
             ? <img src={site.logo.url} alt="" width={site.logo.width || 160} height={site.logo.height || 48} />
