@@ -67,5 +67,5 @@ const hasRenderedHeading = (block: HeadlessBlock): boolean => {
   return Boolean(firstH1 && richTextToPlainText(firstH1[1] ?? ""));
 };
 
-export const primaryHeadingIndex = (blocks: HeadlessBlock[]): number =>
-  blocks.findIndex(hasRenderedHeading);
+export const primaryHeadingIndex = (blocks: HeadlessBlock[], hasLocations = false): number =>
+  blocks.findIndex((block) => block.type === "locations" ? hasLocations : hasRenderedHeading(block));

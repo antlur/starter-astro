@@ -33,6 +33,8 @@ const hours = [
   },
 ];
 
+const diningRoom = { url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=85", alt: "Warmly lit dining room with tables set for guests" };
+
 const makeLocation = (slug: string, name: string, number: number) => ({
   id: `fixture-location-${slug}`,
   slug,
@@ -63,6 +65,7 @@ const hiddenLocation = {
 const publicLocations = [
   {
     ...makeLocation("market-street", "Market Street", 11),
+    featured_media: diningRoom,
     menus: [menuAt(allDay, "market-all-day", "Market All Day"), menuAt(marketBrunch)],
     special_hours: [{
       id: "fixture-holiday-closure",
@@ -121,7 +124,6 @@ const nav = (slug: string, text: string, style: SiteNavigationItem["style"] = "l
 });
 
 const siteName = "Fieldwork Kitchen";
-const diningRoom = { url: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1600&q=85", alt: "Warmly lit dining room with tables set for guests" };
 const contactForm: BackstageFormDefinition = {
   id: "fixture-restaurant-contact",
   title: "Contact Fieldwork Kitchen",
@@ -153,10 +155,29 @@ const pages: HeadlessPage[] = createStarterSitePages({ id: "fixture-restaurant",
         actions: [{ label: "Explore the menu", href: "/menu/" }, { label: "Find a location", href: "/locations/" }],
       }),
       ...(page.is_home && block.type === "call-to-action" && { button_label: "Find a location", button_url: "/locations/" }),
+      ...(page.slug === "about" && block.type === "hero" && { variant: "compact" }),
     },
     ...(block.type === "contact-form" && { form: contactForm }),
   })),
 }));
+pages.find(({ is_home }) => is_home)?.blocks.push({
+  id: "fixture-restaurant-home-feature",
+  type: "card-grid",
+  fields: { heading: "From the kitchen", layout: "lead-feature", cards: [{ title: "The brunch table", image: diningRoom }] },
+}, {
+  id: "fixture-restaurant-home-locations",
+  type: "locations",
+  fields: { heading: "Find your Fieldwork", layout: "photo-grid" },
+});
+pages.find(({ slug }) => slug === "about")?.blocks.push({
+  id: "fixture-restaurant-about-editorial",
+  type: "media-with-text",
+  fields: { heading: "Take a seat", image: diningRoom, section_width: "edge-to-edge", tone: "inverse" },
+}, {
+  id: "fixture-restaurant-about-locations",
+  type: "locations",
+  fields: { heading: "Come see us", layout: "compact" },
+});
 
 export const multiLocationSiteContent: SiteContent = {
   site: normalizeWebsite({

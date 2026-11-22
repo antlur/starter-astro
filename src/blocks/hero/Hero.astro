@@ -13,7 +13,7 @@ const { block, isPrimary } = Astro.props;
 const fields = block.fields;
 const variant = (typeof fields.variant === "string" && fields.variant) || block.variant || "default";
 
-if (!["default", "full-bleed-image"].includes(variant)) {
+if (!["default", "full-bleed-image", "compact"].includes(variant)) {
   throw new Error("Hero block variant is not implemented by this starter: " + variant);
 }
 
@@ -42,12 +42,13 @@ const safeActions = actions.flatMap((action) => {
 });
 const imageOnly = heroImages.length > 0 && !eyebrow && !heading && !body && safeActions.length === 0;
 const fullBleed = variant === "full-bleed-image" || imageOnly;
+const compact = variant === "compact" && !fullBleed;
 const slideSources = await Promise.all(heroImages.map(({ src, dimensions }) =>
-  responsivePhoto(src, dimensions, fullBleed ? "100vw" : "(max-width: 760px) 100vw, 55vw")));
+  responsivePhoto(src, dimensions, fullBleed ? "100vw" : compact ? "(max-width: 760px) 100vw, 45vw" : "(max-width: 760px) 100vw, 55vw")));
 const HeadingTag = isPrimary ? "h1" : "h2";
 ---
 
-<section class:list={["hero", fullBleed && "hero--full-bleed", imageOnly && "hero--image-only", !heroImages.length && !fullBleed && "hero--text-only"]}>
+<section class:list={["hero", fullBleed && "hero--full-bleed", imageOnly && "hero--image-only", !heroImages.length && !fullBleed && "hero--text-only", compact && "hero--compact"]}>
   <div class="hero__copy">
     {logoSrc && <img class="hero__logo" src={logoSrc} alt={logoAlt} width="480" height="180" />}
     {eyebrow && <p class="eyebrow">{eyebrow}</p>}
@@ -394,7 +395,46 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     opacity: 1;
   }
 
+  .hero.hero--compact {
+    min-height: 0;
+    padding-block: 2.75rem;
+    background: var(--theme-color-surface);
+    color: var(--theme-color-foreground);
+  }
+
+  .hero--compact h1,
+  .hero--compact h2 {
+    max-width: 21ch;
+    font-size: 3rem;
+    line-height: 1.07;
+  }
+
+  .hero--compact .hero__body,
+  .hero--compact .hero__actions {
+    margin-top: 1rem;
+  }
+
+  .hero--compact .hero__media {
+    min-height: 0;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--ui-radius-sm);
+  }
+
+  .hero--compact .hero__slide {
+    min-height: 0;
+  }
+
   @media (max-width: 760px) {
+    .hero.hero--compact {
+      padding-block: 1.75rem;
+      gap: 1.35rem;
+    }
+
+    .hero.hero--compact h1,
+    .hero.hero--compact h2 {
+      font-size: 2.25rem;
+    }
+
     h1,
     h2 {
       font-size: 3rem;

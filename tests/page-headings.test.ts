@@ -23,6 +23,12 @@ test("uses the first configured block heading when it comes first", () => {
   ]), 0);
 });
 
+test("Locations owns the primary heading only when it can render a public location", () => {
+  const blocks = [block("locations", {}), block("hero", { heading: "Welcome" })];
+  assert.equal(primaryHeadingIndex(blocks, true), 0);
+  assert.equal(primaryHeadingIndex(blocks, false), 1);
+});
+
 test("skips an empty Instagram Feed when selecting the primary heading", () => {
   assert.equal(primaryHeadingIndex([
     {

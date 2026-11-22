@@ -23,6 +23,17 @@
           { "name": "Link URL", "slug": "link_url", "type": "url", "order": 5 }
         ],
         "order": 3
+      },
+      {
+        "name": "Layout",
+        "slug": "layout",
+        "type": "select",
+        "description": "Lead feature gives the first card a larger image and headline.",
+        "options": [
+          { "label": "Equal cards (default)", "value": "grid" },
+          { "label": "Lead feature", "value": "lead-feature" }
+        ],
+        "order": 4
       }
     ]
   }

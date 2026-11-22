@@ -10,36 +10,43 @@ interface Props {
   locations: Array<{ path: string; location: SiteLocation }>;
   purpose?: LocationChoice;
   menuRoutes?: SiteMenuRoute[];
+  section?: { heading: string; intro: string; layout: "compact" | "photo-grid"; isPrimary: boolean };
 }
 
-const { locations, purpose, menuRoutes = [] } = Astro.props;
+const { locations, purpose, menuRoutes = [], section } = Astro.props;
 const cards = locations.toSorted((left, right) => left.location.name.localeCompare(right.location.name))
   .flatMap((route) => {
-    const menus = purpose === "menu" ? menusForLocation(route, menuRoutes, locations) : [];
+    const menus = purpose === "menu" || section ? menusForLocation(route, menuRoutes, locations) : [];
     if (purpose === "menu" && menus.length === 0) return [];
     if (purpose && purpose !== "menu" && locationServiceLinks(route.location, purpose).length === 0) return [];
     return [{ ...route, menus }];
   });
-const title = purpose === "menu" ? "Choose a location" : purpose ? locationServices[purpose].label : "Our locations";
+const title = section?.heading ?? (purpose === "menu" ? "Choose a location" : purpose ? locationServices[purpose].label : "Our locations");
 const intro = purpose === "menu" ? "See what's on the menu at each location."
   : purpose ? "Choose a location for this service." : "Find hours, menus, and visit details for each location.";
+const Heading = section && !section.isPrimary ? "h2" : "h1";
+const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
 ---
 
-<section class:list={["location-directory", purpose === "menu" && "location-directory--menu"]} aria-labelledby="location-directory-title">
+<section
+  class:list={["location-directory", purpose === "menu" && "location-directory--menu", section && `location-directory--${section.layout}`]}
+  aria-labelledby={section ? undefined : "location-directory-title"}
+  aria-label={section ? title : undefined}
+>
   <header class="location-directory__intro">
-    <h1 id="location-directory-title">{title}</h1>
-    <p>{intro}</p>
+    <Heading class="location-directory__title" id={section ? undefined : "location-directory-title"}>{title}</Heading>
+    {section ? section.intro && <div class="location-directory__description" set:html={sanitizeRichText(section.intro)} /> : <p>{intro}</p>}
   </header>
 
   {cards.length > 0 ? (
     <div class="location-directory__grid">
       {cards.map(({ path, location, menus }) => {
-        const description = !purpose && location.description ? sanitizeRichText(location.description) : "";
+        const description = !purpose && section?.layout !== "compact" && location.description ? sanitizeRichText(location.description) : "";
         const regularHours = (!purpose || purpose === "menu") && location.hours.length === 1 ? location.hours[0] : null;
         return (
           <article class="location-card">
             <div class="location-card__content">
-              <h2>{purpose === "menu" ? location.name : <a href={path}>{location.name}</a>}</h2>
+              <LocationHeading class="location-card__heading">{purpose === "menu" ? location.name : <a href={path}>{location.name}</a>}</LocationHeading>
               {location.addressLines.length > 0 && <address>{location.addressLines.map((line) => <span>{line}</span>)}</address>}
               {regularHours && <p class="location-card__hours">{regularHours.day}: {regularHours.value}</p>}
               {description && <div class="location-card__description" set:html={description} />}
@@ -53,6 +60,7 @@ const intro = purpose === "menu" ? "See what's on the menu at each location."
                   {!purpose && (
                     <div class="location-card__actions">
                       <a class="location-card__visit" href={path}>Location details<span class="sr-only"> for {location.name}</span></a>
+                      {section && menus.map((menu) => <a href={menu.path}>{menus.length === 1 ? "Menu" : menu.label}<span class="sr-only"> at {location.name}</span></a>)}
                       {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {location.name}</span></a>}
                       {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{phoneLabel(location.phone)}</a>}
                     </div>
@@ -61,7 +69,7 @@ const intro = purpose === "menu" ? "See what's on the menu at each location."
                 </>
               )}
             </div>
-            {!purpose && location.imageUrl && <img class="location-card__image" src={location.imageUrl} alt={location.imageAlt} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 1000} loading="lazy" decoding="async" />}
+            {!purpose && section?.layout !== "compact" && location.imageUrl && <img class="location-card__image" src={location.imageUrl} alt={location.imageAlt} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 1000} loading="lazy" decoding="async" />}
           </article>
         );
       })}
@@ -83,19 +91,20 @@ const intro = purpose === "menu" ? "See what's on the menu at each location."
     margin-bottom: 2.5rem;
   }
 
-  h1,
-  h2 {
+  .location-directory__title,
+  .location-card__heading {
     font-family: var(--font-display);
     line-height: 1.1;
     text-wrap: balance;
   }
 
-  h1 {
+  .location-directory__title {
     margin: 0;
     font-size: clamp(2.5rem, 5vw, 4.25rem);
   }
 
-  .location-directory__intro > p:last-child {
+  .location-directory__intro > p:last-child,
+  .location-directory__description {
     margin: 1rem 0 0;
     color: var(--color-muted);
     line-height: 1.7;
@@ -126,18 +135,18 @@ const intro = purpose === "menu" ? "See what's on the menu at each location."
     padding: 1.5rem;
   }
 
-  h2 {
+  .location-card__heading {
     margin: 0 0 0.8rem;
     font-size: 1.8rem;
   }
 
-  h2 a {
+  .location-card__heading a {
     color: inherit;
     text-decoration: none;
   }
 
-  h2 a:hover,
-  h2 a:focus-visible {
+  .location-card__heading a:hover,
+  .location-card__heading a:focus-visible {
     text-decoration: underline;
     text-underline-offset: 0.18em;
   }
@@ -194,9 +203,86 @@ const intro = purpose === "menu" ? "See what's on the menu at each location."
     color: var(--color-muted);
   }
 
+  .location-directory--compact,
+  .location-directory--photo-grid {
+    padding-block: 3.5rem;
+  }
+
+  .location-directory--compact .location-directory__title,
+  .location-directory--photo-grid .location-directory__title {
+    font-size: 2.75rem;
+  }
+
+  .location-directory--compact .location-directory__grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--theme-color-border);
+  }
+
+  .location-directory--compact .location-card {
+    border: 0;
+    border-bottom: 1px solid var(--theme-color-border);
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .location-directory--compact .location-card__content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 0.5rem 1.5rem;
+    padding: 1.1rem 0;
+  }
+
+  .location-directory--compact .location-card__heading,
+  .location-directory--compact .location-card__hours {
+    margin: 0;
+  }
+
+  .location-directory--compact .location-card__hours,
+  .location-directory--compact .location-card__actions,
+  .location-directory--compact :global(.location-actions) {
+    grid-column: 1 / -1;
+  }
+
+  .location-directory--compact .location-card__actions,
+  .location-directory--compact :global(.location-actions) {
+    margin-top: 0.25rem;
+  }
+
+  .location-directory--photo-grid .location-card {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .location-directory--photo-grid .location-card__image {
+    order: -1;
+  }
+
+  @media (min-width: 761px) {
+    .location-directory--photo-grid .location-card:only-child:has(.location-card__image) {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: center;
+    }
+
+    .location-directory--photo-grid .location-card:only-child .location-card__content {
+      padding: 2rem;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .location-directory--photo-grid .location-card:only-child .location-card__image { order: 0; }
+  }
+
   @media (max-width: 680px) {
     .location-directory--menu { padding-block: 2.5rem 3rem; }
     .location-directory--menu .location-directory__intro { margin-bottom: 1.5rem; }
     .location-directory--menu .location-card__content { padding: 1.25rem; }
+    .location-directory--compact,
+    .location-directory--photo-grid { padding-block: 2.75rem; }
+    .location-directory--compact .location-directory__title,
+    .location-directory--photo-grid .location-directory__title { font-size: 2.15rem; }
+    .location-directory--compact .location-card__content { grid-template-columns: minmax(0, 1fr); }
   }
 </style>

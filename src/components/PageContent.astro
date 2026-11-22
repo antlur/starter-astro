@@ -3,13 +3,17 @@ import BlockRenderer from "./BlockRenderer.astro";
 import PageLayoutRenderer from "./PageLayoutRenderer.astro";
 import type { HeadlessPage } from "../lib/backstage/content";
 import { primaryHeadingIndex } from "../lib/page-headings";
+import { isPublicLocation } from "../lib/backstage/locations";
+import { getSiteBuild } from "../site/build";
 
 interface Props {
   page: HeadlessPage;
 }
 
 const { page } = Astro.props;
-const primaryBlockIndex = primaryHeadingIndex(page.blocks);
+const hasLocations = page.blocks.some(({ type }) => type === "locations")
+  && (await getSiteBuild()).routePlan.locationRoutes.some(({ location }) => isPublicLocation(location));
+const primaryBlockIndex = primaryHeadingIndex(page.blocks, hasLocations);
 ---
 
 <PageLayoutRenderer page={page}>

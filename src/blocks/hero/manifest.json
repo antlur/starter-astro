@@ -15,7 +15,8 @@
         "placeholder": "Default (automatic)",
         "options": [
           { "label": "Default", "value": "default" },
-          { "label": "Full bleed image", "value": "full-bleed-image" }
+          { "label": "Full bleed image", "value": "full-bleed-image" },
+          { "label": "Compact", "value": "compact" }
         ],
         "order": 0
       },

@@ -21,11 +21,13 @@ const imageAlt = safeAltText(text("imageAlt")) || mediaAltText(block.fields.imag
 const actionLabel = text("cta_label");
 const actionHref = safeSiteLinkUrl(block.fields.cta_url);
 const imagePosition = text("image_position") === "right" ? "right" : "left";
-const sectionWidth = text("section_width") === "full-width" ? "full-width" : "standard";
+const width = text("section_width");
+const sectionWidth = width === "edge-to-edge" && image ? "edge-to-edge" : width === "full-width" ? "full-width" : "standard";
+const inverse = text("tone") === "inverse";
 const HeadingTag = isPrimary ? "h1" : "h2";
 ---
 
-<section class:list={["media-text", `media-text--${imagePosition}`, `media-text--${sectionWidth}`]}>
+<section class:list={["media-text", `media-text--${imagePosition}`, `media-text--${sectionWidth}`, inverse && "media-text--inverse"]}>
   <div class="media-text__inner">
     <div class="media-text__copy">
       {eyebrow && <p class="media-text__eyebrow">{eyebrow}</p>}
@@ -160,6 +162,62 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     outline-offset: 3px;
   }
 
+  .media-text--edge-to-edge {
+    padding: 0;
+    background: var(--theme-color-surface);
+    color: var(--theme-color-foreground);
+  }
+
+  .media-text--edge-to-edge .media-text__inner {
+    max-width: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .media-text--edge-to-edge .media-text__copy {
+    max-width: none;
+    padding: 3.5rem 2rem;
+  }
+
+  .media-text--edge-to-edge.media-text--right .media-text__copy {
+    padding-inline-start: max(2rem, calc((100vw - 74rem) / 2));
+  }
+
+  .media-text--edge-to-edge.media-text--left .media-text__copy {
+    padding-inline-end: max(2rem, calc((100vw - 74rem) / 2));
+  }
+
+  .media-text--edge-to-edge .media-text__media {
+    position: relative;
+    align-self: stretch;
+    min-height: 25rem;
+  }
+
+  .media-text--edge-to-edge .media-text__media img {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+  }
+
+  .media-text--inverse {
+    background: var(--theme-color-foreground);
+    color: var(--theme-color-background);
+  }
+
+  .media-text--inverse :is(.media-text__eyebrow, .media-text__subheading, .media-text__body),
+  .media-text--inverse .media-text__body :global(a) {
+    color: inherit;
+  }
+
+  .media-text--inverse .media-text__action {
+    background: var(--theme-color-background);
+    color: var(--theme-color-foreground);
+  }
+
+  .media-text--inverse .media-text__action:focus-visible {
+    outline-color: var(--theme-color-background);
+  }
+
   @media (max-width: 760px) {
     .media-text {
       padding-inline: 1.25rem;
@@ -181,5 +239,10 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     .media-text--full-width .media-text__inner {
       padding-inline: 1.25rem;
     }
+
+    .media-text--edge-to-edge { padding-inline: 0; }
+    .media-text--edge-to-edge .media-text__inner { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .media-text--edge-to-edge .media-text__inner .media-text__copy { padding: 2.25rem 1.25rem; }
+    .media-text--edge-to-edge .media-text__media { min-height: 0; aspect-ratio: 16 / 10; }
   }
 </style>

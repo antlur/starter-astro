@@ -80,7 +80,25 @@ const assertMenuLinks = (root, expected, path) => {
 
 const { doc: home, main: homeMain } = readPage("/", "Fieldwork Kitchen");
 assert.ok(links(homeMain).includes("/menu/") && links(homeMain).includes("/locations/"), "Home must lead to the menu and location directory.");
-readPage("/about/", "About Fieldwork Kitchen");
+const { main: about } = readPage("/about/", "About Fieldwork Kitchen");
+assert.ok(elements(about, "section").some((node) => hasClass(node, "hero--compact")));
+assert.ok(elements(about, "section").some((node) => hasClass(node, "media-text--edge-to-edge") && hasClass(node, "media-text--inverse")));
+assert.equal(elements(homeMain, "article").filter((node) => hasClass(node, "card-grid__item--lead")).length, 1);
+for (const [main, layout] of [[homeMain, "photo-grid"], [about, "compact"]]) {
+  const section = elements(main, "section").find((node) => hasClass(node, `location-directory--${layout}`));
+  assert.ok(section, `Render the ${layout} Locations block.`);
+  const cards = elements(section, "article");
+  assert.equal(cards.length, branches.length);
+  assert.equal(elements(section, "img").length, layout === "photo-grid" ? 1 : 0);
+  for (const branch of branches) {
+    const card = cards.find((node) => elements(node, "h3").some((heading) => text(heading) === branch.name));
+    assert.ok(card);
+    assert.ok(links(card).includes(branchPath(branch)));
+    assertProviders(card, [branch.ordering, branch.reservation, branch.waitlist], branch.name);
+    const menus = branch.menus ?? { "all-day": "Charred squash toast" };
+    assertMenuLinks(card, Object.keys(menus).map((slug) => `${branchPath(branch)}menu/${slug}/`), branch.name);
+  }
+}
 const { main: contact } = readPage("/contact/", "Get in touch");
 assert.ok(elements(contact, "fieldset").some(({ attribs }) => "disabled" in attribs), "The synthetic Contact form must be disabled.");
 assert.ok(elements(contact, "form").every(({ attribs }) => !attribs.action), "The synthetic Contact form must not submit.");
