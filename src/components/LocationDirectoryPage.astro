@@ -81,14 +81,14 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
 
 <style>
   .location-directory {
-    width: min(100% - 3rem, 74rem);
+    width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
     margin-inline: auto;
-    padding-block: clamp(3.5rem, 8vw, 6rem);
+    padding-block: var(--ui-section-space);
   }
 
   .location-directory__intro {
     max-width: 48rem;
-    margin-bottom: 2.5rem;
+    margin-bottom: var(--ui-section-heading-gap);
   }
 
   .location-directory__title,
@@ -203,11 +203,6 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
     color: var(--color-muted);
   }
 
-  .location-directory--compact,
-  .location-directory--photo-grid {
-    padding-block: 3.5rem;
-  }
-
   .location-directory--compact .location-directory__title,
   .location-directory--photo-grid .location-directory__title {
     font-size: 2.75rem;
@@ -259,19 +254,32 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
     order: -1;
   }
 
+  .location-directory--photo-grid .location-card:only-child:has(.location-card__image) {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .location-directory--photo-grid .location-card:only-child:has(.location-card__image) .location-card__content {
+    padding: 0;
+  }
+
+  .location-directory--photo-grid .location-card:only-child .location-card__image {
+    border-radius: var(--ui-radius-sm);
+  }
+
   @media (min-width: 761px) {
     .location-directory--photo-grid .location-card:only-child:has(.location-card__image) {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       align-items: center;
-    }
-
-    .location-directory--photo-grid .location-card:only-child .location-card__content {
-      padding: 2rem;
+      gap: 2rem;
     }
   }
 
   @media (max-width: 760px) {
+    .location-directory--photo-grid .location-card:only-child:has(.location-card__image) { gap: 1.125rem; }
     .location-directory--photo-grid .location-card:only-child .location-card__image { order: 0; }
   }
 
@@ -279,8 +287,6 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
     .location-directory--menu { padding-block: 2.5rem 3rem; }
     .location-directory--menu .location-directory__intro { margin-bottom: 1.5rem; }
     .location-directory--menu .location-card__content { padding: 1.25rem; }
-    .location-directory--compact,
-    .location-directory--photo-grid { padding-block: 2.75rem; }
     .location-directory--compact .location-directory__title,
     .location-directory--photo-grid .location-directory__title { font-size: 2.15rem; }
     .location-directory--compact .location-card__content { grid-template-columns: minmax(0, 1fr); }

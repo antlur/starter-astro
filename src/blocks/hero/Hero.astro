@@ -143,7 +143,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     align-items: center;
     gap: clamp(2rem, 6vw, 6rem);
     min-height: 31rem;
-    padding: clamp(3.5rem, 8vw, 7.5rem) max(1.5rem, calc((100vw - 74rem) / 2));
+    padding: clamp(3.5rem, 8vw, 7.5rem) var(--ui-container-inset);
     overflow: hidden;
   }
 
@@ -346,10 +346,10 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .hero--full-bleed {
     position: relative;
-    min-height: min(44rem, 72svh);
+    min-height: min(40rem, 68svh);
     grid-template-columns: 1fr;
     align-items: end;
-    padding-block: clamp(4rem, 9vw, 7rem) clamp(3rem, 7vw, 5.5rem);
+    padding-block: 4rem 3.5rem;
     color: white;
     background: var(--color-ink);
   }
@@ -397,7 +397,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .hero.hero--compact {
     min-height: 0;
-    padding-block: 2.75rem;
+    padding-block: 2.5rem;
     background: var(--theme-color-surface);
     color: var(--theme-color-foreground);
   }
@@ -427,7 +427,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   @media (max-width: 760px) {
     .hero.hero--compact {
       padding-block: 1.75rem;
-      gap: 1.35rem;
+      gap: 1.25rem;
     }
 
     .hero.hero--compact h1,
@@ -444,7 +444,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
       grid-template-columns: 1fr;
       gap: 2rem;
       min-height: 0;
-      padding: 4rem 1.25rem;
+      padding: 3.25rem var(--ui-container-inset);
     }
 
     .hero--text-only {
@@ -462,8 +462,9 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     }
 
     .hero--full-bleed {
-      min-height: min(35rem, 72svh);
+      min-height: min(32rem, 66svh);
       align-content: end;
+      padding-block: 3rem 2.25rem;
     }
 
     .hero--full-bleed:not(.hero--image-only) .hero__media::after {

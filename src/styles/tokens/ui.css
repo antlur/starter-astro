@@ -3,8 +3,11 @@
   --ui-radius-md: 0.5rem;
   --ui-radius-lg: 0.75rem;
   --ui-spacing-unit: 0.25rem;
-  --ui-container-width: 78rem;
+  --ui-container-width: 72rem;
   --ui-page-gutter: 1.5rem;
+  --ui-container-inset: max(var(--ui-page-gutter), calc((100% - var(--ui-container-width)) / 2));
+  --ui-section-space: 3.75rem;
+  --ui-section-heading-gap: 1.5rem;
 }
 
 @theme inline {

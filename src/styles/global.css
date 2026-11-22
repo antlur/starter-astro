@@ -128,7 +128,7 @@ button:focus-visible,
   align-items: center;
   justify-content: space-between;
   gap: 1rem 2rem;
-  padding: 0.85rem max(var(--ui-page-gutter), calc((100vw - var(--ui-container-width)) / 2));
+  padding: 0.85rem var(--ui-container-inset);
   background: var(--theme-color-action);
   color: var(--color-primary-foreground);
 }
@@ -591,6 +591,8 @@ button:focus-visible,
 @media (max-width: 620px) {
   :root {
     --ui-page-gutter: 1.25rem;
+    --ui-section-space: 2.5rem;
+    --ui-section-heading-gap: 1.125rem;
   }
 
   body.has-mobile-action {

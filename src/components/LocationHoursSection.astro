@@ -62,18 +62,18 @@ const { locations } = Astro.props;
 
 <style>
   .location-hours {
-    padding: 4rem 1.5rem;
+    padding: var(--ui-section-space) var(--ui-page-gutter);
     background: var(--color-footer-location);
     color: var(--color-footer-location-foreground);
   }
 
   .location-hours__inner {
-    width: min(100%, 74rem);
+    width: min(100%, var(--ui-container-width));
     margin-inline: auto;
   }
 
   .location-hours__intro {
-    margin-bottom: 2rem;
+    margin-bottom: var(--ui-section-heading-gap);
   }
 
   .location-hours__intro p {
@@ -176,10 +176,6 @@ const { locations } = Astro.props;
   }
 
   @media (max-width: 680px) {
-    .location-hours {
-      padding: 3rem 1rem;
-    }
-
     .location-hours__intro h2 {
       font-size: 1.9rem;
     }
