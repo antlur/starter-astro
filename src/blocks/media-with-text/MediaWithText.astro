@@ -46,7 +46,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
 <style>
   .media-text {
-    padding: clamp(3rem, 7vw, 6rem) max(1.5rem, calc((100vw - 74rem) / 2));
+    padding: var(--ui-section-space) var(--ui-container-inset);
   }
 
   .media-text--full-width {
@@ -60,7 +60,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
     align-items: center;
     gap: clamp(2rem, 6vw, 5.5rem);
-    max-width: 74rem;
+    max-width: var(--ui-container-width);
     margin-inline: auto;
   }
 
@@ -70,7 +70,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .media-text--full-width .media-text__inner {
     max-width: none;
-    padding-inline: max(1.5rem, calc((100vw - 74rem) / 2));
+    padding-inline: var(--ui-container-inset);
   }
 
   .media-text__media {
@@ -176,21 +176,21 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .media-text--edge-to-edge .media-text__copy {
     max-width: none;
-    padding: 3.5rem 2rem;
+    padding: var(--ui-section-space) 2rem;
   }
 
   .media-text--edge-to-edge.media-text--right .media-text__copy {
-    padding-inline-start: max(2rem, calc((100vw - 74rem) / 2));
+    padding-inline-start: max(var(--ui-page-gutter), calc((100vw - var(--ui-container-width)) / 2));
   }
 
   .media-text--edge-to-edge.media-text--left .media-text__copy {
-    padding-inline-end: max(2rem, calc((100vw - 74rem) / 2));
+    padding-inline-end: max(var(--ui-page-gutter), calc((100vw - var(--ui-container-width)) / 2));
   }
 
   .media-text--edge-to-edge .media-text__media {
     position: relative;
     align-self: stretch;
-    min-height: 25rem;
+    min-height: 23rem;
   }
 
   .media-text--edge-to-edge .media-text__media img {
@@ -219,10 +219,6 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   }
 
   @media (max-width: 760px) {
-    .media-text {
-      padding-inline: 1.25rem;
-    }
-
     .media-text--full-width {
       padding-inline: 0;
     }
@@ -236,13 +232,9 @@ const HeadingTag = isPrimary ? "h1" : "h2";
       order: 0;
     }
 
-    .media-text--full-width .media-text__inner {
-      padding-inline: 1.25rem;
-    }
-
     .media-text--edge-to-edge { padding-inline: 0; }
     .media-text--edge-to-edge .media-text__inner { grid-template-columns: minmax(0, 1fr); gap: 0; }
-    .media-text--edge-to-edge .media-text__inner .media-text__copy { padding: 2.25rem 1.25rem; }
+    .media-text--edge-to-edge .media-text__inner .media-text__copy { padding: var(--ui-section-space) var(--ui-page-gutter); }
     .media-text--edge-to-edge .media-text__media { min-height: 0; aspect-ratio: 16 / 10; }
   }
 </style>

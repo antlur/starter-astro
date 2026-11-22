@@ -42,7 +42,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
         const linkLabel = text(item.link_label) || (title ? `Learn more about ${title}` : "Learn more");
 
         return (
-          <article class:list={["card-grid__item", leadFeature && index === 0 && "card-grid__item--lead"]}>
+          <article class:list={["card-grid__item", image && "card-grid__item--photo", leadFeature && index === 0 && "card-grid__item--lead"]}>
             {image && <img src={image} alt={imageAlt} width={dimensions.width} height={dimensions.height} loading="lazy" decoding="async" />}
             <div class="card-grid__copy">
               {title && (heading ? <h3>{title}</h3> : <h2 class="card-grid__item-title">{title}</h2>)}
@@ -58,12 +58,12 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
 <style>
   .card-grid {
-    padding: clamp(3.5rem, 7vw, 6rem) max(1.5rem, calc((100vw - 74rem) / 2));
+    padding: var(--ui-section-space) var(--ui-container-inset);
   }
 
   .card-grid__header {
     max-width: 54rem;
-    margin: 0 auto 2.5rem;
+    margin: 0 0 var(--ui-section-heading-gap);
   }
 
   .card-grid__eyebrow {
@@ -79,7 +79,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     max-width: 22ch;
     margin: 0;
     font-family: var(--font-display);
-    font-size: 3rem;
+    font-size: 2.75rem;
     font-weight: 560;
     line-height: 1.08;
     text-wrap: balance;
@@ -129,6 +129,22 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     padding: 1.35rem;
   }
 
+  .card-grid__item--photo {
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .card-grid__item--photo img {
+    aspect-ratio: 4 / 3;
+    border-radius: var(--ui-radius-sm);
+  }
+
+  .card-grid__item--photo .card-grid__copy {
+    padding: 0.9rem 0 0;
+  }
+
   h3,
   .card-grid__item-title {
     margin: 0;
@@ -170,23 +186,25 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     outline-offset: 3px;
   }
 
-  .card-grid--lead-feature .card-grid__header {
-    margin-inline: 0;
-  }
-
   .card-grid--lead-feature .card-grid__items {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 2rem;
   }
 
   .card-grid--lead-feature .card-grid__item {
+    overflow: visible;
     border: 0;
     border-radius: 0;
     background: transparent;
   }
 
   .card-grid--lead-feature .card-grid__copy {
-    padding: 1.15rem 0 0;
+    padding: 0.9rem 0 0;
+  }
+
+  .card-grid--lead-feature .card-grid__item img {
+    aspect-ratio: 16 / 10;
+    border-radius: 0;
   }
 
   .card-grid--lead-feature .card-grid__action {
@@ -237,10 +255,6 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   }
 
   @media (max-width: 560px) {
-    .card-grid {
-      padding-inline: 1.25rem;
-    }
-
     h1,
     h2 {
       font-size: 2.25rem;
