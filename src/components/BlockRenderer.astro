@@ -11,6 +11,7 @@ import MediaWithText from "../blocks/media-with-text/MediaWithText.astro";
 import RichText from "../blocks/rich-text/RichText.astro";
 import UpcomingEvents from "../blocks/upcoming-events/UpcomingEvents.astro";
 import InstagramFeed from "../blocks/instagram-feed/InstagramFeed.astro";
+import Locations from "../blocks/locations/Locations.astro";
 import VideoHero from "../blocks/video-hero/VideoHero.astro";
 import type { HeadlessBlock } from "../lib/backstage/content";
 
@@ -33,6 +34,7 @@ const registry = {
   "rich-text": RichText,
   "upcoming-events": UpcomingEvents,
   "instagram-feed": InstagramFeed,
+  locations: Locations,
   "video-hero": VideoHero,
 } as const;
 

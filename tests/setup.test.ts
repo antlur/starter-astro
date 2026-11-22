@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
-import { listRegistryBlocks } from "@antlur/backstage";
 import test from "node:test";
 import { assertPageBlockVariants, normalizePage } from "../src/lib/backstage/content";
-import type { BlockManifest } from "../src/lib/backstage/sync-blocks";
+import { validateBlockManifests, type BlockManifest } from "../src/lib/backstage/sync-blocks";
+import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
 import type { StarterSetupClient } from "../src/lib/backstage/setup";
 import {
-  assertStarterBlockRegistryComplete,
   formatStarterReadinessReport,
   inspectStarterReadiness,
   inspectStarterSetup,
@@ -23,12 +22,9 @@ const manifest: BlockManifest = {
   schema: { fields: [{ name: "Title", slug: "title", type: "text" }] },
 };
 
-const bundledHeroManifest = listRegistryBlocks().find(
-  ({ registry_identity }) => registry_identity === "starter-astro:hero@1",
-) as unknown as BlockManifest;
-const contactFormManifest = listRegistryBlocks().find(
-  ({ registry_identity }) => registry_identity === "starter-astro:contact-form@1",
-) as unknown as BlockManifest;
+const localManifests = loadBlockManifests();
+const localHeroManifest = localManifests.find(({ slug }) => slug === "hero")!;
+const contactFormManifest = localManifests.find(({ slug }) => slug === "contact-form")!;
 
 const accountBlockFor = (block: BlockManifest) => ({
   id: `account-${block.slug}`,
@@ -154,12 +150,11 @@ function client(options: {
 
 test("setup check is read-only and reports a valid home and block plan", async () => {
   const fake = client();
-  const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [manifest] });
+  const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.equal(report.websiteCount, 1);
   assert.equal(report.homepageExists, true);
   assert.equal(report.rootRouteExists, true);
-  assert.deepEqual(report.sdkRegistry, { registered: 0, total: 0, missingSlugs: [] });
   assert.equal(report.socialProfileCount, 0);
   assert.equal(report.websiteCtaConfigured, false);
   assert.equal(report.navigationStatus, "missing");
@@ -169,12 +164,10 @@ test("setup check is read-only and reports a valid home and block plan", async (
   assert.deepEqual(fake.writes, []);
 });
 
-test("setup check reports outdated SDK block contracts and missing optional site links", async () => {
+test("setup checks local Starter manifests and reports missing optional links", async () => {
   const fake = client();
-  const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [bundledHeroManifest], { sdkRegistry: [] });
+  const report = await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [localHeroManifest]);
 
-  assert.deepEqual(report.sdkRegistry, { registered: 0, total: 1, missingSlugs: ["hero"] });
-  assert.ok(report.warnings.some((warning) => warning.includes("SDK registry is missing Starter block contracts")));
   assert.ok(report.warnings.some((warning) => warning.includes("social icons")));
   assert.ok(report.warnings.some((warning) => warning.includes("website-level CTA")));
 });
@@ -235,38 +228,30 @@ test("setup check reports a stale navigation selection", async () => {
   assert.ok(report.warnings.some((warning) => warning.includes("not found")));
 });
 
-test("setup accepts valid site-owned manifests that are not in the SDK registry", async () => {
+test("setup accepts valid site-owned manifests", async () => {
   const fake = client();
   const clientApi = fake.client as unknown as StarterSetupClient;
-  const report = await inspectStarterSetup(clientApi, [manifest], { sdkRegistry: [] });
-  const siteReport = await inspectStarterSiteSetup(clientApi, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterSetup(clientApi, [manifest]);
+  const siteReport = await inspectStarterSiteSetup(clientApi, [manifest]);
 
-  assert.deepEqual(report.sdkRegistry, { registered: 0, total: 0, missingSlugs: [] });
   assert.deepEqual(report.blockChanges, { created: 1, updated: 0 });
   assert.equal(siteReport.blockers.length, 0);
-  assert.doesNotThrow(() => assertStarterBlockRegistryComplete([manifest], []));
   assert.deepEqual(fake.writes, []);
 });
 
-test("setup rejects malformed site-owned manifests and modified bundled contracts", () => {
+test("project manifests still reject malformed identities and field types", () => {
   assert.throws(
-    () => assertStarterBlockRegistryComplete([{ ...manifest, registry_identity: "fieldwork:bad-identity" }]),
+    () => validateBlockManifests([{ ...manifest, registry_identity: "fieldwork:bad-identity" }]),
     /Invalid block identity/,
   );
   assert.throws(
-    () => assertStarterBlockRegistryComplete([
+    () => validateBlockManifests([
       { ...manifest, schema: { fields: [{ name: "Title", slug: "title", type: "unknown" }] } } as unknown as BlockManifest,
     ]),
     /not a supported Backstage field type/,
   );
-  assert.throws(
-    () => assertStarterBlockRegistryComplete([{ ...bundledHeroManifest, schema: { fields: [] } }]),
-    /differs from the registry contract/,
-  );
-  assert.throws(
-    () => assertStarterBlockRegistryComplete([{ ...bundledHeroManifest, registry_identity: "starter-astro:hero@2" }]),
-    /Unsupported registry identity/,
-  );
+
+  assert.doesNotThrow(() => validateBlockManifests([localHeroManifest]));
 });
 
 test("setup preflight preserves stale identity, slug ownership, and explicit adoption safeguards", async () => {
@@ -312,20 +297,14 @@ test("setup check warns when a page uses a block without a local renderer", asyn
   assert.ok(report.warnings.some((warning) => warning.includes("video-hero") && warning.includes("local Starter manifest/renderer")));
 });
 
-test("starter site preflight is read-only and refuses an incomplete SDK registry", async () => {
+test("starter site preflight is read-only with local Starter contracts", async () => {
   const fake = client({ routes: ["/"] });
-  const report = await inspectStarterSiteSetup(fake.client as unknown as StarterSetupClient, [bundledHeroManifest], { sdkRegistry: [] });
+  const report = await inspectStarterSiteSetup(fake.client as unknown as StarterSetupClient, [localHeroManifest]);
 
   assert.equal(report.plan?.actions[0].status, "exists");
   assert.equal(report.plan?.actions[1].status, "create");
-  assert.ok(report.blockers.some((blocker) => blocker.includes("missing Starter contracts: hero")));
+  assert.deepEqual(report.blockers, []);
   assert.deepEqual(fake.writes, []);
-});
-
-test("block writes require bundled Starter contracts but allow site-owned contracts", () => {
-  assert.throws(() => assertStarterBlockRegistryComplete([bundledHeroManifest], []), /missing Starter block contracts: hero/);
-  assert.doesNotThrow(() => assertStarterBlockRegistryComplete([bundledHeroManifest]));
-  assert.doesNotThrow(() => assertStarterBlockRegistryComplete([manifest], []));
 });
 
 test("starter site preflight includes a form page only after explicit recipient confirmation", async () => {
@@ -333,7 +312,6 @@ test("starter site preflight includes a form page only after explicit recipient 
   const clientApi = fake.client as unknown as StarterSetupClient;
   const unconfirmed = await inspectStarterSiteSetup(clientApi, [manifest], {
     contactFormId: "form-1",
-    sdkRegistry: [manifest],
   });
 
   assert.equal(unconfirmed.plan?.actions.some(({ path }) => path === "/contact"), false);
@@ -342,7 +320,6 @@ test("starter site preflight includes a form page only after explicit recipient 
   const confirmed = await inspectStarterSiteSetup(clientApi, [manifest], {
     contactFormId: "form-1",
     confirmContactFormRecipient: true,
-    sdkRegistry: [manifest],
   });
 
   assert.equal(confirmed.blockers.length, 0);
@@ -358,7 +335,6 @@ test("starter site preflight refuses a Contact Form response for a different ID"
   const report = await inspectStarterSiteSetup(clientApi, [manifest], {
     contactFormId: "form-1",
     confirmContactFormRecipient: true,
-    sdkRegistry: [manifest],
   });
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("did not match the requested form ID")));
@@ -376,10 +352,10 @@ test("explicit readiness reports a complete account as ready without optional wa
     existingBlocks: [accountBlockFor(manifest)],
   });
 
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.equal(report.websiteName, "Demo");
-  assert.equal((await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] })).rootRouteMatchesHome, true);
+  assert.equal((await inspectStarterSetup(fake.client as unknown as StarterSetupClient, [manifest])).rootRouteMatchesHome, true);
   assert.deepEqual(report.blockers, []);
   assert.deepEqual(report.warnings, []);
   assert.ok(report.manualGates.some((gate) => gate.includes("does not expose the rendering mode")));
@@ -409,7 +385,7 @@ test("readiness report formats blockers, warnings, and manual gates in order", (
 
 test("explicit readiness blocks missing required account setup and sync drift", async () => {
   const fake = client({ customBlocks: false, websites: [] });
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("exactly one Backstage website")));
   assert.ok(report.blockers.some((blocker) => blocker.includes("Enable the CMS Custom Blocks")));
@@ -419,7 +395,7 @@ test("explicit readiness blocks missing required account setup and sync drift", 
     headerNavigationId: "nav-1",
     navigations: [{ id: "nav-1" }],
   });
-  const driftReport = await inspectStarterReadiness(drift.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const driftReport = await inspectStarterReadiness(drift.client as unknown as StarterSetupClient, [manifest]);
 
   assert.ok(driftReport.blockers.some((blocker) => blocker.includes("out of sync")));
   assert.deepEqual(drift.writes, []);
@@ -438,7 +414,7 @@ test("explicit readiness blocks missing required account setup and sync drift", 
     }],
     existingBlocks: [],
   });
-  const unsupportedReport = await inspectStarterReadiness(unsupported.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const unsupportedReport = await inspectStarterReadiness(unsupported.client as unknown as StarterSetupClient, [manifest]);
 
   assert.ok(unsupportedReport.blockers.some((blocker) => blocker.includes("Enable the CMS Custom Blocks")));
   assert.ok(unsupportedReport.blockers.some((blocker) => blocker.includes("unknown-block")));
@@ -453,7 +429,7 @@ test("explicit readiness blocks missing Home/root routes and ambiguous navigatio
     existingBlocks: [accountBlockFor(manifest)],
   });
 
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("Expected exactly one Backstage homepage; found 0")));
   assert.ok(report.blockers.some((blocker) => blocker.includes("no root route")));
@@ -470,7 +446,7 @@ test("readiness blocks duplicate Home pages even when the root resolver points a
     existingBlocks: [accountBlockFor(manifest)],
   });
 
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("Home page")));
   assert.ok(report.blockers.some((blocker) => blocker.includes('canonical root route "/"')));
@@ -492,7 +468,7 @@ test("readiness blocks when the canonical root resolves to a page other than the
     existingBlocks: [accountBlockFor(manifest)],
   });
 
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("unique Home page")));
   assert.ok(report.blockers.some((blocker) => blocker.includes('resolves to type "page", ID "about", path "/"')));
@@ -507,7 +483,7 @@ test("readiness blocks a missing selected header navigation", async () => {
     existingBlocks: [accountBlockFor(manifest)],
   });
 
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("selected Header Navigation was not found")));
   assert.equal(starterReadinessExitCode(report), 1);
@@ -529,7 +505,7 @@ test("readiness blocks an empty selected header navigation after normalization",
     }],
   });
 
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("no usable links")));
   assert.equal(starterReadinessExitCode(report), 1);
@@ -551,7 +527,7 @@ test("readiness blocks a selected header navigation that cannot be read or norma
     }],
   });
 
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("Could not read or normalize selected header navigation")));
   assert.ok(report.blockers.some((blocker) => blocker.includes("navigation request failed")));
@@ -574,7 +550,6 @@ test("readiness blocks contact-form blocks without a selected form", async () =>
   const report = await inspectStarterReadiness(
     fake.client as unknown as StarterSetupClient,
     [contactFormManifest],
-    { sdkRegistry: [contactFormManifest] },
   );
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("Contact Form block contact-1 must select an existing Backstage form")));
@@ -614,7 +589,6 @@ test("readiness blocks unreadable, mismatched, incomplete, and fieldless contact
     const report = await inspectStarterReadiness(
       fake.client as unknown as StarterSetupClient,
       [contactFormManifest],
-      { sdkRegistry: [contactFormManifest] },
     );
 
     assert.ok(
@@ -648,7 +622,6 @@ test("readiness accepts a renderable contact form but keeps the delivery gate", 
   const report = await inspectStarterReadiness(
     fake.client as unknown as StarterSetupClient,
     [contactFormManifest],
-    { sdkRegistry: [contactFormManifest] },
   );
 
   assert.equal(report.blockers.some((blocker) => blocker.includes("Contact Form blocks are not renderable")), false);
@@ -673,7 +646,6 @@ test("readiness blocks navigation when every usable item is filtered by the rend
   const report = await inspectStarterReadiness(
     fake.client as unknown as StarterSetupClient,
     [manifest],
-    { sdkRegistry: [] },
   );
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("Every usable Header Navigation link is removed by the rendered route graph")));
@@ -699,7 +671,6 @@ test("readiness counts a safe external link retained after filtering as usable n
   const report = await inspectStarterReadiness(
     fake.client as unknown as StarterSetupClient,
     [manifest],
-    { sdkRegistry: [] },
   );
 
   assert.equal(report.blockers.some((blocker) => blocker.includes("Every usable Header Navigation link is removed")), false);
@@ -725,7 +696,6 @@ test("readiness retains navigation links to CMS pages in the rendered route grap
   const report = await inspectStarterReadiness(
     fake.client as unknown as StarterSetupClient,
     [manifest],
-    { sdkRegistry: [] },
   );
 
   assert.equal(report.blockers.some((blocker) => blocker.includes("Every usable Header Navigation link is removed")), false);
@@ -745,13 +715,12 @@ test("readiness blocks an unsupported saved block variant with page and block co
       is_home: true,
       blocks: [{ id: "hero-block-1", type: "hero", variant: null, fields: { variant: "unsupported" } }],
     }],
-    existingBlocks: [accountBlockFor(bundledHeroManifest)],
+    existingBlocks: [accountBlockFor(localHeroManifest)],
   });
 
   const report = await inspectStarterReadiness(
     fake.client as unknown as StarterSetupClient,
-    [bundledHeroManifest],
-    { sdkRegistry: [bundledHeroManifest] },
+    [localHeroManifest],
   );
 
   assert.ok(report.blockers.some((blocker) =>
@@ -773,7 +742,7 @@ test("block variant validation accepts a value supported by its local manifest",
     settings: null,
     layout: null,
     blocks: [{ id: "hero-block-1", type: "hero", variant: null, fields: { variant: "full-bleed-image" } }],
-  }], [bundledHeroManifest]));
+  }], [localHeroManifest]));
 });
 
 test("page normalization rejects a non-string saved block variant with context", () => {
@@ -801,7 +770,7 @@ test("explicit readiness treats optional site configuration as warnings, not blo
     }],
   });
 
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.deepEqual(report.blockers, []);
   assert.ok(report.warnings.some((warning) => warning.includes("social profile")));
@@ -825,7 +794,7 @@ test("explicit readiness reports invalid page responses as blockers", async () =
     }],
   });
 
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("invalid page at index 0")));
   assert.equal(starterReadinessExitCode(report), 1);
@@ -855,31 +824,10 @@ test("explicit readiness reuses build validation for used blocks and assigned la
     }],
   });
 
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest], { sdkRegistry: [] });
+  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [manifest]);
 
   assert.ok(report.blockers.some((blocker) => blocker.includes("no synced Custom Block definition for: missing-renderer")));
   assert.ok(report.blockers.some((blocker) => blocker.includes("no matching definition and Astro renderer")));
-  assert.equal(starterReadinessExitCode(report), 1);
-  assert.deepEqual(fake.writes, []);
-});
-
-test("explicit readiness blocks when the SDK registry lacks a bundled Starter contract", async () => {
-  const fake = client({
-    headerNavigationId: "nav-1",
-    navigations: [{ id: "nav-1" }],
-    existingBlocks: [{
-      id: "block-hero",
-      name: bundledHeroManifest.name,
-      slug: bundledHeroManifest.slug,
-      registry_identity: bundledHeroManifest.registry_identity,
-      derived_from: bundledHeroManifest.derived_from,
-      schema: bundledHeroManifest.schema,
-    }],
-  });
-
-  const report = await inspectStarterReadiness(fake.client as unknown as StarterSetupClient, [bundledHeroManifest], { sdkRegistry: [] });
-
-  assert.ok(report.blockers.some((blocker) => blocker.includes("installed SDK is missing Starter block contracts: hero")));
   assert.equal(starterReadinessExitCode(report), 1);
   assert.deepEqual(fake.writes, []);
 });

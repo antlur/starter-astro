@@ -296,13 +296,46 @@ const collectRequiredFieldIssues = (
   return issues;
 };
 
+const restaurantLayoutAdditions: Record<string, Record<string, string | null>> = {
+  "starter-astro:hero@1": { variant: "compact" },
+  "starter-astro:card-grid@1": { layout: null },
+  "starter-astro:media-with-text@1": { section_width: "edge-to-edge", tone: null },
+};
+
+const blockFieldsForBuild = (
+  manifest: BlockManifest,
+  accountFields: readonly Field[],
+  blocks: readonly HeadlessBlock[],
+): readonly Field[] => {
+  const additions = restaurantLayoutAdditions[manifest.registry_identity];
+  if (!additions || !Array.isArray(accountFields)) return manifest.schema.fields;
+
+  // Existing accounts can keep building with the previous schema until they opt into the new layouts.
+  return manifest.schema.fields.flatMap((field) => {
+    if (!Object.hasOwn(additions, field.slug)) return [field];
+    const addedOption = additions[field.slug];
+    const remote: Field | undefined = accountFields.find((candidate) => candidate?.slug === field.slug);
+    const values = blocks.map((block) => field.slug === "variant"
+      ? block.fields.variant || block.variant
+      : block.fields[field.slug]);
+
+    if (addedOption === null && !remote && !field.required && !values.some(hasRequiredValue)) return [];
+    if (addedOption !== null && Array.isArray(remote?.options) && field.options
+      && !remote.options.some((option) => option?.value === addedOption) && !values.includes(addedOption)) {
+      return [{ ...field, options: field.options.filter(({ value }) => value !== addedOption) }];
+    }
+    return [field];
+  });
+};
+
 export const assertPageBlockDefinitions = (
   pages: HeadlessPage[],
   customBlocksEnabled: boolean,
   definitions: EditableBlockDefinition[],
   localManifests?: BlockManifest[],
 ): void => {
-  const blockTypes = [...new Set(pages.flatMap((page) => page.blocks.map((block) => block.type)))];
+  const blocks = pages.flatMap((page) => page.blocks);
+  const blockTypes = [...new Set(blocks.map(({ type }) => type))];
 
   if (blockTypes.length === 0) return;
 
@@ -340,7 +373,9 @@ export const assertPageBlockDefinitions = (
       );
     }
 
-    assertFieldParity("block", type, manifest.schema.fields, definition.schema?.fields ?? []);
+    const accountFields = definition.schema?.fields ?? [];
+    const localFields = blockFieldsForBuild(manifest, accountFields, blocks.filter((block) => block.type === type));
+    assertFieldParity("block", type, localFields, accountFields);
   }
 
   assertPageBlockVariants(pages, manifests);

@@ -13,6 +13,7 @@ const text = (value: unknown): string => typeof value === "string" ? value.trim(
 const eyebrow = text(block.fields.eyebrow);
 const heading = text(block.fields.heading);
 const intro = text(block.fields.intro) ? sanitizeRichText(text(block.fields.intro)) : "";
+const leadFeature = block.fields.layout === "lead-feature";
 const items = Array.isArray(block.fields.cards)
   ? block.fields.cards.filter((item): item is Record<string, unknown> =>
       typeof item === "object" && item !== null && !Array.isArray(item)
@@ -21,7 +22,7 @@ const items = Array.isArray(block.fields.cards)
 const HeadingTag = isPrimary ? "h1" : "h2";
 ---
 
-<section class="card-grid" aria-label={heading || undefined}>
+<section class:list={["card-grid", leadFeature && "card-grid--lead-feature"]} aria-label={heading || undefined}>
   {(eyebrow || heading || intro) && (
     <header class="card-grid__header">
       {eyebrow && <p class="card-grid__eyebrow">{eyebrow}</p>}
@@ -31,7 +32,7 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   )}
   {items.length > 0 && (
     <div class="card-grid__items">
-      {items.map((item) => {
+      {items.map((item, index) => {
         const title = text(item.title);
         const body = text(item.body) ? sanitizeRichText(text(item.body)) : "";
         const image = safeImageUrl(item.image);
@@ -41,10 +42,10 @@ const HeadingTag = isPrimary ? "h1" : "h2";
         const linkLabel = text(item.link_label) || (title ? `Learn more about ${title}` : "Learn more");
 
         return (
-          <article class="card-grid__item">
+          <article class:list={["card-grid__item", leadFeature && index === 0 && "card-grid__item--lead"]}>
             {image && <img src={image} alt={imageAlt} width={dimensions.width} height={dimensions.height} loading="lazy" decoding="async" />}
             <div class="card-grid__copy">
-              {title && <h3>{title}</h3>}
+              {title && (heading ? <h3>{title}</h3> : <h2 class="card-grid__item-title">{title}</h2>)}
               {body && <div class="card-grid__body" set:html={body} />}
               {href && <a class="card-grid__action" href={href}>{linkLabel}</a>}
             </div>
@@ -128,7 +129,8 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     padding: 1.35rem;
   }
 
-  h3 {
+  h3,
+  .card-grid__item-title {
     margin: 0;
     font-family: var(--font-display);
     font-size: 1.5rem;
@@ -168,10 +170,70 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     outline-offset: 3px;
   }
 
+  .card-grid--lead-feature .card-grid__header {
+    margin-inline: 0;
+  }
+
+  .card-grid--lead-feature .card-grid__items {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem;
+  }
+
+  .card-grid--lead-feature .card-grid__item {
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .card-grid--lead-feature .card-grid__copy {
+    padding: 1.15rem 0 0;
+  }
+
+  .card-grid--lead-feature .card-grid__action {
+    padding: 0.35rem 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--theme-color-action);
+    text-decoration: underline;
+    text-underline-offset: 0.22em;
+  }
+
+  .card-grid--lead-feature .card-grid__item--lead {
+    grid-column: 1 / -1;
+    border-block: 1px solid var(--theme-color-border);
+  }
+
+  .card-grid__item--lead:has(> img) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .card-grid--lead-feature .card-grid__item--lead .card-grid__copy {
+    max-width: 34rem;
+    padding-block: 1.5rem;
+  }
+
+  .card-grid__item--lead :is(h3, .card-grid__item-title) {
+    font-size: 2.25rem;
+    text-wrap: balance;
+  }
+
   @media (max-width: 850px) {
     .card-grid__items {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+  }
+
+  @media (max-width: 680px) {
+    .card-grid--lead-feature .card-grid__items,
+    .card-grid__item--lead:has(> img) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .card-grid__item--lead:has(> img) { gap: 0; }
+    .card-grid__item--lead :is(h3, .card-grid__item-title) { font-size: 1.85rem; }
   }
 
   @media (max-width: 560px) {

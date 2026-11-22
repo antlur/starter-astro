@@ -1,0 +1,22 @@
+---
+import LocationDirectoryPage from "../../components/LocationDirectoryPage.astro";
+import type { HeadlessBlock } from "../../lib/backstage/content";
+import { isPublicLocation } from "../../lib/backstage/locations";
+import { getSiteBuild } from "../../site/build";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const { routePlan } = await getSiteBuild();
+const locations = routePlan.locationRoutes.filter(({ location }) => isPublicLocation(location));
+const heading = typeof block.fields.heading === "string" && block.fields.heading.trim() || "Our locations";
+const intro = typeof block.fields.intro === "string" ? block.fields.intro : "";
+const layout = block.fields.layout === "photo-grid" ? "photo-grid" : "compact";
+---
+
+{locations.length > 0 && (
+  <LocationDirectoryPage locations={locations} menuRoutes={routePlan.menuRoutes} section={{ heading, intro, layout, isPrimary }} />
+)}

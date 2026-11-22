@@ -70,7 +70,7 @@ test("Hero manifest exposes the fields used by its Astro renderer", () => {
   const actions = fieldBySlug.get("actions");
   assert.ok(variant);
   assert.ok(actions);
-  assert.deepEqual(variant.options?.map((option) => option.value), ["default", "full-bleed-image"]);
+  assert.deepEqual(variant.options?.map((option) => option.value), ["default", "full-bleed-image", "compact"]);
   assert.equal(variant.placeholder, "Default (automatic)");
   assert.equal(fieldBySlug.get("image")?.type, "image_list");
   assert.equal(fieldBySlug.get("logo")?.type, "image");
@@ -88,6 +88,7 @@ test("starter block identities align with the SDK registry namespace", () => {
     "starter-astro:image-link-grid@1",
     "starter-astro:image@1",
     "starter-astro:instagram-feed@1",
+    "starter-astro:locations@1",
     "starter-astro:media-with-text@1",
     "starter-astro:menu@1",
     "starter-astro:rich-text@1",
@@ -136,6 +137,7 @@ test("common content manifests expose their renderer fields", () => {
     "link_label",
     "link_url",
   ]);
+  assert.deepEqual(cardGridManifest.schema.fields.find((field) => field.slug === "layout")?.options?.map(({ value }) => value), ["grid", "lead-feature"]);
 
   assert.deepEqual(callToActionManifest.schema.fields.map((field) => field.slug), [
     "eyebrow",
@@ -160,17 +162,26 @@ test("media with text and image gallery cover reusable editorial layouts", () =>
     "section_width",
     "cta_label",
     "cta_url",
+    "tone",
   ]);
   assert.deepEqual(
     mediaWithTextManifest.schema.fields.find((field) => field.slug === "image_position")?.options?.map((option) => option.value),
     ["left", "right"],
   );
+  assert.deepEqual(mediaWithTextManifest.schema.fields.find((field) => field.slug === "section_width")?.options?.map(({ value }) => value), ["standard", "full-width", "edge-to-edge"]);
+  assert.deepEqual(mediaWithTextManifest.schema.fields.find((field) => field.slug === "tone")?.options?.map(({ value }) => value), ["default", "inverse"]);
 
   const images = imageGalleryManifest.schema.fields.find((field) => field.slug === "images");
   assert.ok(images);
   assert.deepEqual(images.fields?.map((field) => field.slug), ["image", "imageAlt", "caption"]);
   assert.deepEqual(imageGalleryManifest.schema.fields.find((field) => field.slug === "columns")?.options?.map((option) => option.value), ["2", "3", "4"]);
   assert.deepEqual(imageGalleryManifest.schema.fields.find((field) => field.slug === "image_fit")?.options?.map((option) => option.value), ["cover", "contain"]);
+});
+
+test("Locations exposes presentation fields but no duplicated branch data", () => {
+  const { schema } = blockManifest("locations");
+  assert.deepEqual(schema.fields.map(({ slug }) => slug), ["heading", "intro", "layout"]);
+  assert.deepEqual(schema.fields.find(({ slug }) => slug === "layout")?.options?.map(({ value }) => value), ["compact", "photo-grid"]);
 });
 
 test("Image Link Grid provides accessible linked-image fields and a local renderer", () => {
@@ -799,6 +810,35 @@ test("rejects account block schemas that drift from the local field contract", (
     () => assertPageBlockDefinitions([page], true, definition(unsupportedField)),
     /has fields not supported by its local manifest: custom.*Fork the semantic identity/,
   );
+});
+
+test("existing accounts can use their previous restaurant block schemas until they select a new layout", () => {
+  for (const [manifest, field, newValue, withdrawnOption] of [
+    [heroManifest, "variant", "compact", "compact"],
+    [cardGridManifest, "layout", "lead-feature", null],
+    [mediaWithTextManifest, "section_width", "edge-to-edge", "edge-to-edge"],
+    [mediaWithTextManifest, "tone", "inverse", null],
+  ] as const) {
+    const previousFields = manifest.schema.fields
+      .filter(({ slug }) => slug !== field || withdrawnOption !== null)
+      .map((candidate) => candidate.slug === field && withdrawnOption !== null
+        ? { ...candidate, options: candidate.options?.filter(({ value }) => value !== withdrawnOption) }
+        : candidate);
+    const account = [{ slug: manifest.slug, registry_identity: manifest.registry_identity, schema: { fields: previousFields } }];
+    const pageWith = (fields: Record<string, unknown>) => normalizePage({
+      id: "page-1",
+      title: "Home",
+      slug: "/",
+      pathname: "/",
+      blocks: [{ id: "block-1", type: manifest.slug, fields }],
+    });
+    assert.doesNotThrow(() => assertPageBlockDefinitions([pageWith({ heading: "Welcome" })], true, account));
+    assert.throws(() => assertPageBlockDefinitions([pageWith({ [field]: newValue })], true, account), /local manifest/);
+    assert.doesNotThrow(() => assertPageBlockDefinitions([pageWith({ [field]: newValue })], true, [{
+      ...account[0],
+      schema: manifest.schema,
+    }]));
+  }
 });
 
 test("rejects required-field drift in nested fields while treating local omission as false", () => {

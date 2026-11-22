@@ -51,6 +51,12 @@ Backstage may already have created a blank Home and a legacy Contact placeholder
 
 ## 4. Rehearse, Verify, Publish
 
+Use the same catalog for different homepage compositions. For a promotion-led restaurant, start with a full-bleed Hero, use the Lead Feature layout in Card Grid for the offer you want guests to see first, then add a Compact Locations list. For a location-led restaurant, start with a Compact Hero and put Locations immediately below it; use Photo Grid when each branch has useful photography. Edge to Edge in Media With Text gives a story or visit section a full-width split, with an optional Inverse tone drawn from the site's existing tokens.
+
+The Locations block reads published locations, canonical menu paths, and available branch service links from the same source as generated routes. Edit addresses, hours, and provider links on the location record rather than copying them into Home. A block does not create routes, and it stays hidden when there are no public locations.
+
+On an existing site, preview and sync the block definitions before selecting the new layouts in Backstage. Previously saved sections keep their original presentation.
+
 1. Record start time and elapsed operator time per phase. Run `npm run setup -- --readiness` in restaurant mode, then build using the read-only key and preview with forms disabled. A passing check confirms only what it reports.
 2. Open the five main destinations. Verify branch menus and labels, weekday/holiday hours, branch-specific provider links, and no stub or unpublished locations on desktop and mobile. Check keyboard/screen-reader navigation, contrast, forms and error states, redirects, canonicals, sitemap, and robots.
 3. On an approved test target confirm real email delivery to the agreed recipient, and verify save → queue → one rebuild plus rollback to the last good deploy. Do not enable submissions or indexing on an unapproved preview.

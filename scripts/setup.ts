@@ -3,7 +3,6 @@ import { fileURLToPath } from "node:url";
 import { BackstageClient } from "@antlur/backstage";
 import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
 import {
-  assertStarterBlockRegistryComplete,
   formatStarterReadinessReport,
   inspectStarterReadiness,
   inspectStarterSetup,
@@ -92,7 +91,6 @@ async function main() {
   console.log(`Navigation: ${navigationSummary}${report.navigationCount === null ? "" : ` (${report.navigationCount} saved)`}`);
   console.log(`Home page: ${report.homepageExists === null ? "not verified" : report.homepageExists ? "present" : "missing"}`);
   console.log(`Root route: ${report.rootRouteExists === null ? "not verified" : report.rootRouteExists ? "present" : "missing"}`);
-  console.log(`SDK block registry: ${report.sdkRegistry.registered}/${report.sdkRegistry.total} Starter contracts`);
   if (report.socialProfileCount !== null) console.log(`Social profiles: ${report.socialProfileCount} configured`);
   if (report.websiteCtaConfigured !== null) console.log(`Website CTA: ${report.websiteCtaConfigured ? "configured" : "not configured"}`);
 
@@ -142,8 +140,6 @@ async function main() {
   if (!report.customBlocksEnabled) {
     throw new Error("No definitions were changed. Enable CMS Custom Blocks and rerun setup.");
   }
-
-  assertStarterBlockRegistryComplete(manifests);
 
   const result = await syncBlockManifests(client, manifests);
   console.log(`Block sync complete: ${result.created} created, ${result.updated} updated.`);

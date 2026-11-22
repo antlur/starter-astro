@@ -37,12 +37,23 @@
         "placeholder": "Standard (default)",
         "options": [
           { "label": "Standard", "value": "standard" },
-          { "label": "Full width", "value": "full-width" }
+          { "label": "Full width", "value": "full-width" },
+          { "label": "Edge to edge", "value": "edge-to-edge" }
         ],
         "order": 7
       },
       { "name": "Call to action label", "slug": "cta_label", "type": "text", "order": 8 },
-      { "name": "Call to action URL", "slug": "cta_url", "type": "url", "order": 9 }
+      { "name": "Call to action URL", "slug": "cta_url", "type": "url", "order": 9 },
+      {
+        "name": "Section tone",
+        "slug": "tone",
+        "type": "select",
+        "options": [
+          { "label": "Default", "value": "default" },
+          { "label": "Inverse", "value": "inverse" }
+        ],
+        "order": 10
+      }
     ]
   }
 }

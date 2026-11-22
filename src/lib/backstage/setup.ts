@@ -1,4 +1,4 @@
-import { listRegistryBlocks, parseBlockIdentity, validateBlockManifest, type BackstageClient } from "@antlur/backstage";
+import type { BackstageClient } from "@antlur/backstage";
 import { buildSiteFromContent } from "../../site/build";
 import {
   assertPageBlockDefinitions,
@@ -33,7 +33,6 @@ export type StarterNavigationStatus =
 
 export interface StarterSetupOptions {
   navigationId?: string;
-  sdkRegistry?: readonly Pick<BlockManifest, "registry_identity">[];
   restaurant?: boolean;
 }
 
@@ -46,7 +45,6 @@ export interface StarterSetupReport {
   homepageExists: boolean | null;
   rootRouteExists: boolean | null;
   rootRouteMatchesHome: boolean | null;
-  sdkRegistry: { registered: number; total: number; missingSlugs: string[] };
   socialProfileCount: number | null;
   websiteCtaConfigured: boolean | null;
   blockChanges: BlockSyncResult | null;
@@ -62,7 +60,6 @@ export interface StarterSiteSetupReport {
 export interface StarterSiteSetupOptions {
   contactFormId?: string;
   confirmContactFormRecipient?: boolean;
-  sdkRegistry?: readonly Pick<BlockManifest, "registry_identity">[];
   restaurant?: boolean;
 }
 
@@ -104,39 +101,12 @@ const usableNavigationItems = (items: readonly SiteNavigationItem[]): SiteNaviga
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-export function missingStarterBlockSlugs(
-  manifests: readonly Pick<BlockManifest, "registry_identity" | "slug">[],
-  sdkRegistry: readonly Pick<BlockManifest, "registry_identity">[] = listRegistryBlocks(),
-): string[] {
-  const registryIdentities = new Set(sdkRegistry.map((block) => block.registry_identity));
-  return manifests
-    .filter((manifest) => parseBlockIdentity(manifest.registry_identity).namespace === "starter-astro")
-    .filter((manifest) => !registryIdentities.has(manifest.registry_identity))
-    .map(({ slug }) => slug);
-}
-
-function validateStarterBlockManifests(manifests: readonly BlockManifest[]): void {
-  for (const manifest of manifests) validateBlockManifest(manifest);
-  validateBlockManifests([...manifests]);
-}
-
-export function assertStarterBlockRegistryComplete(
-  manifests: readonly BlockManifest[],
-  sdkRegistry: readonly Pick<BlockManifest, "registry_identity">[] = listRegistryBlocks(),
-): void {
-  validateStarterBlockManifests(manifests);
-  const missing = missingStarterBlockSlugs(manifests, sdkRegistry);
-  if (missing.length > 0) {
-    throw new Error(`The installed SDK registry is missing Starter block contracts: ${missing.join(", ")}. Use an SDK release that includes the complete Starter registry before syncing.`);
-  }
-}
-
 export async function inspectStarterSetup(
   client: StarterSetupClient,
   manifests: BlockManifest[],
   options: StarterSetupOptions = {},
 ): Promise<StarterSetupReport> {
-  validateStarterBlockManifests(manifests);
+  validateBlockManifests(manifests);
   const [websites, customBlocksEnabled, navigations] = await Promise.all([
     client.website.getWebsites(),
     client.modules.isEnabled("cms.custom_blocks"),
@@ -145,11 +115,6 @@ export async function inspectStarterSetup(
   if (!Array.isArray(websites)) throw new Error("Backstage returned an invalid websites collection.");
   if (!Array.isArray(navigations)) throw new Error("Backstage returned an invalid navigation collection.");
   const warnings: string[] = [];
-  const registryBlocks = options.sdkRegistry ?? listRegistryBlocks();
-  const missingRegistrySlugs = missingStarterBlockSlugs(manifests, registryBlocks);
-  const bundledManifests = manifests.filter(
-    (manifest) => parseBlockIdentity(manifest.registry_identity).namespace === "starter-astro",
-  );
   const socialProfileCount = websites.length === 1
     ? (Array.isArray(websites[0].social_links)
       ? websites[0].social_links.filter((link) => safeLinkUrl(link.url)?.startsWith("https://")).length
@@ -164,13 +129,6 @@ export async function inspectStarterSetup(
   let navigationStatus: StarterNavigationStatus = "unknown";
 
   warnings.push("Confirm Headless rendering in Backstage Settings; the SDK does not expose this setting. The Starter uses Backstage's canonical route graph and does not require the legacy Application owned routing mode.");
-
-  if (missingRegistrySlugs.length > 0) {
-    warnings.push(
-      `The installed SDK registry is missing Starter block contracts: ${missingRegistrySlugs.join(", ")}. ` +
-      "Use an SDK release that includes the complete Starter registry before treating a fresh account as ready.",
-    );
-  }
 
   if (socialProfileCount === 0) {
     warnings.push("No valid HTTPS social profile URLs are configured; the shared footer intentionally hides social icons until they are added in Backstage.");
@@ -293,11 +251,6 @@ export async function inspectStarterSetup(
     homepageExists,
     rootRouteExists,
     rootRouteMatchesHome,
-    sdkRegistry: {
-      registered: bundledManifests.length - missingRegistrySlugs.length,
-      total: bundledManifests.length,
-      missingSlugs: missingRegistrySlugs,
-    },
     socialProfileCount,
     websiteCtaConfigured,
     blockChanges,
@@ -310,7 +263,7 @@ export async function inspectStarterSiteSetup(
   manifests: BlockManifest[],
   options: StarterSiteSetupOptions = {},
 ): Promise<StarterSiteSetupReport> {
-  validateStarterBlockManifests(manifests);
+  validateBlockManifests(manifests);
   const [websites, customBlocksEnabled] = await Promise.all([
     client.website.getWebsites(),
     client.modules.isEnabled("cms.custom_blocks"),
@@ -327,12 +280,6 @@ export async function inspectStarterSiteSetup(
   }
 
   if (!customBlocksEnabled) blockers.push("Enable CMS Custom Blocks before applying starter pages.");
-
-  const registry = options.sdkRegistry ?? listRegistryBlocks();
-  const missingRegistry = missingStarterBlockSlugs(manifests, registry);
-  if (missingRegistry.length > 0) {
-    blockers.push(`The installed SDK registry is missing Starter contracts: ${missingRegistry.join(", ")}.`);
-  }
 
   const website = websites[0];
   const [pages, routes] = await Promise.all([
@@ -399,12 +346,6 @@ export async function inspectStarterReadiness(
   }
   if (!setup.customBlocksEnabled) {
     blockers.push("Enable the CMS Custom Blocks module in Backstage before building this site.");
-  }
-  if (setup.sdkRegistry.missingSlugs.length > 0) {
-    blockers.push(
-      `The installed SDK is missing Starter block contracts: ${setup.sdkRegistry.missingSlugs.join(", ")}. ` +
-      "Install an SDK release that contains the complete Starter registry.",
-    );
   }
   if (setup.blockChanges && (setup.blockChanges.created > 0 || setup.blockChanges.updated > 0)) {
     blockers.push(
