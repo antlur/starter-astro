@@ -1,4 +1,5 @@
 ---
+import EditorialLink from "../../components/EditorialLink.astro";
 import type { HeadlessBlock } from "../../lib/backstage/content";
 import { eventScheduleLabels, selectUpcomingEvents } from "../../lib/backstage/events";
 import { sanitizeRichText } from "../../lib/sanitize-rich-text";
@@ -20,6 +21,7 @@ const eventsIndexHref = safeSiteLinkUrl(block.eventsIndexPath);
 const events = selectUpcomingEvents(block.events ?? [], block.fields.count);
 const scheduledEvents = events.map((event) => ({ event, schedule: eventScheduleLabels(event) }));
 const HeadingTag = isPrimary ? "h1" : "h2";
+const EventHeading = title ? "h3" : "h2";
 ---
 
 <section
@@ -27,11 +29,14 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   aria-labelledby={title ? `events-${block.id}` : undefined}
   aria-label={title ? undefined : "Upcoming events"}
 >
-  <div class="upcoming-events__intro">
-    {eyebrow && <p class="upcoming-events__eyebrow">{eyebrow}</p>}
-    {title && <HeadingTag id={`events-${block.id}`}>{title}</HeadingTag>}
-    {description && <div class="upcoming-events__description" set:html={description} />}
-  </div>
+  <header class="upcoming-events__header">
+    <div class="upcoming-events__intro">
+      {eyebrow && <p class="upcoming-events__eyebrow">{eyebrow}</p>}
+      {title && <HeadingTag class="upcoming-events__heading" id={`events-${block.id}`}>{title}</HeadingTag>}
+      {description && <div class="upcoming-events__description" set:html={description} />}
+    </div>
+    {events.length > 0 && eventsIndexHref && <EditorialLink href={eventsIndexHref} label={viewAllLabel} />}
+  </header>
   {events.length > 0 ? (
     <div class="upcoming-events__grid">
       {scheduledEvents.map(({ event, schedule }) => (
@@ -52,13 +57,13 @@ const HeadingTag = isPrimary ? "h1" : "h2";
                 <> - <time datetime={event.endTime ?? undefined}>{schedule.endTime}</time></>
               )}
             </p>
-            <h3>{event.title}</h3>
-            {event.shortDescription && <p>{event.shortDescription}</p>}
+            <EventHeading class="upcoming-events__title">{event.title}</EventHeading>
+            {event.shortDescription && <p class="upcoming-events__summary">{event.shortDescription}</p>}
             {(event.publicPath || event.ticketUrl) && (
               <div class="upcoming-events__actions">
-                {event.publicPath && <a href={event.publicPath}>Event details<span class="sr-only"> for {event.title}</span></a>}
+                {event.publicPath && <EditorialLink href={event.publicPath} label="Event details" context={`for ${event.title}`} />}
                 {event.ticketUrl && (
-                  <a href={event.ticketUrl} target="_blank" rel="noopener noreferrer">
+                  <a class="upcoming-events__tickets" href={event.ticketUrl} target="_blank" rel="noopener noreferrer">
                     Get tickets<span class="sr-only"> for {event.title}</span>
                   </a>
                 )}
@@ -71,21 +76,26 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   ) : (
     <p class="upcoming-events__empty">No upcoming events are scheduled right now.</p>
   )}
-  {events.length > 0 && eventsIndexHref && (
-    <p class="upcoming-events__view-all"><a href={eventsIndexHref}>{viewAllLabel}</a></p>
-  )}
 </section>
 
 <style>
   .upcoming-events {
-    padding: clamp(3rem, 7vw, 6rem) max(1.25rem, calc((100vw - 74rem) / 2));
+    padding: var(--ui-section-space) var(--ui-container-inset);
     background: var(--theme-color-surface);
     color: var(--theme-color-foreground);
   }
 
+  .upcoming-events__header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+    margin-bottom: var(--ui-section-heading-gap);
+  }
+
   .upcoming-events__intro {
     max-width: 44rem;
-    margin-bottom: 2rem;
+    min-width: 0;
   }
 
   .upcoming-events__eyebrow {
@@ -96,12 +106,11 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     text-transform: uppercase;
   }
 
-  h1,
-  h2 {
+  .upcoming-events__heading {
     margin: 0;
     font-family: var(--font-display);
-    font-size: clamp(2.2rem, 4vw, 3.5rem);
-    font-weight: 560;
+    font-size: 3rem;
+    font-weight: 600;
     line-height: 1.05;
     text-wrap: balance;
   }
@@ -120,8 +129,6 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
   .upcoming-events__item {
     min-width: 0;
-    overflow: hidden;
-    background: var(--color-surface);
   }
 
   .upcoming-events__item img {
@@ -133,34 +140,33 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   }
 
   .upcoming-events__copy {
-    padding: 1.25rem;
+    padding-top: 1rem;
   }
 
   .upcoming-events__date,
   .upcoming-events__time {
     margin: 0;
+    font-size: 0.875rem;
   }
 
   .upcoming-events__date {
     color: var(--color-accent-strong);
-    font-size: 0.85rem;
     font-weight: 700;
   }
 
   .upcoming-events__time {
     margin-top: 0.2rem;
     color: var(--color-muted);
-    font-size: 0.85rem;
   }
 
-  h3 {
+  .upcoming-events__title {
     margin: 0.8rem 0 0.55rem;
     font-family: var(--font-display);
     font-size: 1.5rem;
     line-height: 1.15;
   }
 
-  .upcoming-events__copy p {
+  .upcoming-events__summary {
     margin: 0;
     color: var(--color-muted);
     line-height: 1.6;
@@ -170,42 +176,26 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
-    margin-top: 1rem;
+    gap: 0.5rem 1rem;
+    margin-top: 0.5rem;
   }
 
-  .upcoming-events__actions a,
-  .upcoming-events__view-all a {
+  .upcoming-events__tickets {
     display: inline-flex;
     min-height: 2.75rem;
     align-items: center;
     justify-content: center;
     padding: 0.65rem 1rem;
-    border: 1px solid var(--color-accent-strong);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--color-accent-strong);
+    border-radius: var(--ui-radius-sm);
+    background: var(--color-accent-strong);
+    color: var(--theme-color-primary-foreground);
     font-weight: 700;
     text-decoration: none;
   }
 
-  .upcoming-events__actions a:last-child,
-  .upcoming-events__view-all a {
-    background: var(--color-accent-strong);
-    color: var(--theme-color-primary-foreground);
-  }
-
-  .upcoming-events__actions a:hover,
-  .upcoming-events__view-all a:hover {
-    border-color: var(--color-ink);
+  .upcoming-events__tickets:hover {
     background: var(--color-ink);
     color: var(--color-paper);
-  }
-
-  .upcoming-events__actions a:focus-visible,
-  .upcoming-events__view-all a:focus-visible {
-    outline: 3px solid var(--color-ink);
-    outline-offset: 3px;
   }
 
   .upcoming-events__empty {
@@ -213,13 +203,15 @@ const HeadingTag = isPrimary ? "h1" : "h2";
     color: var(--color-muted);
   }
 
-  .upcoming-events__view-all {
-    margin: 1.5rem 0 0;
-  }
+  @media (max-width: 760px) {
+    .upcoming-events__header {
+      flex-direction: column;
+      align-items: start;
+      gap: 0.25rem;
+    }
 
-  .upcoming-events__view-all a {
-    color: var(--theme-color-primary-foreground);
-    font-weight: 750;
-    text-underline-offset: 0.2em;
+    .upcoming-events__heading {
+      font-size: 2.25rem;
+    }
   }
 </style>

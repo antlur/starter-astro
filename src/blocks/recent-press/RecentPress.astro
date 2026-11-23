@@ -1,4 +1,5 @@
 ---
+import EditorialLink from "../../components/EditorialLink.astro";
 import type { HeadlessBlock } from "../../lib/backstage/content";
 import { formatPressDate, selectRecentPress } from "../../lib/backstage/press";
 import { safeSiteLinkUrl } from "../../lib/safe-url";
@@ -34,7 +35,7 @@ const ItemHeading = heading ? "h3" : "h2";
           {eyebrow && <p class="recent-press__eyebrow">{eyebrow}</p>}
           {heading && <HeadingTag class="recent-press__heading" id={`recent-press-${block.id}`}>{heading}</HeadingTag>}
         </div>
-        {pressIndexHref && <a class="recent-press__header-link" href={pressIndexHref}>{viewAllLabel}</a>}
+        {pressIndexHref && <EditorialLink href={pressIndexHref} label={viewAllLabel} />}
       </header>
       <div class="recent-press__grid">
         {releases.map(({ release, href }) => (
@@ -100,13 +101,6 @@ const ItemHeading = heading ? "h3" : "h2";
     font-weight: 600;
     line-height: 1.05;
     text-wrap: balance;
-  }
-
-  .recent-press__header-link {
-    flex: 0 0 auto;
-    color: var(--theme-color-action);
-    font-weight: 750;
-    text-underline-offset: 0.2em;
   }
 
   .recent-press__grid {

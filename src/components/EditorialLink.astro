@@ -1,0 +1,37 @@
+---
+interface Props {
+  href: string;
+  label: string;
+  context?: string;
+}
+
+const { href, label, context } = Astro.props;
+---
+
+<a class="editorial-link" href={href}>
+  <span>{label}{context && <span class="sr-only"> {context}</span>}</span>
+  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 8h10m-4-4 4 4-4 4" />
+  </svg>
+</a>
+
+<style>
+  .editorial-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    max-width: 100%;
+    color: var(--theme-color-action);
+    font-weight: 700;
+    overflow-wrap: anywhere;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .editorial-link:hover {
+    color: var(--theme-color-foreground);
+  }
+
+  svg { flex: none; }
+</style>
