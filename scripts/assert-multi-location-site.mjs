@@ -201,19 +201,15 @@ for (const branch of branches) {
       if (otherItem !== item) assert.ok(!text(menu).includes(otherItem), `${menuPath} must not show ${otherItem}.`);
     }
     assertMenuLinks(menu, menuPaths.length > 1 ? menuPaths : [], menuPath);
-    if (process.env.BACKSTAGE_SITE_PROFILE === "restaurant") {
-      const visit = DomUtils.findOne((node) => hasClass(node, "menu-page__visit"), menu.children);
-      if (process.env.BACKSTAGE_FIXTURE === "multi-location-show") {
-        assert.equal(visit, null, `${menuPath} must not repeat the Location & Hours footer.`);
-        const footer = elements(doc, "footer")[0];
-        const panel = elements(footer, "section").find((node) => hasClass(node, "location-directory--visit-panel"));
-        assert.ok(panel, `${menuPath} must show Location & Hours in its footer.`);
-        assert.deepEqual(elements(panel, "h3").map(text), [branch.name]);
-        assert.ok(links(panel).includes(path));
-      } else {
-        assert.ok(visit, `${menuPath} must offer a next step to plan a visit.`);
-        assert.deepEqual(links(visit), [path], `${menuPath} must link only to its own location from the visit action.`);
-      }
+    assert.ok(!elements(menu, "h2").some((heading) => text(heading) === "Plan your visit"), `${menuPath} must not render a visit CTA.`);
+    const footer = elements(doc, "footer")[0];
+    const panel = elements(footer, "section").find((node) => hasClass(node, "location-directory--visit-panel"));
+    if (process.env.BACKSTAGE_FIXTURE === "multi-location-show") {
+      assert.ok(panel, `${menuPath} must show Location & Hours in its footer.`);
+      assert.deepEqual(elements(panel, "h3").map(text), [branch.name]);
+      assert.ok(links(panel).includes(path));
+    } else {
+      assert.equal(panel, undefined, `${menuPath} must not render an unrequested Location & Hours footer.`);
     }
   }
 }
