@@ -84,6 +84,7 @@ test("Astro renders editorial fixtures accessibly and shares sanitized rich-text
       assert.match(video, attributePattern(name, value));
     }
     assert.match(html, /<h1\b[^>]*>A video hero rendered by Astro<\/h1>/);
+    assert.match(html, /<section\b[^>]*class="hero hero--text-only"[^>]*>[\s\S]*?<h2\b[^>]*>A hero with no photo yet<\/h2>/);
     assert.equal([...html.matchAll(/<h1\b/g)].length, 1, "the page should have one primary heading");
     assert.doesNotMatch(html, /Empty gallery heading must not render|Empty links heading must not render/);
     assert.match(html, /href="\/menu\/"[^>]*>Explore the menu<\/a>/);
