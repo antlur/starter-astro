@@ -3,7 +3,7 @@ import type { SiteLocation } from "../lib/backstage/locations";
 
 interface Props {
   location: SiteLocation;
-  groupHeading?: "h3" | "h5";
+  groupHeading?: "h3" | "h4" | "h5";
 }
 
 const { location, groupHeading: Heading = "h3" } = Astro.props;
@@ -53,7 +53,7 @@ const dateLabel = new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZo
 
 <style>
   .schedule-group + .schedule-group { margin-top: 1.25rem; }
-  h3, h5 { margin: 0 0 0.55rem; font-size: 1rem; }
+  h3, h4, h5 { margin: 0 0 0.55rem; font-size: 1rem; }
   dl { display: grid; gap: 0.55rem; margin: 0; }
   dl > div {
     display: flex;

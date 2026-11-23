@@ -181,7 +181,7 @@ test("media with text and image gallery cover reusable editorial layouts", () =>
 test("Locations exposes presentation fields but no duplicated branch data", () => {
   const { schema } = blockManifest("locations");
   assert.deepEqual(schema.fields.map(({ slug }) => slug), ["heading", "intro", "layout"]);
-  assert.deepEqual(schema.fields.find(({ slug }) => slug === "layout")?.options?.map(({ value }) => value), ["compact", "photo-grid"]);
+  assert.deepEqual(schema.fields.find(({ slug }) => slug === "layout")?.options?.map(({ value }) => value), ["compact", "photo-grid", "visit-panel"]);
 });
 
 test("Image Link Grid provides accessible linked-image fields and a local renderer", () => {
@@ -818,6 +818,7 @@ test("existing accounts can use their previous restaurant block schemas until th
     [cardGridManifest, "layout", "lead-feature", null],
     [mediaWithTextManifest, "section_width", "edge-to-edge", "edge-to-edge"],
     [mediaWithTextManifest, "tone", "inverse", null],
+    [blockManifest("locations"), "layout", "visit-panel", "visit-panel"],
   ] as const) {
     const previousFields = manifest.schema.fields
       .filter(({ slug }) => slug !== field || withdrawnOption !== null)

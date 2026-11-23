@@ -12,9 +12,10 @@ interface Props {
 const { block, isPrimary } = Astro.props;
 const { routePlan } = await getSiteBuild();
 const locations = routePlan.locationRoutes.filter(({ location }) => isPublicLocation(location));
-const heading = typeof block.fields.heading === "string" && block.fields.heading.trim() || "Our locations";
+const layout = block.fields.layout === "photo-grid" || block.fields.layout === "visit-panel" ? block.fields.layout : "compact";
+const heading = typeof block.fields.heading === "string" && block.fields.heading.trim()
+  || (layout === "visit-panel" ? "Location & Hours" : "Our locations");
 const intro = typeof block.fields.intro === "string" ? block.fields.intro : "";
-const layout = block.fields.layout === "photo-grid" ? "photo-grid" : "compact";
 ---
 
 {locations.length > 0 && (

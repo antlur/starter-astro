@@ -102,6 +102,25 @@ for (const [main, layout] of [[homeMain, "photo-grid"], [about, "compact"]]) {
 const { main: contact } = readPage("/contact/", "Get in touch");
 assert.ok(elements(contact, "fieldset").some(({ attribs }) => "disabled" in attribs), "The synthetic Contact form must be disabled.");
 assert.ok(elements(contact, "form").every(({ attribs }) => !attribs.action), "The synthetic Contact form must not submit.");
+const visitPanel = elements(contact, "section").find((node) => hasClass(node, "location-directory--visit-panel"));
+assert.ok(visitPanel, "Render the optional Location & Hours layout.");
+const visitCards = elements(visitPanel, "article");
+assert.equal(visitCards.length, branches.length);
+for (const branch of branches) {
+  const card = visitCards.find((node) => elements(node, "h3").some((heading) => text(heading) === branch.name));
+  assert.ok(card, `Show visit details for ${branch.name}.`);
+  assert.ok(links(card).includes(branchPath(branch)) && links(card).includes(`tel:${branch.phone}`));
+  assert.ok(links(card).includes(`https://maps.example.test/${branch.slug}`));
+  assert.match(text(card), /Regular Hours.*Brunch Hours/);
+  assert.equal(elements(card, "img").length, branch.slug === "market-street" ? 1 : 0);
+  const maps = elements(card, "iframe");
+  assert.equal(maps.length, branch.slug === "riverfront" ? 1 : 0);
+  if (maps.length) {
+    assert.equal(maps[0].attribs.title, "Map to Riverfront");
+    assert.equal(maps[0].attribs.loading, "lazy");
+  }
+}
+assert.match(text(visitPanel), /Winter Holiday.*Closed/);
 if (process.env.BACKSTAGE_SITE_PROFILE === "restaurant") {
   const html = elements(home, "html")[0];
   assert.match(html.attribs.style ?? "", /--brand-color-primary:\s*#583124/i);

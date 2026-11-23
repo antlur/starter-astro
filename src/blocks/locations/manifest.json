@@ -15,7 +15,8 @@
         "type": "select",
         "options": [
           { "label": "Compact list (default)", "value": "compact" },
-          { "label": "Photo grid", "value": "photo-grid" }
+          { "label": "Photo grid", "value": "photo-grid" },
+          { "label": "Location & Hours", "value": "visit-panel" }
         ],
         "order": 2
       }
