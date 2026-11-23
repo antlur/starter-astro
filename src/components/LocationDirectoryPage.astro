@@ -18,6 +18,7 @@ const { locations, purpose, menuRoutes = [], section } = Astro.props;
 const visitPanel = section?.layout === "visit-panel";
 const condensedVisit = visitPanel && section?.condensed;
 const detailedVisit = visitPanel && !condensedVisit;
+const showDescriptions = import.meta.env.SITE_LOCATION_CARD_DESCRIPTIONS !== "false" && !condensedVisit && !purpose && section?.layout !== "compact";
 const cards = locations.toSorted((left, right) => left.location.name.localeCompare(right.location.name))
   .flatMap((route) => {
     const menus = !purpose || purpose === "menu" ? menusForLocation(route, menuRoutes, locations) : [];
@@ -45,7 +46,7 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
   {cards.length > 0 ? (
     <div class="location-directory__grid">
       {cards.map(({ path, location, menus }) => {
-        const description = !condensedVisit && !purpose && section?.layout !== "compact" && location.description ? sanitizeRichText(location.description) : "";
+        const description = showDescriptions && location.description ? sanitizeRichText(location.description) : "";
         const regularHours = !detailedVisit && (!purpose || purpose === "menu") && location.hours.length === 1 ? location.hours[0] : null;
         const map = detailedVisit ? location.mapEmbedUrl : null;
         return (

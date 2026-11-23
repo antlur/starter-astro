@@ -42,6 +42,8 @@ Set **Settings → General → Footer → Location & Hours** in Backstage for a 
 
 The website resource exposes an optional `location_hours_footer` field (`show` or `hide`). Missing or unknown values use Default. The footer uses published location and menu routes, and a location-scoped menu footer uses that branch.
 
+Set `SITE_LOCATION_CARD_DESCRIPTIONS=false` in a site's build environment to hide descriptions on directory and visit-panel cards while keeping the copy on individual location pages.
+
 Use the Backstage Locations directory in navigation. With the restaurant profile and multiple routable locations, a generated brand-level `/menu/` opens the location chooser instead of choosing the first branch. Authored pages, application routes, location-owned aliases, and explicit menu links at that path keep their ownership. Existing `/menus-by-location/` links keep working. Add `/order-online/`, `/delivery/`, `/reservations/` or `/waitlist/` to Backstage navigation to link to a Starter chooser: it is built only when it does not replace an existing route and at least one public, routable location has that service. To send visitors straight to a provider for a single-location site, configure that URL in navigation. No provider accounts or API access are needed for these links.
 
 The standard `/contact/` page lists existing location contact options alongside authored blocks. It does not enable or configure forms. Hero and location photos with dimensions from Backstage's public media CDN receive responsive WebP renditions at build time; images from other sources retain their original URLs.
