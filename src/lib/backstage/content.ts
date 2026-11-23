@@ -82,6 +82,7 @@ export interface SiteNavigationItem {
 }
 
 export interface HeadlessWebsite {
+  locationHoursFooter?: "show" | "hide";
   themeVariables?: Record<string, string>;
   name: string;
   domain: string | null;
@@ -863,8 +864,12 @@ export const normalizeWebsite = (value: unknown, designConfig: Pick<BackstageUse
     : [];
   const homeCtaText = optionalString(value.home_cta_text);
   const homeCtaUrl = safeSiteLinkUrl(value.home_cta_url);
+  const locationHoursFooter = value.location_hours_footer === "show" || value.location_hours_footer === "hide"
+    ? value.location_hours_footer
+    : undefined;
 
   return {
+    locationHoursFooter,
     themeVariables: resolveWebsiteDesignTokens(value, designConfig, brandTokenNames, readThemeTokenDeclarations),
     name: optionalString(account?.name) ?? optionalString(value.app_name) ?? "Website",
     domain: optionalString(value.domain),
@@ -919,7 +924,10 @@ const getBackstageClient = (): BackstageClient => {
 
 export const resolveBackstageRoute = async (path: string): Promise<unknown> => {
   if (import.meta.env.BACKSTAGE_SOURCE === "fixture") {
-    const resolutions = import.meta.env.BACKSTAGE_FIXTURE === "multi-location"
+    const fixtureName = import.meta.env?.BACKSTAGE_FIXTURE ?? "";
+    const resolutions = fixtureName === "multi-location"
+      || fixtureName === "multi-location-show"
+      || fixtureName === "multi-location-hide"
       ? (await import("../../fixtures/multi-location")).multiLocationRouteResolutions
       : (await import("../../fixtures/routes")).fixtureRouteResolutions;
     return resolutions[path] ?? {
@@ -955,14 +963,23 @@ const loadSiteContent = async (
     clientOverride ? undefined : import.meta.env?.BACKSTAGE_PAGE_MODE,
     !clientOverride && import.meta.env?.SITE_INDEXABLE === "true",
   );
+  const fixtureName = import.meta.env?.BACKSTAGE_FIXTURE ?? "";
+  const fixtureLocationHoursFooter = fixtureName.endsWith("-show")
+    ? "show"
+    : fixtureName.endsWith("-hide")
+      ? "hide"
+      : undefined;
+  const applyFixtureLocationHoursFooter = (content: SiteContent): SiteContent => fixtureLocationHoursFooter
+    ? { ...content, site: { ...content.site, locationHoursFooter: fixtureLocationHoursFooter } }
+    : content;
 
   if (source === "fixture") {
-    if (import.meta.env.BACKSTAGE_FIXTURE === "multi-location") {
-      const { multiLocationSiteContent } = await import("../../fixtures/multi-location");
-      return multiLocationSiteContent;
+    if (fixtureName === "multi-location" || fixtureName === "multi-location-show" || fixtureName === "multi-location-hide") {
+      const { multiLocationFooterFixture, multiLocationSiteContent } = await import("../../fixtures/multi-location");
+      return applyFixtureLocationHoursFooter(fixtureName === "multi-location-show" ? multiLocationFooterFixture : multiLocationSiteContent);
     }
     const { fixtureSiteContent } = await import("../../fixtures/site-content");
-    return fixtureSiteContent;
+    return applyFixtureLocationHoursFooter(fixtureSiteContent);
   }
 
   if (source !== "api") {

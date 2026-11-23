@@ -1134,6 +1134,7 @@ test("normalizes website identity while leaving design tokens to the site projec
     ],
     home_cta_text: "Order Online",
     home_cta_url: "https://order.example.test",
+    location_hours_footer: "show",
   });
 
   assert.equal(site.name, "Fieldwork Coffee");
@@ -1144,12 +1145,21 @@ test("normalizes website identity while leaving design tokens to the site projec
   assert.equal("theme" in site, false);
   assert.deepEqual(site.socialLinks, [{ name: "instagram", url: "https://instagram.com/example" }]);
   assert.deepEqual(site.homeCta, { text: "Order Online", url: "https://order.example.test" });
+  assert.equal(site.locationHoursFooter, "show");
 });
 
 test("normalizes a local website CTA to its static site route", () => {
   const site = normalizeWebsite({ home_cta_text: "Browse the menu", home_cta_url: "/menu" });
 
   assert.deepEqual(site.homeCta, { text: "Browse the menu", url: "/menu/" });
+});
+
+test("accepts only recognized Location & Hours footer settings", () => {
+  assert.equal(normalizeWebsite({ location_hours_footer: "show" }).locationHoursFooter, "show");
+  assert.equal(normalizeWebsite({ location_hours_footer: "hide" }).locationHoursFooter, "hide");
+  for (const value of [undefined, null, "SHOW", "legacy", 1, {}]) {
+    assert.equal(normalizeWebsite({ location_hours_footer: value }).locationHoursFooter, undefined);
+  }
 });
 
 test("does not consume website theme and font settings for a custom headless site", () => {

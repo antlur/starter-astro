@@ -1,16 +1,19 @@
 ---
 import "../styles/global.css";
+import LocationDirectoryPage from "../components/LocationDirectoryPage.astro";
 import LocationHoursSection from "../components/LocationHoursSection.astro";
 import SiteAlerts from "../components/SiteAlerts.astro";
 import SocialIcon from "../components/SocialIcon.astro";
 import NavigationTree from "../components/NavigationTree.astro";
 import { alertsForPath } from "../lib/backstage/alerts";
 import { getHomePage, getSiteContent, jsonLdForPage, serializeJsonLd } from "../lib/backstage/content";
+import { isPublicLocation } from "../lib/backstage/locations";
 import { resolveSeoMetadata } from "../lib/seo-metadata";
 import { phoneLabel } from "../lib/phone-label";
 import { safeImageUrl } from "../lib/safe-url";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
 import type { SiteLocation } from "../lib/backstage/locations";
+import { getSiteBuild } from "../site/build";
 
 interface Props {
   page?: HeadlessPage;
@@ -28,12 +31,17 @@ interface Props {
   currentLocation?: SiteLocation;
   locationDirectoryPath?: string;
   showLocationHours?: boolean;
+  generatedLocationPage?: boolean;
+  locationScopedMenu?: boolean;
   notFound?: boolean;
   menuSectionPaths?: string[];
 }
 
-const { page, pageTitle: routeTitle, pageDescription: routeDescription, pageImage, contentType = "website", site, pathname, navigation, footerNavigation = [], routePaths, alerts, locations, currentLocation, locationDirectoryPath, showLocationHours = true, notFound = false, menuSectionPaths = [] } = Astro.props;
+const { page, pageTitle: routeTitle, pageDescription: routeDescription, pageImage, contentType = "website", site, pathname, navigation, footerNavigation = [], routePaths, alerts, locations, currentLocation, locationDirectoryPath, showLocationHours = true, generatedLocationPage = false, locationScopedMenu = false, notFound = false, menuSectionPaths = [] } = Astro.props;
 const { structuredData, pages } = await getSiteContent();
+const { routePlan } = await getSiteBuild();
+const locationRoutes = routePlan.locationRoutes.filter(({ location }) => isPublicLocation(location));
+const locationMenuRoutes = routePlan.menuRoutes.filter(({ menu }) => menu.isPublished !== false);
 const siteTitle = site.meta?.title || site.name;
 const { title, description, openGraphTitle, openGraphDescription } = resolveSeoMetadata({ page, routeTitle, routeDescription, site });
 const homeImage = getHomePage(pages).blocks.filter(({ type }) => type === "hero")
@@ -64,6 +72,28 @@ const showTopbar = Boolean(contactLocation?.phone || contactLocation?.addressLin
 const headerLogoSize = site.logo && import.meta.env.SITE_HEADER_LOGO_SIZE === "prominent" ? "prominent" : "standard";
 const socialLinks = site.socialLinks;
 const visibleAlerts = alertsForPath(alerts, pathname);
+const hasPublicLocationRoutes = locationRoutes.length > 0;
+const hasLocationsBlock = hasPublicLocationRoutes && (page?.blocks.some(({ type }) => type === "locations") ?? false);
+const hasDetailedVisitSection = hasLocationsBlock && (page?.blocks.some(({ type, fields }) => type === "locations" && fields.layout === "visit-panel") ?? false);
+const hasAdditionalVisitDetails = locations.some((location) =>
+  location.hours.length > 1 || (location.hourGroups?.length ?? 0) > 1 || location.specialHours?.length || location.mapEmbedUrl,
+);
+const legacyLocationHours = pathname === "/"
+  ? locations.length === 1 && !hasDetailedVisitSection && (!hasLocationsBlock || hasAdditionalVisitDetails)
+  : showLocationHours && locations.length === 1;
+const footerLocations = locationScopedMenu && currentLocation
+  ? locationRoutes.filter(({ location }) => location.id === currentLocation.id)
+  : locationRoutes;
+const showLocationHoursFooter = site.locationHoursFooter === "show"
+  && !notFound
+  && !generatedLocationPage
+  && !hasLocationsBlock
+  && footerLocations.length > 0;
+const showLegacyLocationHours = site.locationHoursFooter !== "show"
+  && site.locationHoursFooter !== "hide"
+  && !notFound
+  && (pathname === "/" || !hasDetailedVisitSection)
+  && legacyLocationHours;
 ---
 
 <!doctype html>
@@ -135,9 +165,17 @@ const visibleAlerts = alertsForPath(alerts, pathname);
     </header>
     <main id="main-content" tabindex="-1">
       <slot />
+      {pathname === "/" && showLegacyLocationHours && <LocationHoursSection locations={locations} />}
     </main>
-    {showLocationHours && locations.length === 1 && <LocationHoursSection locations={locations} />}
+    {pathname !== "/" && showLegacyLocationHours && <LocationHoursSection locations={locations} />}
     <footer class="site-footer">
+      {showLocationHoursFooter && (
+        <LocationDirectoryPage
+          locations={footerLocations}
+          menuRoutes={locationMenuRoutes}
+          section={{ heading: "Location & Hours", intro: "", layout: "visit-panel", isPrimary: false, condensed: footerLocations.length > 1 }}
+        />
+      )}
       <div class="site-footer__base">
         <div class="site-footer__base-inner">
           <a class="site-footer__brand" href="/" aria-label={site.name + " home"}>

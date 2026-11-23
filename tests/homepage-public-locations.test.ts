@@ -5,6 +5,7 @@ import { isPublicLocation, normalizeLocation } from "../src/lib/backstage/locati
 
 test("homepage shares only public locations with its layout and location-hours section", async () => {
   const homePage = await readFile(new URL("../src/pages/index.astro", import.meta.url), "utf8");
+  const layout = await readFile(new URL("../src/layouts/SiteLayout.astro", import.meta.url), "utf8");
   const legacy = normalizeLocation({ id: "legacy" });
   const published = normalizeLocation({ id: "published", status: "open" });
   const draft = normalizeLocation({ id: "draft", status: "draft" });
@@ -16,8 +17,9 @@ test("homepage shares only public locations with its layout and location-hours s
   ]);
   assert.match(homePage, /const publicLocations = content\.locations\.filter\(isPublicLocation\);/);
   assert.match(homePage, /locations=\{publicLocations\}/);
-  assert.match(homePage, /hasDetailedVisitSection = visitBlocks\.some\(\(\{ fields \}\) => fields\.layout === "visit-panel"\)/);
-  assert.match(homePage, /publicLocations\.length === 1 && !hasDetailedVisitSection && \(visitBlocks\.length === 0 \|\| hasAdditionalVisitDetails\)/);
-  assert.match(homePage, /<LocationHoursSection locations=\{publicLocations\} \/>/);
+  assert.match(layout, /const hasDetailedVisitSection = hasLocationsBlock && \(page\?\.blocks\.some/);
+  assert.match(layout, /pathname === "\/" && showLegacyLocationHours/);
+  assert.match(layout, /<LocationHoursSection locations=\{locations\} \/>/);
+  assert.doesNotMatch(homePage, /LocationHoursSection/);
   assert.doesNotMatch(homePage, /locations=\{content\.locations\}/);
 });
