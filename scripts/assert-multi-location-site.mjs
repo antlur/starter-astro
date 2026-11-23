@@ -195,7 +195,7 @@ for (const branch of branches) {
       "market-brunch": "Market Brunch",
       "river-supper": "River Supper",
     })[slug];
-    const { main: menu } = readPage(menuPath, heading);
+    const { doc, main: menu } = readPage(menuPath, heading);
     assert.ok(text(menu).includes(item), `${menuPath} must show ${item}.`);
     for (const otherItem of ["Charred squash toast", "Market biscuit plate", "River white bean stew"]) {
       if (otherItem !== item) assert.ok(!text(menu).includes(otherItem), `${menuPath} must not show ${otherItem}.`);
@@ -203,8 +203,17 @@ for (const branch of branches) {
     assertMenuLinks(menu, menuPaths.length > 1 ? menuPaths : [], menuPath);
     if (process.env.BACKSTAGE_SITE_PROFILE === "restaurant") {
       const visit = DomUtils.findOne((node) => hasClass(node, "menu-page__visit"), menu.children);
-      assert.ok(visit, `${menuPath} must offer a next step to plan a visit.`);
-      assert.deepEqual(links(visit), [path], `${menuPath} must link only to its own location from the visit action.`);
+      if (process.env.BACKSTAGE_FIXTURE === "multi-location-show") {
+        assert.equal(visit, null, `${menuPath} must not repeat the Location & Hours footer.`);
+        const footer = elements(doc, "footer")[0];
+        const panel = elements(footer, "section").find((node) => hasClass(node, "location-directory--visit-panel"));
+        assert.ok(panel, `${menuPath} must show Location & Hours in its footer.`);
+        assert.deepEqual(elements(panel, "h3").map(text), [branch.name]);
+        assert.ok(links(panel).includes(path));
+      } else {
+        assert.ok(visit, `${menuPath} must offer a next step to plan a visit.`);
+        assert.deepEqual(links(visit), [path], `${menuPath} must link only to its own location from the visit action.`);
+      }
     }
   }
 }

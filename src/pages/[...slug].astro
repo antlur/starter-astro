@@ -22,6 +22,7 @@ export const getStaticPaths = async () => {
   const menuRoutes = routePlan.menuRoutes.filter(({ menu }) => menu.isPublished !== false);
   const locations = content.locations.filter(isPublicLocation);
   const locationRoutes = routePlan.locationRoutes.filter(({ location }) => isPublicLocation(location));
+  const menuUsesVisitFooter = content.site.locationHoursFooter === "show" && locationRoutes.length > 0;
   const generatedSeoPaths = [
     ...menuRoutes.map(({ path }) => path),
     ...routePlan.menuIndexPaths,
@@ -225,12 +226,13 @@ export const getStaticPaths = async () => {
     const currentLocation = menuLocationId
       ? locationRoutes.find(({ location }) => location.id === menuLocationId)?.location
       : locationRouteForPath(props.pathname, locationRoutes)?.location;
-    const visitPath = menu && isRestaurantProfile()
+    const showMenuVisitAction = menu && isRestaurantProfile() && !menuUsesVisitFooter;
+    const visitPath = showMenuVisitAction
       ? menuLocationScopeForRoute(props.pathname, menu.menu.id, locations, locationRoutes, menuLocationId)?.path
       : null;
     const locationDirectoryPath = routePlan.locationIndexPaths[0];
     const menuVisitLink = visitPath ? { href: visitPath, label: "Hours & location" }
-      : menu && isRestaurantProfile() && locationDirectoryPath
+      : showMenuVisitAction && locationDirectoryPath
         ? { href: locationDirectoryPath, label: "Choose a location" }
         : undefined;
     const generatedLocationPage = "locationRoute" in props || "locationIndexPath" in props || "locationChooser" in props;

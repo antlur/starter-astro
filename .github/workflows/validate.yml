@@ -50,6 +50,8 @@ jobs:
           npm run build
           node scripts/assert-built-site.mjs indexable
           node scripts/assert-multi-location-site.mjs indexable
+          BACKSTAGE_FIXTURE=multi-location-show npm exec -- astro build
+          BACKSTAGE_FIXTURE=multi-location-show node scripts/assert-multi-location-site.mjs indexable
         env:
           BACKSTAGE_SOURCE: fixture
           BACKSTAGE_FIXTURE: multi-location
