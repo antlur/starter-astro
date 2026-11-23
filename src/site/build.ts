@@ -1,5 +1,5 @@
 import type { SiteContent, SiteNavigationItem } from "../lib/backstage/content";
-import { loadResolvedMenuMedia } from "../lib/backstage/content";
+import { attachEventsToBlocks, attachPressToBlocks, loadResolvedMenuMedia } from "../lib/backstage/content";
 import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "../lib/backstage/concurrency";
 import { finalizeBlueprintRoutes, resolveBlueprintRoutes } from "./blueprint-routes";
 import { addResolvedModuleContent, applicationRoutePaths, buildSiteRoutePlan, normalizeRoutePath, reportUnhandledRoutes, resolveCanonicalPageRoutes, type SiteRoutePlan } from "./routes";
@@ -246,11 +246,11 @@ export const buildSiteFromContent = async (
     [...routeCache].map(async ([path, result]) => [path, await result] as const),
   ));
 
-  const finalized = applyFinalEventRoutes(routedContent, routePlan);
+  const finalized = applyFinalEditorialRoutes(routedContent, routePlan);
   return { ...finalized, resolvedRoutes };
 };
 
-const applyFinalEventRoutes = (content: SiteContent, routePlan: SiteRoutePlan) => {
+const applyFinalEditorialRoutes = (content: SiteContent, routePlan: SiteRoutePlan) => {
   const publicPathsByEventId = new Map(routePlan.eventRoutes.flatMap((route) =>
     route.kind === "detail" ? [[route.event.id, route.path] as const] : [],
   ));
@@ -259,12 +259,17 @@ const applyFinalEventRoutes = (content: SiteContent, routePlan: SiteRoutePlan) =
     publicPath: publicPathsByEventId.get(event.id) ?? null,
   }));
   const eventsById = new Map(events.map((event) => [event.id, event]));
-  const pages = content.pages.map((page) => ({
-    ...page,
-    blocks: page.blocks.map((block) => block.type === "upcoming-events"
-      ? { ...block, events, eventsIndexPath: routePlan.eventsIndexPath }
-      : block),
-  }));
+  const publicPathsByPressId = new Map(routePlan.pressRoutes.flatMap((route) =>
+    route.kind === "detail" ? [[route.release.id, route.path] as const] : [],
+  ));
+  const pressReleases = content.pressReleases.flatMap((release) => {
+    const publicPath = publicPathsByPressId.get(release.id);
+    return publicPath ? [{ ...release, publicPath }] : [];
+  });
+  const pressIndexPath = routePlan.pressRoutes.find(({ kind }) => kind === "index")?.path ?? null;
+  const pages = content.pages.map((page) => ({ ...page, blocks: page.blocks.map((block) => ({ ...block })) }));
+  attachEventsToBlocks(pages, events, [], routePlan.eventsIndexPath);
+  attachPressToBlocks(pages, pressReleases, [], pressIndexPath);
   const pagesById = new Map(pages.map((page) => [page.id, page]));
   const finalizedRoutePlan: SiteRoutePlan = {
     ...routePlan,
@@ -274,7 +279,7 @@ const applyFinalEventRoutes = (content: SiteContent, routePlan: SiteRoutePlan) =
       : route),
   };
 
-  return { content: { ...content, events, pages }, routePlan: finalizedRoutePlan };
+  return { content: { ...content, events, pressReleases, pages }, routePlan: finalizedRoutePlan };
 };
 
 const buildSite = async () => {
@@ -285,7 +290,7 @@ const buildSite = async () => {
   if (!canResolveRoutes) {
     const routePlan = buildSiteRoutePlan(content, applicationRoutePaths);
     reportUnhandledRoutes(routePlan.unhandledPaths, import.meta.env.SITE_INDEXABLE === "true");
-    return { ...applyFinalEventRoutes(content, routePlan), resolvedRoutes: new Map<string, unknown>() };
+    return { ...applyFinalEditorialRoutes(content, routePlan), resolvedRoutes: new Map<string, unknown>() };
   }
 
   return buildSiteFromContent(content, resolveBackstageRoute, import.meta.env.SITE_INDEXABLE === "true");

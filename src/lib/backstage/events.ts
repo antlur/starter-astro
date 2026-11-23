@@ -6,6 +6,7 @@ export interface SiteEvent {
   slug: string;
   publicPath: string | null;
   title: string;
+  featured: boolean;
   startTime: string;
   endTime: string | null;
   timezone: string | null;
@@ -60,6 +61,7 @@ export const normalizeEvent = (value: unknown, index = 0): SiteEvent => {
     slug: value.slug.trim(),
     publicPath: null,
     title: value.title.trim(),
+    featured: value.is_featured === true,
     startTime: value.start_time,
     endTime,
     timezone: optionalText(value.timezone),
@@ -97,6 +99,15 @@ export const selectUpcomingEvents = (
     .sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime))
     .slice(0, limit);
 };
+
+export const selectFeaturedEvent = (
+  events: SiteEvent[],
+  now = Date.now(),
+): SiteEvent | null => events
+  .filter((event) => event.featured
+    && Boolean(event.publicPath)
+    && Date.parse(event.endTime ?? event.startTime) >= now)
+  .sort((left, right) => Date.parse(left.startTime) - Date.parse(right.startTime))[0] ?? null;
 
 const zonedFormatter = (
   options: Intl.DateTimeFormatOptions,

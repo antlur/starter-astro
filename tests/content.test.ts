@@ -6,6 +6,7 @@ import {
   assertPageBlockDefinitions,
   assertPageLayoutDefinitions,
   attachEventsToBlocks,
+  attachPressToBlocks,
   attachMenusToBlocks,
   getPageBySlug,
   normalizeNavigation,
@@ -15,6 +16,8 @@ import {
 } from "../src/lib/backstage/content";
 import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
 import { normalizeMenu } from "../src/lib/backstage/menus";
+import type { SiteEvent } from "../src/lib/backstage/events";
+import type { SitePressRelease } from "../src/lib/backstage/press";
 import type { BlockManifest } from "../src/lib/backstage/sync-blocks";
 import { attachBackstageForms, normalizeFormDefinition } from "../src/lib/backstage/forms";
 import { sanitizeRichText } from "../src/lib/sanitize-rich-text";
@@ -40,6 +43,9 @@ const mediaWithTextManifest = blockManifest("media-with-text");
 const imageGalleryManifest = blockManifest("image-gallery");
 const imageLinkGridManifest = blockManifest("image-link-grid");
 const upcomingEventsManifest = blockManifest("upcoming-events");
+const featuredEventManifest = blockManifest("featured-event");
+const featuredPressManifest = blockManifest("featured-press");
+const recentPressManifest = blockManifest("recent-press");
 const instagramFeedManifest = blockManifest("instagram-feed");
 const videoHeroManifest = blockManifest("video-hero");
 const blockRendererSource = readFileSync(new URL("../src/components/BlockRenderer.astro", import.meta.url), "utf8");
@@ -83,6 +89,8 @@ test("starter block identities align with the SDK registry namespace", () => {
     "starter-astro:call-to-action@1",
     "starter-astro:card-grid@1",
     "starter-astro:contact-form@1",
+    "starter-astro:featured-event@1",
+    "starter-astro:featured-press@1",
     "starter-astro:hero@1",
     "starter-astro:image-gallery@1",
     "starter-astro:image-link-grid@1",
@@ -92,6 +100,7 @@ test("starter block identities align with the SDK registry namespace", () => {
     "starter-astro:media-with-text@1",
     "starter-astro:menu@1",
     "starter-astro:rich-text@1",
+    "starter-astro:recent-press@1",
     "starter-astro:upcoming-events@1",
     "starter-astro:video-hero@1",
   ]);
@@ -208,6 +217,18 @@ test("upcoming events block uses a small editable schema backed by the Events mo
   assert.equal(upcomingEventsManifest.schema.fields.find((field) => field.slug === "view_all_label")?.placeholder, "View all events");
 });
 
+test("editorial record blocks keep copy in native Events and Press records", () => {
+  assert.deepEqual(featuredEventManifest.schema.fields.map((field) => field.slug), ["eyebrow", "heading", "view_all_label"]);
+  assert.equal(featuredEventManifest.schema.fields.find((field) => field.slug === "view_all_label")?.placeholder, "View all events");
+  assert.deepEqual(featuredPressManifest.schema.fields.map((field) => field.slug), ["eyebrow", "heading", "view_all_label"]);
+  assert.equal(featuredPressManifest.schema.fields.find((field) => field.slug === "view_all_label")?.placeholder, "View all press");
+  assert.deepEqual(recentPressManifest.schema.fields.map((field) => field.slug), ["eyebrow", "heading", "count", "view_all_label"]);
+  assert.equal(recentPressManifest.schema.fields.find((field) => field.slug === "count")?.type, "number");
+  assert.match(blockRendererSource, /"featured-event": FeaturedEvent/);
+  assert.match(blockRendererSource, /"featured-press": FeaturedPress/);
+  assert.match(blockRendererSource, /"recent-press": RecentPress/);
+});
+
 test("Menu block selects canonical Backstage menu data", () => {
   assert.equal(blockManifest("menu").registry_identity, "starter-astro:menu@1");
   assert.deepEqual(blockManifest("menu").schema.fields.map((field) => [field.slug, field.type]), [["menu_id", "menu_select"]]);
@@ -294,6 +315,32 @@ test("connects Upcoming Events blocks to the generated events index only when th
   assert.equal(page.blocks[0].eventsIndexPath, "/events/");
   attachEventsToBlocks([page], [], []);
   assert.equal(page.blocks[0].eventsIndexPath, null);
+});
+
+test("attaches native event and press collections to editorial blocks", () => {
+  const page = normalizePage({
+    id: "page-editorial",
+    title: "Home",
+    slug: "/",
+    pathname: "/",
+    blocks: [
+      { id: "featured-event", type: "featured-event", fields: {} },
+      { id: "featured-press", type: "featured-press", fields: {} },
+      { id: "recent-press", type: "recent-press", fields: {} },
+    ],
+  });
+  const events: SiteEvent[] = [];
+  const pressReleases: SitePressRelease[] = [];
+
+  attachEventsToBlocks([page], events, [], "/events/");
+  attachPressToBlocks([page], pressReleases, [], "/press/");
+
+  assert.equal(page.blocks[0].events, events);
+  assert.equal(page.blocks[0].eventsIndexPath, "/events/");
+  assert.equal(page.blocks[1].pressReleases, pressReleases);
+  assert.equal(page.blocks[1].pressIndexPath, "/press/");
+  assert.equal(page.blocks[2].pressReleases, pressReleases);
+  assert.equal(page.blocks[2].pressIndexPath, "/press/");
 });
 
 test("Instagram Feed block uses connected public posts and a compact editable schema", () => {

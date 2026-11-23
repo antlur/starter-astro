@@ -1,0 +1,79 @@
+---
+import FeaturedEditorial from "../../components/FeaturedEditorial.astro";
+import type { HeadlessBlock } from "../../lib/backstage/content";
+import { eventScheduleLabels, selectFeaturedEvent } from "../../lib/backstage/events";
+import { safeSiteLinkUrl } from "../../lib/safe-url";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const text = (key: string): string =>
+  typeof block.fields[key] === "string" ? (block.fields[key] as string).trim() : "";
+const eyebrow = text("eyebrow");
+const heading = text("heading");
+const viewAllLabel = text("view_all_label") || "View all events";
+const eventsIndexHref = safeSiteLinkUrl(block.eventsIndexPath);
+const selectedEvent = selectFeaturedEvent(block.events ?? []);
+const featuredEvent = selectedEvent?.publicPath
+  ? { event: selectedEvent, href: selectedEvent.publicPath }
+  : null;
+const schedule = featuredEvent ? eventScheduleLabels(featuredEvent.event) : null;
+const meta = featuredEvent && schedule ? [
+  {
+    tone: "accent" as const,
+    parts: [
+      { text: schedule.startDate, datetime: featuredEvent.event.startTime },
+      ...(schedule.endDate ? [
+        { text: " - ", hidden: true },
+        { text: schedule.endDate, datetime: featuredEvent.event.endTime ?? featuredEvent.event.startTime },
+      ] : []),
+    ],
+  },
+  {
+    tone: "muted" as const,
+    parts: [
+      { text: schedule.startTime, datetime: featuredEvent.event.startTime },
+      ...(schedule.endTime ? [
+        { text: " - ", hidden: true },
+        { text: schedule.endTime, datetime: featuredEvent.event.endTime ?? featuredEvent.event.startTime },
+      ] : []),
+    ],
+  },
+] : [];
+---
+
+{featuredEvent && schedule && (
+  <FeaturedEditorial
+    variant="event"
+    eyebrow={eyebrow}
+    heading={heading}
+    headingId={`featured-event-${block.id}`}
+    ariaLabel="Featured event"
+    isPrimary={isPrimary}
+    image={featuredEvent.event.imageUrl ? {
+      src: featuredEvent.event.imageUrl,
+      alt: featuredEvent.event.imageAlt || featuredEvent.event.title,
+      width: featuredEvent.event.imageWidth ?? 1200,
+      height: featuredEvent.event.imageHeight ?? 900,
+    } : null}
+    meta={meta}
+    title={featuredEvent.event.title}
+    summary={featuredEvent.event.shortDescription}
+    primaryAction={{
+      href: featuredEvent.href,
+      label: "Event details",
+      srOnly: ` for ${featuredEvent.event.title}`,
+    }}
+    secondaryAction={featuredEvent.event.ticketUrl ? {
+      href: featuredEvent.event.ticketUrl,
+      label: "Get tickets",
+      external: true,
+      srOnly: ` for ${featuredEvent.event.title} (opens in a new tab)`,
+    } : undefined}
+    viewAllHref={eventsIndexHref}
+    viewAllLabel={viewAllLabel}
+  />
+)}

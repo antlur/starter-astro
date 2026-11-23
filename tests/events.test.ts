@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { eventScheduleLabels, normalizeEvent, resolveEventTimezone, resolveUnambiguousEventLocation, selectUpcomingEvents } from "../src/lib/backstage/events";
+import { eventScheduleLabels, normalizeEvent, resolveEventTimezone, resolveUnambiguousEventLocation, selectFeaturedEvent, selectUpcomingEvents } from "../src/lib/backstage/events";
 import { normalizeLocation } from "../src/lib/backstage/locations";
 
 const event = (id: string, startTime: string, endTime: string | null = null) => normalizeEvent({
@@ -31,6 +31,7 @@ test("normalizes event fields and filters unsafe media or ticket URLs", () => {
   assert.equal(normalized.imageHeight, undefined);
   assert.equal(normalized.ticketUrl, null);
   assert.equal(normalized.imageUrl, null);
+  assert.equal(normalized.featured, false);
   assert.throws(() => normalizeEvent({ id: 1, title: "Missing date" }), /invalid event/);
 });
 
@@ -57,6 +58,25 @@ test("selects future events by start time and caps the requested number", () => 
 
   assert.deepEqual(selectUpcomingEvents(events, 2, Date.parse("2026-10-01T00:00:00Z")).map(({ id }) => id), ["ongoing", "soon"]);
   assert.equal(selectUpcomingEvents(events, 99, Date.parse("2026-10-01T00:00:00Z")).length, 3);
+});
+
+test("selects the nearest featured event only when it is public and ongoing or upcoming", () => {
+  const now = Date.parse("2026-10-01T00:00:00Z");
+  const eventFor = (id: string, startTime: string, endTime: string | null, featured: boolean, publicPath: string | null) => ({
+    ...event(id, startTime, endTime),
+    featured,
+    publicPath,
+  });
+  const selected = selectFeaturedEvent([
+    eventFor("unlisted", "2026-10-01T10:00:00-05:00", null, true, null),
+    eventFor("upcoming", "2026-10-03T18:00:00-05:00", null, true, "/events/upcoming/"),
+    eventFor("unfeatured", "2026-10-02T18:00:00-05:00", null, false, "/events/unfeatured/"),
+    eventFor("ongoing", "2026-09-30T18:00:00-05:00", "2026-10-02T20:00:00-05:00", true, "/events/ongoing/"),
+    eventFor("past", "2026-09-01T18:00:00-05:00", "2026-09-02T20:00:00-05:00", true, "/events/past/"),
+  ], now);
+
+  assert.equal(selected?.id, "ongoing");
+  assert.equal(selectFeaturedEvent([eventFor("hidden", "2026-10-03T18:00:00-05:00", null, true, null)], now), null);
 });
 
 test("formats same-day and multi-day event date and time ranges in the event timezone", () => {

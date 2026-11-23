@@ -1,4 +1,6 @@
 import type { HeadlessBlock } from "./backstage/content";
+import { selectFeaturedEvent } from "./backstage/events";
+import { selectFeaturedPress, selectRecentPress } from "./backstage/press";
 import { richTextToPlainText, sanitizeRichText } from "./sanitize-rich-text";
 import { safeImageUrl, safeSiteLinkUrl, safeVideoUrl } from "./safe-url";
 
@@ -36,10 +38,13 @@ const headingText = (block: HeadlessBlock): string => {
     "hero",
     "call-to-action",
     "card-grid",
+    "featured-event",
+    "featured-press",
     "image-gallery",
     "image-link-grid",
     "instagram-feed",
     "media-with-text",
+    "recent-press",
     "rich-text",
     "video-hero",
   ].includes(block.type)
@@ -52,6 +57,9 @@ const hasRenderedHeading = (block: HeadlessBlock): boolean => {
   if (block.type === "image-link-grid" && !hasRenderedImageLinkItems(block)) return false;
   if (block.type === "instagram-feed" && !hasRenderedInstagramPosts(block)) return false;
   if (block.type === "video-hero" && !safeVideoUrl(block.fields.video)) return false;
+  if (block.type === "featured-event" && !selectFeaturedEvent(block.events ?? [])) return false;
+  if (block.type === "featured-press" && !selectFeaturedPress(block.pressReleases ?? [])) return false;
+  if (block.type === "recent-press" && selectRecentPress(block.pressReleases ?? [], block.fields.count).length === 0) return false;
 
   const heading = headingText(block);
   if (heading) return true;

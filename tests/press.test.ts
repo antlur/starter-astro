@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizePressRelease, normalizePublicPressReleases } from "../src/lib/backstage/press";
+import { normalizePressRelease, normalizePublicPressReleases, selectFeaturedPress, selectRecentPress } from "../src/lib/backstage/press";
 
 test("normalizes Backstage press fields and rejects unsafe links or media", () => {
   const press = normalizePressRelease({
@@ -57,4 +57,30 @@ test("preserves press image dimensions for stable image layout", () => {
 
   assert.equal(press.imageWidth, 1200);
   assert.equal(press.imageHeight, 900);
+});
+
+test("selects featured and recent press only from published canonical records", () => {
+  const now = Date.parse("2026-09-20T00:00:00Z");
+  const releaseFor = (id: string, publishedAt: string, featured: boolean, publicPath: string | null) => ({
+    ...normalizePressRelease({
+      id,
+      slug: id,
+      title: `Release ${id}`,
+      source: "Neighborhood Journal",
+      published_at: publishedAt,
+      is_featured: featured,
+    }),
+    publicPath,
+  });
+  const releases = [
+    releaseFor("latest", "2026-09-18T00:00:00Z", true, "/press/latest/"),
+    releaseFor("older", "2026-09-10T00:00:00Z", true, "/press/older/"),
+    releaseFor("unfeatured", "2026-09-19T00:00:00Z", false, "/press/unfeatured/"),
+    releaseFor("future", "2026-09-25T00:00:00Z", true, "/press/future/"),
+    releaseFor("unlisted", "2026-09-20T00:00:00Z", true, null),
+  ];
+
+  assert.equal(selectFeaturedPress(releases, now)?.id, "latest");
+  assert.deepEqual(selectRecentPress(releases, 3, now).map(({ id }) => id), ["unfeatured", "latest", "older"]);
+  assert.deepEqual(selectRecentPress(releases, "1", now).map(({ id }) => id), ["unfeatured"]);
 });

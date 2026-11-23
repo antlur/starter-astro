@@ -27,6 +27,8 @@ export interface HeadlessBlock {
   menu?: SiteMenu;
   events?: SiteEvent[];
   eventsIndexPath?: string | null;
+  pressReleases?: SitePressRelease[];
+  pressIndexPath?: string | null;
   instagramPosts?: SiteInstagramPost[];
   instagramUrl?: string | null;
 }
@@ -776,15 +778,42 @@ export const attachMenusToBlocks = (pages: HeadlessPage[], menus: SiteMenu[]): v
   }
 };
 
-export const attachEventsToBlocks = (pages: HeadlessPage[], events: SiteEvent[], routePaths: string[]): void => {
+export const attachEventsToBlocks = (
+  pages: HeadlessPage[],
+  events: SiteEvent[],
+  routePaths: string[],
+  explicitIndexPath?: string | null,
+): void => {
   const configuredPath = routePaths.find((path) => path === "/events" || path === "/events/") ?? null;
-  const indexPath = configuredPath && !configuredPath.endsWith("/") ? `${configuredPath}/` : configuredPath;
+  const indexPath = explicitIndexPath !== undefined
+    ? explicitIndexPath
+    : configuredPath && !configuredPath.endsWith("/") ? `${configuredPath}/` : configuredPath;
 
   for (const page of pages) {
     for (const block of page.blocks) {
-      if (block.type !== "upcoming-events") continue;
+      if (block.type !== "upcoming-events" && block.type !== "featured-event") continue;
       block.events = events;
       block.eventsIndexPath = indexPath;
+    }
+  }
+};
+
+export const attachPressToBlocks = (
+  pages: HeadlessPage[],
+  pressReleases: SitePressRelease[],
+  routePaths: string[],
+  explicitIndexPath?: string | null,
+): void => {
+  const configuredPath = routePaths.find((path) => path === "/press" || path === "/press/") ?? null;
+  const indexPath = explicitIndexPath !== undefined
+    ? explicitIndexPath
+    : configuredPath && !configuredPath.endsWith("/") ? `${configuredPath}/` : configuredPath;
+
+  for (const page of pages) {
+    for (const block of page.blocks) {
+      if (block.type !== "featured-press" && block.type !== "recent-press") continue;
+      block.pressReleases = pressReleases;
+      block.pressIndexPath = indexPath;
     }
   }
 };
@@ -1116,10 +1145,13 @@ const loadSiteContent = async (
   attachMenusToBlocks(normalizedPages, menus);
   const locations = rawLocations.map(normalizeLocation);
 
+  const hasPressBlocks = normalizedPages.some((page) =>
+    page.blocks.some((block) => block.type === "featured-press" || block.type === "recent-press"),
+  );
   const hasPressRoutes = routePaths.some((path) => path === "/press" || path.startsWith("/press/"));
   let pressReleases: SitePressRelease[] = [];
 
-  if (hasPressRoutes) {
+  if (hasPressRoutes || hasPressBlocks) {
     let pressModuleEnabled: boolean;
     try {
       pressModuleEnabled = await client.modules.isEnabled("engagement.press");
@@ -1141,6 +1173,7 @@ const loadSiteContent = async (
     }
     if (!Array.isArray(rawPress)) throw new Error("Backstage did not return a press collection.");
     pressReleases = normalizePublicPressReleases(rawPress, routePaths);
+    attachPressToBlocks(normalizedPages, pressReleases, routePaths);
   }
 
   if (!legacyPreview && normalizedPages.some((page) => page.blocks.length > 0)) {
@@ -1186,12 +1219,12 @@ const loadSiteContent = async (
     assertPageLayoutDefinitions(normalizedPages, customLayoutsEnabled);
   }
 
-  const hasUpcomingEvents = normalizedPages.some((page) =>
-    page.blocks.some((block) => block.type === "upcoming-events"),
+  const hasEventBlocks = normalizedPages.some((page) =>
+    page.blocks.some((block) => block.type === "upcoming-events" || block.type === "featured-event"),
   );
   const hasEventRoutes = routePaths.some((path) => path === "/events" || path.startsWith("/events/"));
   let events: SiteEvent[] = [];
-  if (hasUpcomingEvents || hasEventRoutes) {
+  if (hasEventBlocks || hasEventRoutes) {
     let eventsModuleEnabled: boolean;
     try {
       eventsModuleEnabled = await client.modules.isEnabled("engagement.events");
@@ -1202,7 +1235,7 @@ const loadSiteContent = async (
       );
     }
     if (!eventsModuleEnabled) {
-      throw new Error("This site uses an Upcoming Events block, but the Backstage Events module is disabled.");
+      throw new Error("This site uses an Events block, but the Backstage Events module is disabled.");
     }
 
     let rawEvents: unknown;

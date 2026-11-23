@@ -1,0 +1,191 @@
+---
+import type { HeadlessBlock } from "../../lib/backstage/content";
+import { formatPressDate, selectRecentPress } from "../../lib/backstage/press";
+import { safeSiteLinkUrl } from "../../lib/safe-url";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const text = (key: string): string =>
+  typeof block.fields[key] === "string" ? (block.fields[key] as string).trim() : "";
+const eyebrow = text("eyebrow");
+const heading = text("heading");
+const viewAllLabel = text("view_all_label") || "View all press";
+const pressIndexHref = safeSiteLinkUrl(block.pressIndexPath);
+const releases = selectRecentPress(block.pressReleases ?? [], block.fields.count).flatMap((release) =>
+  release.publicPath ? [{ release, href: release.publicPath }] : [],
+);
+const HeadingTag = isPrimary ? "h1" : "h2";
+const ItemHeading = heading ? "h3" : "h2";
+---
+
+{releases.length > 0 && (
+  <section
+    class="recent-press"
+    aria-labelledby={heading ? `recent-press-${block.id}` : undefined}
+    aria-label={heading ? undefined : "Recent press"}
+  >
+    <div class="recent-press__inner">
+      <header class="recent-press__header">
+        <div>
+          {eyebrow && <p class="recent-press__eyebrow">{eyebrow}</p>}
+          {heading && <HeadingTag class="recent-press__heading" id={`recent-press-${block.id}`}>{heading}</HeadingTag>}
+        </div>
+        {pressIndexHref && <a class="recent-press__header-link" href={pressIndexHref}>{viewAllLabel}</a>}
+      </header>
+      <div class="recent-press__grid">
+        {releases.map(({ release, href }) => (
+          <article class="recent-press__item">
+            {release.imageUrl && (
+              <img
+                src={release.imageUrl}
+                alt={release.imageAlt || release.title}
+                width={release.imageWidth ?? 1200}
+                height={release.imageHeight ?? 900}
+                loading="lazy"
+                decoding="async"
+              />
+            )}
+            <div class="recent-press__copy">
+              <p class="recent-press__meta">
+                {release.source}
+                <span aria-hidden="true"> · </span>
+                <time datetime={release.publishedAt}>{formatPressDate(release.publishedAt)}</time>
+              </p>
+              <ItemHeading class="recent-press__item-title"><a href={href}>{release.title}</a></ItemHeading>
+              {release.excerpt && <p class="recent-press__summary">{release.excerpt}</p>}
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+<style>
+  .recent-press {
+    padding: var(--ui-section-space) var(--ui-container-inset);
+    background: var(--theme-color-surface);
+    color: var(--theme-color-foreground);
+  }
+
+  .recent-press__inner {
+    max-width: var(--ui-container-width);
+    margin-inline: auto;
+  }
+
+  .recent-press__header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .recent-press__eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--theme-color-action);
+    font-size: 0.8rem;
+    font-weight: 750;
+    text-transform: uppercase;
+  }
+
+  .recent-press__heading {
+    margin: 0;
+    font-family: var(--theme-font-heading);
+    font-size: 3rem;
+    font-weight: 600;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+
+  .recent-press__header-link {
+    flex: 0 0 auto;
+    color: var(--theme-color-action);
+    font-weight: 750;
+    text-underline-offset: 0.2em;
+  }
+
+  .recent-press__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+    gap: 1.25rem;
+  }
+
+  .recent-press__item {
+    min-width: 0;
+    border-top: 1px solid var(--theme-color-border);
+  }
+
+  .recent-press__item > img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    height: auto;
+    object-fit: cover;
+    background: var(--theme-color-border);
+  }
+
+  .recent-press__copy {
+    padding-top: 1rem;
+  }
+
+  .recent-press__meta,
+  .recent-press__item-title,
+  .recent-press__summary {
+    margin: 0;
+  }
+
+  .recent-press__meta {
+    color: var(--theme-color-action);
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  .recent-press__item-title {
+    margin-top: 0.55rem;
+    font-family: var(--theme-font-heading);
+    font-size: 1.45rem;
+    line-height: 1.15;
+  }
+
+  .recent-press__item-title a {
+    text-decoration: none;
+    text-underline-offset: 0.2em;
+  }
+
+  .recent-press__item-title a:hover {
+    color: var(--theme-color-action);
+    text-decoration: underline;
+  }
+
+  .recent-press__summary {
+    margin-top: 0.65rem;
+    color: var(--theme-color-muted);
+    line-height: 1.6;
+  }
+
+  @media (max-width: 760px) {
+    .recent-press {
+      padding-inline: var(--ui-page-gutter);
+    }
+
+    .recent-press__header {
+      align-items: start;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .recent-press__grid {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+
+    .recent-press__heading {
+      font-size: 2.25rem;
+    }
+  }
+</style>

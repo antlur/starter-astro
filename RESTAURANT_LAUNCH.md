@@ -14,6 +14,7 @@ For a rehearsal use an isolated account or local Backstage instance, a noindex b
 2. Under **Locations**, create each public branch. Add its address, directions, phone or email, time zone, named hours and special hours. Add ordering, delivery, reservation or waitlist links only where available.
 3. Under **Menus**, create or verify published menus, then assign them to the appropriate branches in the intended order. A menu may be shared; never copy a location-specific menu to another branch just to fill a gap. Use **Pages → Routes** (or the account's route list) to verify Location and Menu paths. Leave generated routes owned by their source records.
 4. For Contact, configure an existing **Backstage Form** with approved fields, recipient, and spam protection. If not using a form, put a real email/phone or an explicit link to the location directory on the Contact page. For other inquiry pages use the same form block or a valid external link, not a hardcoded form.
+5. If the restaurant has Events or Press content, enable the corresponding Engagement modules and add its records. Use the venue's local time zone for events and real publication dates for press. Confirm the generated index and detail paths in **Pages → Routes**.
 
 ## 2. Connect the Shared Template
 
@@ -48,6 +49,7 @@ Backstage may already have created a blank Home and a legacy Contact placeholder
 - **Pages:** edit the seeded page copy, homepage hero content and images, actions, and SEO. Replace all starter content. Add or remove optional sections using the existing blocks. A form must use an existing configured form ID.
 - **Branding and Theme Tokens:** set the logo, favicon and supported Brand palette/font slots; choose semantic theme values if needed. Test contrast for buttons, header, footer, and focus. Assets/fonts outside the template's supported setup are custom work.
 - **Navigation:** choose the website's Header Navigation and enter Home, Menu, Locations (or Visit for a single location), About, and Contact. Link to the actual published paths; do not create CMS pages solely to own generated paths. On multi-location sites, readiness prints the branch menu chooser: typically `/menu/`, or `/menus-by-location/` when Backstage already owns `/menu/`. If an intentional CMS menu is in use, check that guests can still find their branch's menus. Add `/order-online/`, `/delivery/`, `/reservations/`, or `/waitlist/` only when configured and available; the built site omits unavailable service chooser links.
+- **Events and Press:** link the generated indexes in navigation once relevant content is published. Use **Upcoming Events** or **Recent Press** for a list, and **Featured Event** or **Featured Press** for a single highlighted record. Feature records in Backstage instead of copying their details into a block. These sections are optional for sites that do not use the modules.
 
 ## 4. Rehearse, Verify, Publish
 
@@ -60,6 +62,8 @@ Choose **Location & Hours** for a branded closing section with the full schedule
 Give the Home hero one primary action and at most one secondary action. For a menu-led site, lead with **View menu** and offer **Find a location**; for a visit-led site, lead with **Hours & location** and offer **View menu**. Put practical information ahead of evergreen promotions unless a campaign is the reason for the page. Standard menu pages link next to published visit details, and the locations directory links to each branch's own menu. Make Contact about reaching the restaurant; use the public phone, email, or approved form, not another set of generic navigation links.
 
 On an existing site, preview and sync the block definitions before selecting the new layouts in Backstage. Previously saved sections keep their original presentation.
+
+Builds select upcoming and in-progress events at build time. Rebuild after an event ends to refresh upcoming sections. For fictional demos, use clearly labeled sample events spread across the next several months rather than dates years out. Leave ticket and reservation links blank and add a new future sample before the final one expires.
 
 1. Record start time and elapsed operator time per phase. Run `npm run setup -- --readiness` in restaurant mode, then build using the read-only key and preview with forms disabled. A passing check confirms only what it reports.
 2. Open the five main destinations. Verify branch menus and labels, weekday/holiday hours, branch-specific provider links, and no stub or unpublished locations on desktop and mobile. Check keyboard/screen-reader navigation, contrast, forms and error states, redirects, canonicals, sitemap, and robots.

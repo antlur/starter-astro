@@ -1,0 +1,58 @@
+---
+import FeaturedEditorial from "../../components/FeaturedEditorial.astro";
+import type { HeadlessBlock } from "../../lib/backstage/content";
+import { formatPressDate, selectFeaturedPress } from "../../lib/backstage/press";
+import { safeSiteLinkUrl } from "../../lib/safe-url";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const text = (key: string): string =>
+  typeof block.fields[key] === "string" ? (block.fields[key] as string).trim() : "";
+const eyebrow = text("eyebrow");
+const heading = text("heading");
+const viewAllLabel = text("view_all_label") || "View all press";
+const pressIndexHref = safeSiteLinkUrl(block.pressIndexPath);
+const selectedRelease = selectFeaturedPress(block.pressReleases ?? []);
+const featuredRelease = selectedRelease?.publicPath
+  ? { release: selectedRelease, href: selectedRelease.publicPath }
+  : null;
+const meta = featuredRelease ? [{
+  tone: "accent" as const,
+  parts: [
+    { text: featuredRelease.release.source },
+    { text: " · ", hidden: true },
+    { text: formatPressDate(featuredRelease.release.publishedAt), datetime: featuredRelease.release.publishedAt },
+  ],
+}] : [];
+---
+
+{featuredRelease && (
+  <FeaturedEditorial
+    variant="press"
+    eyebrow={eyebrow}
+    heading={heading}
+    headingId={`featured-press-${block.id}`}
+    ariaLabel="Featured press"
+    isPrimary={isPrimary}
+    image={featuredRelease.release.imageUrl ? {
+      src: featuredRelease.release.imageUrl,
+      alt: featuredRelease.release.imageAlt || featuredRelease.release.title,
+      width: featuredRelease.release.imageWidth ?? 1200,
+      height: featuredRelease.release.imageHeight ?? 900,
+    } : null}
+    meta={meta}
+    title={featuredRelease.release.title}
+    summary={featuredRelease.release.excerpt}
+    primaryAction={{
+      href: featuredRelease.href,
+      label: "Read the story",
+      srOnly: `: ${featuredRelease.release.title}`,
+    }}
+    viewAllHref={pressIndexHref}
+    viewAllLabel={viewAllLabel}
+  />
+)}
