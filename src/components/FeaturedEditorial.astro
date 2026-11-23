@@ -1,4 +1,6 @@
 ---
+import EditorialLink from "./EditorialLink.astro";
+
 interface MetaPart {
   text: string;
   datetime?: string;
@@ -96,10 +98,10 @@ const ItemHeading = heading ? "h3" : HeadingTag;
               {secondaryAction.srOnly && <span class="sr-only">{secondaryAction.srOnly}</span>}
             </a>
           )}
+          {viewAllHref && <EditorialLink href={viewAllHref} label={viewAllLabel} />}
         </div>
       </div>
     </div>
-    {viewAllHref && <p class="featured-editorial__view-all"><a href={viewAllHref}>{viewAllLabel}</a></p>}
   </div>
 </section>
 
@@ -193,12 +195,13 @@ const ItemHeading = heading ? "h3" : HeadingTag;
   .featured-editorial__actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    align-items: center;
+    gap: 0.5rem 1rem;
     margin-top: 1.5rem;
   }
 
-  .featured-editorial__actions a,
-  .featured-editorial__view-all a {
+  .featured-editorial__primary-action,
+  .featured-editorial__secondary-action {
     display: inline-flex;
     min-height: 2.75rem;
     align-items: center;
@@ -209,8 +212,7 @@ const ItemHeading = heading ? "h3" : HeadingTag;
     text-decoration: none;
   }
 
-  .featured-editorial__primary-action,
-  .featured-editorial__view-all a {
+  .featured-editorial__primary-action {
     background: var(--theme-color-action);
     color: var(--theme-color-primary-foreground);
   }
@@ -220,14 +222,10 @@ const ItemHeading = heading ? "h3" : HeadingTag;
     color: var(--theme-color-action);
   }
 
-  .featured-editorial__actions a:hover,
-  .featured-editorial__view-all a:hover {
+  .featured-editorial__primary-action:hover,
+  .featured-editorial__secondary-action:hover {
     background: var(--theme-color-foreground);
     color: var(--theme-color-background);
-  }
-
-  .featured-editorial__view-all {
-    margin: 2rem 0 0;
   }
 
   @media (max-width: 760px) {
