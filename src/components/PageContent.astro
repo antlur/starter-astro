@@ -1,5 +1,6 @@
 ---
 import BlockRenderer from "./BlockRenderer.astro";
+import { resolveReviews } from "../blocks/reviews/reviews";
 import PageLayoutRenderer from "./PageLayoutRenderer.astro";
 import type { HeadlessPage } from "../lib/backstage/content";
 import { primaryHeadingIndex } from "../lib/page-headings";
@@ -13,7 +14,8 @@ interface Props {
 const { page } = Astro.props;
 const hasLocations = page.blocks.some(({ type }) => type === "locations")
   && (await getSiteBuild()).routePlan.locationRoutes.some(({ location }) => isPublicLocation(location));
-const primaryBlockIndex = primaryHeadingIndex(page.blocks, hasLocations);
+const demoReviews = page.blocks.some(({ type }) => type === "reviews") ? (await getSiteBuild()).demoReviews : [];
+const primaryBlockIndex = primaryHeadingIndex(page.blocks, hasLocations, (block) => resolveReviews(demoReviews, block.fields.quotes).length > 0);
 ---
 
 <PageLayoutRenderer page={page}>

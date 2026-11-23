@@ -1,6 +1,7 @@
 import type { SiteContent, SiteNavigationItem } from "../lib/backstage/content";
 import { attachEventsToBlocks, attachPressToBlocks, loadResolvedMenuMedia } from "../lib/backstage/content";
 import { BACKSTAGE_REQUEST_CONCURRENCY, mapWithConcurrency } from "../lib/backstage/concurrency";
+import { resolveDemoReviews } from "../fixtures/demo-reviews";
 import { finalizeBlueprintRoutes, resolveBlueprintRoutes } from "./blueprint-routes";
 import { addResolvedModuleContent, applicationRoutePaths, buildSiteRoutePlan, normalizeRoutePath, reportUnhandledRoutes, resolveCanonicalPageRoutes, type SiteRoutePlan } from "./routes";
 
@@ -285,15 +286,21 @@ const applyFinalEditorialRoutes = (content: SiteContent, routePlan: SiteRoutePla
 const buildSite = async () => {
   const { getSiteContent, resolveBackstageRoute } = await import("../lib/backstage/content");
   const content = await getSiteContent();
+  const demoReviews = resolveDemoReviews(
+    import.meta.env.SITE_DEMO_REVIEWS,
+    import.meta.env.SITE_INDEXABLE,
+    import.meta.env.BACKSTAGE_SOURCE,
+    content.site.domain,
+  );
   const canResolveRoutes = import.meta.env.BACKSTAGE_SOURCE === "api" || import.meta.env.BACKSTAGE_SOURCE === "fixture";
 
   if (!canResolveRoutes) {
     const routePlan = buildSiteRoutePlan(content, applicationRoutePaths);
     reportUnhandledRoutes(routePlan.unhandledPaths, import.meta.env.SITE_INDEXABLE === "true");
-    return { ...applyFinalEditorialRoutes(content, routePlan), resolvedRoutes: new Map<string, unknown>() };
+    return { ...applyFinalEditorialRoutes(content, routePlan), resolvedRoutes: new Map<string, unknown>(), demoReviews };
   }
 
-  return buildSiteFromContent(content, resolveBackstageRoute, import.meta.env.SITE_INDEXABLE === "true");
+  return { ...await buildSiteFromContent(content, resolveBackstageRoute, import.meta.env.SITE_INDEXABLE === "true"), demoReviews };
 };
 
 export const getSiteBuild = () => {

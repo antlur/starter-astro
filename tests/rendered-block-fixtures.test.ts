@@ -89,6 +89,9 @@ test("Astro renders editorial fixtures accessibly and shares sanitized rich-text
     assert.match(html, /<section\b[^>]*class="hero hero--text-only"[^>]*>[\s\S]*?<h2\b[^>]*>A hero with no photo yet<\/h2>/);
     assert.equal([...html.matchAll(/<h1\b/g)].length, 1, "the page should have one primary heading");
     assert.doesNotMatch(html, /Empty gallery heading must not render|Empty links heading must not render/);
+    assert.doesNotMatch(html, /Empty reviews heading must not render|Sample reviews/);
+    assert.match(html, /<h2\b[^>]*>Editorial quote fixture<\/h2>/);
+    assert.match(html, /<blockquote\b[^>]*><p\b[^>]*>[^<]*&lt;b&gt;Quote fixture as plain text\.&lt;\/b&gt;/);
     assert.match(html, /href="\/menu\/"[^>]*>Explore the menu<\/a>/);
 
     const motionButton = firstTag(html, /<button\b[^>]*data-video-hero-toggle[^>]*>/, "video motion control");

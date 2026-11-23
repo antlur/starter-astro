@@ -101,6 +101,7 @@ test("starter block identities align with the SDK registry namespace", () => {
     "starter-astro:menu@1",
     "starter-astro:rich-text@1",
     "starter-astro:recent-press@1",
+    "starter-astro:reviews@1",
     "starter-astro:upcoming-events@1",
     "starter-astro:video-hero@1",
   ]);
