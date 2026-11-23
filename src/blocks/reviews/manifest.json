@@ -1,0 +1,34 @@
+{
+  "manifest_version": 1,
+  "type": "block",
+  "registry_identity": "starter-astro:reviews@1",
+  "name": "Reviews",
+  "slug": "reviews",
+  "description": "Show selected guest quotes. Nothing is imported or published automatically.",
+  "schema": {
+    "fields": [
+      { "name": "Heading", "slug": "heading", "type": "text", "placeholder": "Reviews", "order": 0 },
+      {
+        "name": "Layout",
+        "slug": "layout",
+        "type": "select",
+        "options": [
+          { "label": "Highlights (default)", "value": "highlights" },
+          { "label": "Directory", "value": "directory" }
+        ],
+        "order": 1
+      },
+      {
+        "name": "Quotes approved for publication",
+        "slug": "quotes",
+        "type": "repeater",
+        "fields": [
+          { "name": "Quote", "slug": "quote", "type": "textarea", "required": true, "order": 0 },
+          { "name": "Attribution", "slug": "attribution", "type": "text", "order": 1 },
+          { "name": "Location", "slug": "location", "type": "text", "order": 2 }
+        ],
+        "order": 2
+      }
+    ]
+  }
+}

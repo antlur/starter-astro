@@ -1,0 +1,178 @@
+---
+import EditorialLink from "../../components/EditorialLink.astro";
+import type { HeadlessBlock } from "../../lib/backstage/content";
+import { getSiteBuild } from "../../site/build";
+import { resolveReviews, reviewHeading } from "./reviews";
+
+interface Props {
+  block: HeadlessBlock;
+  isPrimary: boolean;
+}
+
+const { block, isPrimary } = Astro.props;
+const { demoReviews, routePlan } = await getSiteBuild();
+const demo = demoReviews.length > 0;
+const directory = block.fields.layout === "directory";
+const allReviews = resolveReviews(demoReviews, block.fields.quotes);
+const reviews = directory ? allReviews : allReviews.slice(0, 3);
+const locations = [...new Set(reviews.flatMap(({ location }) => location ? [location] : []))].sort();
+const directoryLink = !directory && routePlan.cmsPages.some(({ path, page }) =>
+  path === "/reviews/" && page.blocks.some((item) =>
+    item.type === "reviews" && item.fields.layout === "directory" &&
+    resolveReviews(demoReviews, item.fields.quotes).length > 0),
+);
+const Heading = isPrimary ? "h1" : "h2";
+const headingId = `reviews-${block.id}`;
+---
+
+{reviews.length > 0 && (
+  <section class="reviews" aria-labelledby={headingId} data-review-section>
+    <div class="reviews__inner">
+      <header class="reviews__header">
+        <div>
+          <Heading id={headingId}>{reviewHeading(block.fields.heading)}</Heading>
+          {demo && <p class="reviews__disclosure"><strong>Sample reviews</strong><span>Fictional examples for this demo, not guest feedback.</span></p>}
+        </div>
+        {directoryLink && <EditorialLink href="/reviews/" label={demo ? "See all sample reviews" : "Read all reviews"} />}
+        {directory && locations.length > 1 && (
+          <label class="reviews__filter" data-review-filter hidden>
+            <span>Location</span>
+            <select>
+              <option value="">All locations</option>
+              {locations.map((location) => <option value={location}>{location}</option>)}
+            </select>
+          </label>
+        )}
+      </header>
+      <div class="reviews__grid">
+        {reviews.map(({ quote, attribution, location }) => (
+          <figure data-review-location={location ?? ""}>
+            <blockquote><p>&ldquo;{quote}&rdquo;</p></blockquote>
+            {(attribution || location) && (
+              <figcaption>{[attribution, location].filter(Boolean).join(" / ")}</figcaption>
+            )}
+          </figure>
+        ))}
+      </div>
+    </div>
+  </section>
+)}
+
+<script>
+  for (const section of document.querySelectorAll("[data-review-section]")) {
+    const filter = section.querySelector<HTMLElement>("[data-review-filter]");
+    const select = filter?.querySelector("select");
+    if (!filter || !select) continue;
+
+    const reviews = section.querySelectorAll<HTMLElement>("[data-review-location]");
+    const update = () => {
+      for (const review of reviews) {
+        review.hidden = select.value !== "" && review.dataset.reviewLocation !== select.value;
+      }
+    };
+    select.addEventListener("change", update);
+    update();
+    filter.hidden = false;
+  }
+</script>
+
+<style>
+  .reviews {
+    padding: var(--ui-section-space) var(--ui-container-inset);
+    background: var(--theme-color-surface);
+    color: var(--theme-color-foreground);
+  }
+
+  .reviews__inner {
+    max-width: var(--ui-container-width);
+    margin-inline: auto;
+  }
+
+  .reviews__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem 2rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .reviews__header :is(h1, h2) {
+    margin: 0;
+    font: 600 3rem / 1.05 var(--theme-font-heading);
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+  }
+
+  .reviews__disclosure {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.15rem 0.6rem;
+    margin: 0.75rem 0 0;
+    font-size: 0.875rem;
+  }
+
+  .reviews__filter {
+    display: grid;
+    gap: 0.35rem;
+    max-width: 100%;
+    font-size: 0.875rem;
+    font-weight: 650;
+  }
+
+  .reviews__filter[hidden] {
+    display: none;
+  }
+
+  .reviews__filter select {
+    min-height: 2.75rem;
+    max-width: 100%;
+    padding: 0.4rem 2rem 0.4rem 0.65rem;
+    border: 1px solid currentColor;
+    border-radius: 0.25rem;
+    background: var(--theme-color-surface);
+    color: var(--theme-color-foreground);
+    font: inherit;
+  }
+
+  .reviews__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.75rem 2rem;
+  }
+
+  figure {
+    margin: 0;
+    padding-top: 1rem;
+    border-top: 1px solid color-mix(in srgb, currentColor 34%, transparent);
+    overflow-wrap: anywhere;
+  }
+
+  blockquote,
+  blockquote p {
+    margin: 0;
+  }
+
+  blockquote {
+    max-width: 36ch;
+    font-family: var(--theme-font-heading);
+    font-size: 1.25rem;
+    line-height: 1.45;
+  }
+
+  figcaption {
+    margin-top: 0.7rem;
+    font-size: 0.875rem;
+    font-weight: 650;
+  }
+
+  @media (max-width: 52rem) {
+    .reviews__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 36rem) {
+    .reviews__header :is(h1, h2) { font-size: 2.35rem; }
+    .reviews__grid { grid-template-columns: minmax(0, 1fr); }
+  }
+</style>

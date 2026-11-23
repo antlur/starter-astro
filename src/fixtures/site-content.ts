@@ -252,6 +252,11 @@ export const fixtureSiteContent: SiteContent = {
           fields: { heading: "Empty links heading must not render", items: [] },
         },
         {
+          id: "fixture-qa-empty-reviews",
+          type: "reviews",
+          fields: { heading: "Empty reviews heading must not render", quotes: [] },
+        },
+        {
           id: "fixture-qa-video-hero",
           type: "video-hero",
           fields: {
@@ -273,6 +278,14 @@ export const fixtureSiteContent: SiteContent = {
           id: "fixture-qa-hero-without-photo",
           type: "hero",
           fields: { variant: "full-bleed-image", heading: "A hero with no photo yet" },
+        },
+        {
+          id: "fixture-qa-reviews",
+          type: "reviews",
+          fields: {
+            heading: "Editorial quote fixture",
+            quotes: [{ quote: "<b>Quote fixture as plain text.</b>", attribution: "QA fixture" }],
+          },
         },
         {
           id: "fixture-qa-instagram-feed",
