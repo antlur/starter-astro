@@ -92,3 +92,39 @@ export const normalizePublicPressReleases = (
     return publicPath ? [{ ...normalizePressRelease(item, index), publicPath }] : [];
   });
 };
+
+export const formatPressDate = (value: string): string => new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC",
+}).format(new Date(value));
+
+const isPublishedPublicRelease = (release: SitePressRelease, now: number): boolean =>
+  Boolean(release.publicPath) && Date.parse(release.publishedAt) <= now;
+
+const pressLimit = (count: unknown): number => {
+  const numericCount = typeof count === "number"
+    ? count
+    : typeof count === "string" && count.trim()
+      ? Number(count)
+      : Number.NaN;
+  const requestedCount = Number.isFinite(numericCount) ? Math.floor(numericCount) : 3;
+  return Math.max(1, Math.min(requestedCount, 12));
+};
+
+export const selectFeaturedPress = (
+  releases: SitePressRelease[],
+  now = Date.now(),
+): SitePressRelease | null => releases
+  .filter((release) => release.featured && isPublishedPublicRelease(release, now))
+  .sort((left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt))[0] ?? null;
+
+export const selectRecentPress = (
+  releases: SitePressRelease[],
+  count: unknown,
+  now = Date.now(),
+): SitePressRelease[] => releases
+  .filter((release) => isPublishedPublicRelease(release, now))
+  .sort((left, right) => Date.parse(right.publishedAt) - Date.parse(left.publishedAt))
+  .slice(0, pressLimit(count));

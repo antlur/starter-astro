@@ -1,0 +1,247 @@
+---
+interface MetaPart {
+  text: string;
+  datetime?: string;
+  hidden?: boolean;
+}
+
+interface MetaLine {
+  tone: "accent" | "muted";
+  parts: MetaPart[];
+}
+
+interface EditorialImage {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+}
+
+interface Action {
+  href: string;
+  label: string;
+  external?: boolean;
+  srOnly?: string;
+}
+
+interface Props {
+  variant: "event" | "press";
+  eyebrow: string;
+  heading: string;
+  headingId: string;
+  ariaLabel: string;
+  isPrimary: boolean;
+  image: EditorialImage | null;
+  meta: MetaLine[];
+  title: string;
+  summary: string | null;
+  primaryAction: Action;
+  secondaryAction?: Action;
+  viewAllHref: string | null;
+  viewAllLabel: string;
+}
+
+const {
+  variant,
+  eyebrow,
+  heading,
+  headingId,
+  ariaLabel,
+  isPrimary,
+  image,
+  meta,
+  title,
+  summary,
+  primaryAction,
+  secondaryAction,
+  viewAllHref,
+  viewAllLabel,
+} = Astro.props;
+const HeadingTag = isPrimary ? "h1" : "h2";
+const ItemHeading = heading ? "h3" : HeadingTag;
+---
+
+<section
+  class:list={["featured-editorial", `featured-editorial--${variant}`]}
+  aria-labelledby={heading ? headingId : undefined}
+  aria-label={heading ? undefined : ariaLabel}
+>
+  <div class="featured-editorial__inner">
+    <div class:list={["featured-editorial__content", !image && "featured-editorial__content--no-image"]}>
+      {image && <img class="featured-editorial__image" src={image.src} alt={image.alt} width={image.width} height={image.height} loading="lazy" decoding="async" />}
+      <div class="featured-editorial__copy">
+        {eyebrow && <p class="featured-editorial__eyebrow">{eyebrow}</p>}
+        {heading && <HeadingTag class="featured-editorial__heading" id={headingId}>{heading}</HeadingTag>}
+        <div class="featured-editorial__meta">
+          {meta.map((line) => (
+            <p class:list={["featured-editorial__meta-line", `featured-editorial__meta-line--${line.tone}`]}>
+              {line.parts.map((part) => part.datetime
+                ? <time datetime={part.datetime}>{part.text}</time>
+                : part.hidden
+                  ? <span aria-hidden="true">{part.text}</span>
+                  : part.text)}
+            </p>
+          ))}
+        </div>
+        <ItemHeading class="featured-editorial__title">{title}</ItemHeading>
+        {summary && <p class="featured-editorial__summary">{summary}</p>}
+        <div class="featured-editorial__actions">
+          <a class="featured-editorial__primary-action" href={primaryAction.href} target={primaryAction.external ? "_blank" : undefined} rel={primaryAction.external ? "noopener noreferrer" : undefined}>
+            {primaryAction.label}
+            {primaryAction.srOnly && <span class="sr-only">{primaryAction.srOnly}</span>}
+          </a>
+          {secondaryAction && (
+            <a class="featured-editorial__secondary-action" href={secondaryAction.href} target={secondaryAction.external ? "_blank" : undefined} rel={secondaryAction.external ? "noopener noreferrer" : undefined}>
+              {secondaryAction.label}
+              {secondaryAction.srOnly && <span class="sr-only">{secondaryAction.srOnly}</span>}
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+    {viewAllHref && <p class="featured-editorial__view-all"><a href={viewAllHref}>{viewAllLabel}</a></p>}
+  </div>
+</section>
+
+<style>
+  .featured-editorial {
+    padding: var(--ui-section-space) var(--ui-container-inset);
+    color: var(--theme-color-foreground);
+  }
+
+  .featured-editorial--event {
+    background: var(--theme-color-surface);
+  }
+
+  .featured-editorial--press {
+    background: var(--theme-color-background);
+  }
+
+  .featured-editorial__inner {
+    max-width: var(--ui-container-width);
+    margin-inline: auto;
+  }
+
+  .featured-editorial__content {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(18rem, 0.9fr);
+    gap: 3rem;
+    align-items: center;
+  }
+
+  .featured-editorial__content--no-image {
+    grid-template-columns: minmax(0, 48rem);
+  }
+
+  .featured-editorial__image {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    height: auto;
+    object-fit: cover;
+    background: var(--theme-color-border);
+  }
+
+  .featured-editorial__eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--theme-color-action);
+    font-size: 0.8rem;
+    font-weight: 750;
+    text-transform: uppercase;
+  }
+
+  .featured-editorial__heading {
+    margin: 0;
+    font-family: var(--theme-font-heading);
+    font-size: 3rem;
+    font-weight: 600;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+
+  .featured-editorial__meta {
+    margin-top: 1.5rem;
+  }
+
+  .featured-editorial__meta-line {
+    margin: 0;
+  }
+
+  .featured-editorial__meta-line--accent {
+    color: var(--theme-color-action);
+    font-weight: 750;
+  }
+
+  .featured-editorial__meta-line--muted {
+    margin-top: 0.25rem;
+    color: var(--theme-color-muted);
+  }
+
+  .featured-editorial .featured-editorial__title {
+    margin: 1.25rem 0 0;
+    font-family: var(--theme-font-heading);
+    font-size: 1.8rem;
+    line-height: 1.1;
+  }
+
+  .featured-editorial__summary {
+    margin: 0.75rem 0 0;
+    color: var(--theme-color-muted);
+    line-height: 1.65;
+  }
+
+  .featured-editorial__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+
+  .featured-editorial__actions a,
+  .featured-editorial__view-all a {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.65rem 1rem;
+    border-radius: var(--ui-radius-sm);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .featured-editorial__primary-action,
+  .featured-editorial__view-all a {
+    background: var(--theme-color-action);
+    color: var(--theme-color-primary-foreground);
+  }
+
+  .featured-editorial__secondary-action {
+    border: 1px solid var(--theme-color-action);
+    color: var(--theme-color-action);
+  }
+
+  .featured-editorial__actions a:hover,
+  .featured-editorial__view-all a:hover {
+    background: var(--theme-color-foreground);
+    color: var(--theme-color-background);
+  }
+
+  .featured-editorial__view-all {
+    margin: 2rem 0 0;
+  }
+
+  @media (max-width: 760px) {
+    .featured-editorial {
+      padding-inline: var(--ui-page-gutter);
+    }
+
+    .featured-editorial__content {
+      grid-template-columns: 1fr;
+      gap: 1.75rem;
+    }
+
+    .featured-editorial__heading {
+      font-size: 2.25rem;
+    }
+  }
+</style>

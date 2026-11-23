@@ -1,6 +1,6 @@
 ---
+import { formatPressDate, type SitePressRelease } from "../lib/backstage/press";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
-import type { SitePressRelease } from "../lib/backstage/press";
 
 interface Props {
   kind: "index" | "detail";
@@ -10,12 +10,6 @@ interface Props {
 }
 
 const { kind, releases, release, indexPath = null } = Astro.props;
-const dateLabel = (value: string): string => new Intl.DateTimeFormat("en-US", {
-  month: "long",
-  day: "numeric",
-  year: "numeric",
-  timeZone: "UTC",
-}).format(new Date(value));
 const sortedReleases = [...releases].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 const content = release?.content ? sanitizeRichText(release.content) : "";
 ---
@@ -33,7 +27,7 @@ const content = release?.content ? sanitizeRichText(release.content) : "";
             <article class="press-item">
               {item.imageUrl && <img src={item.imageUrl} alt={item.imageAlt || item.title} width={item.imageWidth ?? 1200} height={item.imageHeight ?? 900} loading="lazy" decoding="async" />}
               <div class="press-item__content">
-                <p class="press-item__meta">{item.source} <span aria-hidden="true">·</span> <time datetime={item.publishedAt}>{dateLabel(item.publishedAt)}</time></p>
+                <p class="press-item__meta">{item.source} <span aria-hidden="true">·</span> <time datetime={item.publishedAt}>{formatPressDate(item.publishedAt)}</time></p>
                 <h2>{item.publicPath ? <a href={item.publicPath}>{item.title}</a> : item.title}</h2>
                 {item.excerpt && <p>{item.excerpt}</p>}
               </div>
@@ -48,7 +42,7 @@ const content = release?.content ? sanitizeRichText(release.content) : "";
     <article class="press-detail">
       {indexPath && <a class="press-detail__back" href={indexPath}>All press</a>}
       <header class="press-detail__header">
-        <p class="press-item__meta">{release.source} <span aria-hidden="true">·</span> <time datetime={release.publishedAt}>{dateLabel(release.publishedAt)}</time></p>
+        <p class="press-item__meta">{release.source} <span aria-hidden="true">·</span> <time datetime={release.publishedAt}>{formatPressDate(release.publishedAt)}</time></p>
         <h1 id="press-title">{release.title}</h1>
         {release.excerpt && <p class="press-detail__excerpt">{release.excerpt}</p>}
       </header>

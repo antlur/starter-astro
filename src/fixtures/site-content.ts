@@ -128,6 +128,7 @@ export const fixtureSiteContent: SiteContent = {
       slug: "community-supper",
       publicPath: "/events/community-supper/",
       title: "Community supper",
+      featured: true,
       startTime: "2027-04-10T18:00:00-05:00",
       endTime: null,
       timezone: "America/Chicago",
