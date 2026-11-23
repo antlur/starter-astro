@@ -10,6 +10,7 @@ interface ImportMetaEnv {
   readonly SITE_URL?: string;
   readonly SITE_INDEXABLE?: string;
   readonly SITE_HEADER_LOGO_SIZE?: string;
+  readonly SITE_LOCATION_CARD_DESCRIPTIONS?: string;
 }
 
 interface ImportMeta {

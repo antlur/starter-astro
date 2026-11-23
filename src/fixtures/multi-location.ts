@@ -65,6 +65,7 @@ const hiddenLocation = {
 const publicLocations = [
   {
     ...makeLocation("market-street", "Market Street", 11),
+    description: "<p>Find us inside the Market Street dining hall.</p>",
     featured_media: diningRoom,
     menus: [menuAt(allDay, "market-all-day", "Market All Day"), menuAt(marketBrunch)],
     special_hours: [{

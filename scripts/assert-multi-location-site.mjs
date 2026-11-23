@@ -39,6 +39,9 @@ const outputFile = (path) => join(outDir, path.slice(1), "index.html");
 const elements = (root, name) => DomUtils.findAll((node) => node.name === name, root.children);
 const text = (node) => DomUtils.textContent(node).replace(/\s+/g, " ").trim();
 const hasClass = (node, name) => node.attribs.class?.split(/\s+/).includes(name);
+const cardDescriptions = (root) => elements(root, "div").filter((node) => hasClass(node, "location-card__description")).map(text);
+const marketDescription = "Find us inside the Market Street dining hall.";
+const expectedCardDescriptions = process.env.SITE_LOCATION_CARD_DESCRIPTIONS === "false" ? [] : [marketDescription];
 const links = (root) => elements(root, "a").flatMap((node) => node.attribs.href ? [node.attribs.href] : []);
 const branchCard = (main, branch) => elements(main, "article").find((card) =>
   elements(card, "h2").some((heading) => text(heading) === branch.name),
@@ -89,6 +92,7 @@ for (const [main, layout] of [[homeMain, "photo-grid"], [about, "compact"]]) {
   assert.ok(section, `Render the ${layout} Locations block.`);
   const cards = elements(section, "article");
   assert.equal(cards.length, branches.length);
+  assert.deepEqual(cardDescriptions(section), layout === "photo-grid" ? expectedCardDescriptions : []);
   assert.equal(elements(section, "img").length, layout === "photo-grid" ? 1 : 0);
   for (const branch of branches) {
     const card = cards.find((node) => elements(node, "h3").some((heading) => text(heading) === branch.name));
@@ -106,6 +110,7 @@ const visitPanel = elements(contact, "section").find((node) => hasClass(node, "l
 assert.ok(visitPanel, "Render the optional Location & Hours layout.");
 const visitCards = elements(visitPanel, "article");
 assert.equal(visitCards.length, branches.length);
+assert.deepEqual(cardDescriptions(visitPanel), expectedCardDescriptions);
 for (const branch of branches) {
   const card = visitCards.find((node) => elements(node, "h3").some((heading) => text(heading) === branch.name));
   assert.ok(card, `Show visit details for ${branch.name}.`);
@@ -166,6 +171,7 @@ for (const branch of branches) {
 
   if (branch.slug === "market-street") {
     const hours = text(main);
+    assert.ok(hours.includes(marketDescription), "Keep the description on the location detail page.");
     for (const label of ["Regular Hours", "Brunch Hours", "Winter Holiday"]) {
       assert.ok(hours.includes(label), `${path} must render ${label}.`);
     }
