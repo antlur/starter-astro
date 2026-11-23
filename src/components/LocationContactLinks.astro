@@ -15,7 +15,7 @@ const { routes } = Astro.props;
     <ul>
       {routes.map(({ path, location }) => (
         <li>
-          <h3><a href={path}>{location.name}</a></h3>
+          <h3>{location.name}</h3>
           {location.addressLines.length > 0 && <address>{location.addressLines.join(", ")}</address>}
           <div class="contact-locations__actions">
             {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>Call {phoneLabel(location.phone)}</a>}

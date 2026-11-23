@@ -16,7 +16,7 @@ interface Props {
 const { locations, purpose, menuRoutes = [], section } = Astro.props;
 const cards = locations.toSorted((left, right) => left.location.name.localeCompare(right.location.name))
   .flatMap((route) => {
-    const menus = purpose === "menu" || section ? menusForLocation(route, menuRoutes, locations) : [];
+    const menus = !purpose || purpose === "menu" ? menusForLocation(route, menuRoutes, locations) : [];
     if (purpose === "menu" && menus.length === 0) return [];
     if (purpose && purpose !== "menu" && locationServiceLinks(route.location, purpose).length === 0) return [];
     return [{ ...route, menus }];
@@ -46,7 +46,7 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
         return (
           <article class="location-card">
             <div class="location-card__content">
-              <LocationHeading class="location-card__heading">{purpose === "menu" ? location.name : <a href={path}>{location.name}</a>}</LocationHeading>
+              <LocationHeading class="location-card__heading">{!purpose || purpose === "menu" ? location.name : <a href={path}>{location.name}</a>}</LocationHeading>
               {location.addressLines.length > 0 && <address>{location.addressLines.map((line) => <span>{line}</span>)}</address>}
               {regularHours && <p class="location-card__hours">{regularHours.day}: {regularHours.value}</p>}
               {description && <div class="location-card__description" set:html={description} />}
@@ -59,8 +59,8 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
                 <>
                   {!purpose && (
                     <div class="location-card__actions">
-                      <a class="location-card__visit" href={path}>Location details<span class="sr-only"> for {location.name}</span></a>
-                      {section && menus.map((menu) => <a href={menu.path}>{menus.length === 1 ? "Menu" : menu.label}<span class="sr-only"> at {location.name}</span></a>)}
+                      <a class="location-card__visit" href={path}>Hours &amp; location<span class="sr-only"> for {location.name}</span></a>
+                      {menus.map((menu) => <a href={menu.path}>{menus.length === 1 ? "View menu" : menu.label}<span class="sr-only"> at {location.name}</span></a>)}
                       {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {location.name}</span></a>}
                       {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{phoneLabel(location.phone)}</a>}
                     </div>

@@ -55,6 +55,8 @@ Start restaurant homepages with a full-bleed Hero. Choose a wide photo with a cl
 
 The Locations block reads published locations, canonical menu paths, and available branch service links from the same source as generated routes. Edit addresses, hours, and provider links on the location record rather than copying them into Home. A block does not create routes, and it stays hidden when there are no public locations.
 
+Give the Home hero one primary action and at most one secondary action. For a menu-led site, lead with **View menu** and offer **Find a location**; for a visit-led site, lead with **Hours & location** and offer **View menu**. Put practical information ahead of evergreen promotions unless a campaign is the reason for the page. Standard menu pages link next to published visit details, and the locations directory links to each branch's own menu. Make Contact about reaching the restaurant; use the public phone, email, or approved form, not another set of generic navigation links.
+
 On an existing site, preview and sync the block definitions before selecting the new layouts in Backstage. Previously saved sections keep their original presentation.
 
 1. Record start time and elapsed operator time per phase. Run `npm run setup -- --readiness` in restaurant mode, then build using the read-only key and preview with forms disabled. A passing check confirms only what it reports.
