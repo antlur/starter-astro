@@ -225,14 +225,7 @@ export const getStaticPaths = async () => {
     const currentLocation = menuLocationId
       ? locationRoutes.find(({ location }) => location.id === menuLocationId)?.location
       : locationRouteForPath(props.pathname, locationRoutes)?.location;
-    const visitPath = menu && isRestaurantProfile()
-      ? menuLocationScopeForRoute(props.pathname, menu.menu.id, locations, locationRoutes, menuLocationId)?.path
-      : null;
     const locationDirectoryPath = routePlan.locationIndexPaths[0];
-    const menuVisitLink = visitPath ? { href: visitPath, label: "Hours & location" }
-      : menu && isRestaurantProfile() && locationDirectoryPath
-        ? { href: locationDirectoryPath, label: "Choose a location" }
-        : undefined;
     const generatedLocationPage = "locationRoute" in props || "locationIndexPath" in props || "locationChooser" in props;
     const locationScopedMenu = Boolean(menu && currentLocation);
     return {
@@ -243,7 +236,6 @@ export const getStaticPaths = async () => {
         generatedLocationPage,
         locationScopedMenu,
         menuDirectoryPath,
-        menuVisitLink,
         menuSectionPaths: menu || ("locationChooser" in props && props.locationChooser === "menu") ? menuSectionPaths : [],
         locationDirectoryPath,
       },
@@ -254,7 +246,7 @@ export const getStaticPaths = async () => {
   return staticPages;
 };
 
-const { page, route, routeSeo, menuRoute, menuRoutes, menuDirectoryPath, menuVisitLink, menuSectionPaths, eventRoute, eventIndexPath, events, locationRoute, locationIndexPath, locationChooser, locationRoutes, currentLocation, locationDirectoryPath, generatedLocationPage, locationScopedMenu, pressRoute, pressIndexPath, pressReleases, site, pathname, navigation, footerNavigation, routePaths, alerts, locations } = Astro.props;
+const { page, route, routeSeo, menuRoute, menuRoutes, menuDirectoryPath, menuSectionPaths, eventRoute, eventIndexPath, events, locationRoute, locationIndexPath, locationChooser, locationRoutes, currentLocation, locationDirectoryPath, generatedLocationPage, locationScopedMenu, pressRoute, pressIndexPath, pressReleases, site, pathname, navigation, footerNavigation, routePaths, alerts, locations } = Astro.props;
 const chooserTitle = locationChooser === "menu" ? "Menus by location" : locationChooser ? locationServices[locationChooser].label : null;
 const pageTitle = routeSeo?.title ?? chooserTitle ?? (pressRoute?.kind === "detail"
   ? pressRoute.release.title
@@ -294,7 +286,7 @@ const contentType = pressRoute?.kind === "detail" || eventRoute?.kind === "detai
     : route
       ? <BlueprintRouteContent route={route} />
       : menuRoute
-        ? <MenuPage menu={menuRoute.menu} menuRoutes={menuRoutes} menuDirectoryPath={menuDirectoryPath} visitLink={menuVisitLink} />
+        ? <MenuPage menu={menuRoute.menu} menuRoutes={menuRoutes} menuDirectoryPath={menuDirectoryPath} />
         : eventRoute
           ? <EventPage kind={eventRoute.kind} event={eventRoute.kind === "detail" ? eventRoute.event : undefined} events={events} locations={locations} indexPath={eventIndexPath} />
         : locationIndexPath || locationChooser
