@@ -50,6 +50,7 @@ export function createStarterSitePages(
       blocks: {
         blocks: restaurant ? [
           block("hero", {
+            variant: "full-bleed-image",
             heading: websiteName || "Welcome to the restaurant",
             body: "<p>Get to know the restaurant and find information for your visit.</p>",
             actions: [{ label: "About the restaurant", href: "/about/" }],

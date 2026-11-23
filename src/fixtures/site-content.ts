@@ -269,6 +269,11 @@ export const fixtureSiteContent: SiteContent = {
           },
         },
         {
+          id: "fixture-qa-hero-without-photo",
+          type: "hero",
+          fields: { variant: "full-bleed-image", heading: "A hero with no photo yet" },
+        },
+        {
           id: "fixture-qa-instagram-feed",
           type: "instagram-feed",
           fields: {

@@ -41,7 +41,7 @@ const safeActions = actions.flatMap((action) => {
   return label && safeHref ? [{ label, href: safeHref }] : [];
 });
 const imageOnly = heroImages.length > 0 && !eyebrow && !heading && !body && safeActions.length === 0;
-const fullBleed = variant === "full-bleed-image" || imageOnly;
+const fullBleed = heroImages.length > 0 && (variant === "full-bleed-image" || imageOnly);
 const compact = variant === "compact" && !fullBleed;
 const slideSources = await Promise.all(heroImages.map(({ src, dimensions }) =>
   responsivePhoto(src, dimensions, fullBleed ? "100vw" : compact ? "(max-width: 760px) 100vw, 45vw" : "(max-width: 760px) 100vw, 55vw")));

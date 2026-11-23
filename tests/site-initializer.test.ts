@@ -91,6 +91,8 @@ test("restaurant opt-in plans only editable Home, About, and Contact with no med
     ["hero", "media-with-text", "call-to-action"], ["hero", "rich-text"], ["rich-text"],
   ]);
   assert.equal(pages[0].blocks[0].fields.heading, website.app_name);
+  assert.equal(pages[0].blocks[0].fields.variant, "full-bleed-image");
+  assert.equal(pages[1].blocks[0].fields.variant, undefined);
   assert.equal(pages[2].blocks[0].fields.heading, "Get in touch");
   assert.deepEqual(links, new Set(["/about/", "/contact/"]));
   assert.ok(plan.warnings.some((warning) => warning.includes("canonical Menu and Locations")));

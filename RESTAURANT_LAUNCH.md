@@ -41,7 +41,7 @@ npm run setup -- --site
 
 Optionally bind the approved Contact form when planning: `npm run setup -- --site --contact-form-id FORM_ID --confirm-contact-form-recipient`. After reviewing the plan, rerun the exact command with `--apply`. The restaurant recipe only creates missing Home, About, and Contact pages. It does not overwrite existing pages, invent media, or create duplicate Menu/Location pages. New pages are not drafts; review the account isolation first.
 
-Backstage may already have created a blank Home and a legacy Contact placeholder during account creation. Setup deliberately preserves them. In the editor add **Hero**, **Media With Text**, and **Call to Action** to Home. On Contact, replace the legacy form block with **Contact Form** and select the configured form, or add verified contact links in **Rich Text**. About uses **Hero** and **Rich Text**. Use the existing pages rather than deleting and recreating them.
+Backstage may already have created a blank Home and a legacy Contact placeholder during account creation. Setup deliberately preserves them. In the editor add **Hero**, **Media With Text**, and **Call to Action** to Home. Set the Home Hero to **Full bleed image** and select a wide photo. On Contact, replace the legacy form block with **Contact Form** and select the configured form, or add verified contact links in **Rich Text**. About uses **Hero** and **Rich Text**. Use the existing pages rather than deleting and recreating them.
 
 ## 3. Finish in Backstage
 
@@ -51,7 +51,7 @@ Backstage may already have created a blank Home and a legacy Contact placeholder
 
 ## 4. Rehearse, Verify, Publish
 
-Use the same catalog for different homepage compositions. For a promotion-led restaurant, start with a full-bleed Hero, use the Lead Feature layout in Card Grid for the offer you want guests to see first, then add a Compact Locations list. For a location-led restaurant, start with a Compact Hero and put Locations immediately below it; use Photo Grid when each branch has useful photography. Edge to Edge in Media With Text gives a story or visit section a full-width split, with an optional Inverse tone drawn from the site's existing tokens.
+Start restaurant homepages with a full-bleed Hero. Choose a wide photo with a clear subject, and check the crop and copy contrast on phones and desktops. For a promotion-led restaurant, follow it with the Lead Feature layout in Card Grid and then a Compact Locations list. For a location-led restaurant, put Locations immediately after the Hero; use Photo Grid when each branch has useful photography. Save Compact Hero for interior pages. Edge to Edge in Media With Text gives a story or visit section a full-width split, with an optional Inverse tone drawn from the site's existing tokens.
 
 The Locations block reads published locations, canonical menu paths, and available branch service links from the same source as generated routes. Edit addresses, hours, and provider links on the location record rather than copying them into Home. A block does not create routes, and it stays hidden when there are no public locations.
 
