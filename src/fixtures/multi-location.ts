@@ -184,6 +184,16 @@ pages.find(({ slug }) => slug === "contact")?.blocks.push({
   type: "locations",
   fields: { heading: "Location & Hours", layout: "visit-panel" },
 });
+const visitGuide: HeadlessPage = {
+  id: "fixture-restaurant-visit-guide",
+  slug: "visit-guide",
+  pathname: "/visit-guide/",
+  title: "Visit Guide",
+  is_home: false,
+  layout: null,
+  settings: {},
+  blocks: [],
+};
 
 export const multiLocationSiteContent: SiteContent = {
   site: normalizeWebsite({
@@ -214,4 +224,10 @@ export const multiLocationSiteContent: SiteContent = {
   structuredData: null,
   events: [],
   pressReleases: [],
+};
+
+export const multiLocationFooterFixture: SiteContent = {
+  ...multiLocationSiteContent,
+  pages: [...pages, visitGuide],
+  routePaths: [...multiLocationSiteContent.routePaths, visitGuide.pathname],
 };

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -9,6 +10,7 @@ import test from "node:test";
 import { build } from "astro";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
+const { parseDocument, DomUtils } = createRequire(import.meta.resolve("sanitize-html"))("htmlparser2");
 
 test("static fixture builds isolate local design and pull both Brand and Theme only when opted in", async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "starter-design-source-"));
@@ -262,5 +264,115 @@ test("published SDK navigation trees render nested links in the generated site",
     globalThis.fetch = previousFetch;
     for (const key of envKeys) restoreEnv(key, previousEnv.get(key));
     await rm(outputDirectory, { recursive: true, force: true });
+  }
+});
+
+type HtmlNode = {
+  name?: string;
+  attribs?: Record<string, string>;
+  children?: HtmlNode[];
+  parent?: HtmlNode | null;
+};
+
+const footerClasses = (node: HtmlNode): string[] => node.attribs?.class?.split(/\s+/).filter(Boolean) ?? [];
+const footerElements = (rootNode: HtmlNode, name: string): HtmlNode[] => DomUtils.findAll(
+  (node: HtmlNode) => node.name === name,
+  rootNode.children ?? [],
+) as HtmlNode[];
+const footerWithClass = (nodes: HtmlNode[], className: string): HtmlNode[] => nodes.filter((node) => footerClasses(node).includes(className));
+const footerText = (node: HtmlNode): string => DomUtils.textContent(node).replace(/\s+/g, " ").trim();
+
+const buildLocationFooterFixture = async (fixture: string | undefined, profile = "") => {
+  const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "starter-astro-location-footer-"));
+  process.env.NODE_ENV = "production";
+  process.env.BACKSTAGE_SOURCE = "fixture";
+  if (fixture) process.env.BACKSTAGE_FIXTURE = fixture;
+  else delete process.env.BACKSTAGE_FIXTURE;
+  process.env.BACKSTAGE_SITE_PROFILE = profile;
+  process.env.SITE_INDEXABLE = "false";
+  process.env.SITE_URL = "https://starter.example";
+
+  await build({ root, outDir: outputDirectory, logLevel: "silent" });
+
+  return {
+    read: async (relativePath: string) => parseDocument(await readFile(path.join(outputDirectory, relativePath), "utf8")),
+    cleanup: () => rm(outputDirectory, { recursive: true, force: true }),
+  };
+};
+
+test("renders the global Location & Hours policy without duplicating authored or generated location surfaces", async () => {
+  const envKeys = ["NODE_ENV", "BACKSTAGE_SOURCE", "BACKSTAGE_FIXTURE", "BACKSTAGE_SITE_PROFILE", "SITE_INDEXABLE", "SITE_URL"] as const;
+  const previousEnv = new Map(envKeys.map((key) => [key, process.env[key]]));
+
+  try {
+    const legacy = await buildLocationFooterFixture(undefined);
+    const legacyHome = await legacy.read("index.html");
+    const legacyAbout = await legacy.read("about/index.html");
+    assert.equal(footerWithClass(footerElements(legacyHome, "section"), "location-hours").length, 1);
+    assert.equal(footerWithClass(footerElements(legacyHome, "section"), "location-directory--visit-panel").length, 0);
+    assert.equal(footerWithClass(footerElements(legacyAbout, "section"), "location-hours").length, 1);
+    await legacy.cleanup();
+
+    const shown = await buildLocationFooterFixture("location-footer-show");
+    const shownHome = await shown.read("index.html");
+    const shownAbout = await shown.read("about/index.html");
+    const shownLocation = await shown.read("location/index.html");
+    const shownHomePanels = footerWithClass(footerElements(shownHome, "section"), "location-directory--visit-panel");
+    assert.equal(shownHomePanels.length, 1);
+    assert.equal(shownHomePanels[0]?.parent?.name, "footer");
+    assert.equal(footerWithClass(footerElements(shownHome, "section"), "location-hours").length, 0);
+    assert.equal(footerWithClass(footerElements(shownAbout, "section"), "location-directory--visit-panel").length, 1);
+    assert.equal(footerWithClass(footerElements(shownLocation, "section"), "location-directory--visit-panel").length, 0);
+    assert.equal(footerWithClass(footerElements(shownLocation, "section"), "location-hours").length, 0);
+    await shown.cleanup();
+
+    const hidden = await buildLocationFooterFixture("location-footer-hide");
+    const hiddenHome = await hidden.read("index.html");
+    const hiddenAbout = await hidden.read("about/index.html");
+    assert.equal(footerWithClass(footerElements(hiddenHome, "section"), "location-hours").length, 0);
+    assert.equal(footerWithClass(footerElements(hiddenHome, "section"), "location-directory--visit-panel").length, 0);
+    assert.equal(footerWithClass(footerElements(hiddenAbout, "section"), "location-hours").length, 0);
+    assert.equal(footerWithClass(footerElements(hiddenAbout, "section"), "location-directory--visit-panel").length, 0);
+    await hidden.cleanup();
+
+    const multi = await buildLocationFooterFixture("multi-location-show", "restaurant");
+    const multiHome = await multi.read("index.html");
+    const multiAbout = await multi.read("about/index.html");
+    const multiContact = await multi.read("contact/index.html");
+    const multiGuide = await multi.read("visit-guide/index.html");
+    const multiLocations = await multi.read("locations/index.html");
+    const multiMenuChooser = await multi.read("menu/index.html");
+    const marketMenu = await multi.read("locations/market-street/menu/market-all-day/index.html");
+
+    assert.equal(footerWithClass(footerElements(multiHome, "section"), "location-directory--visit-panel").length, 0);
+    assert.equal(footerWithClass(footerElements(multiHome, "section"), "location-directory--photo-grid").length, 1);
+    assert.equal(footerWithClass(footerElements(multiAbout, "section"), "location-directory--visit-panel").length, 0);
+    assert.equal(footerWithClass(footerElements(multiAbout, "section"), "location-directory--compact").length, 1);
+    assert.equal(footerWithClass(footerElements(multiContact, "section"), "location-directory--visit-panel").length, 1);
+    assert.equal(footerWithClass(footerElements(multiContact, "section"), "location-directory--visit-summary").length, 0);
+    const [summary] = footerWithClass(footerElements(multiGuide, "section"), "location-directory--visit-summary");
+    assert.ok(summary);
+    assert.equal(summary.parent?.name, "footer");
+    assert.equal(footerElements(summary, "article").length, 5);
+    assert.equal(footerElements(summary, "img").length, 0);
+    assert.equal(footerElements(summary, "iframe").length, 0);
+    assert.equal(footerElements(summary, "dl").length, 0);
+    assert.equal(footerWithClass(footerElements(multiContact, "section"), "contact-locations").length, 1);
+    assert.equal(footerWithClass(footerElements(multiAbout, "section"), "contact-locations").length, 0);
+    assert.equal(footerWithClass(footerElements(multiLocations, "section"), "location-directory--visit-panel").length, 0);
+    assert.equal(footerWithClass(footerElements(multiMenuChooser, "section"), "location-directory--visit-panel").length, 0);
+
+    const marketPanels = footerWithClass(footerElements(marketMenu, "section"), "location-directory--visit-panel");
+    assert.equal(marketPanels.length, 1);
+    const marketPanel = marketPanels[0];
+    assert.ok(marketPanel);
+    assert.ok(footerElements(marketPanel, "dl").length > 0, "The branch-scoped footer keeps its full hours.");
+    assert.deepEqual(
+      footerElements(marketPanel, "h3").map(footerText).filter((heading) => heading !== "Regular Hours" && heading !== "Brunch Hours"),
+      ["Market Street"],
+    );
+    await multi.cleanup();
+  } finally {
+    for (const key of envKeys) restoreEnv(key, previousEnv.get(key));
   }
 });

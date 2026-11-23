@@ -11,11 +11,13 @@ interface Props {
   locations: Array<{ path: string; location: SiteLocation }>;
   purpose?: LocationChoice;
   menuRoutes?: SiteMenuRoute[];
-  section?: { heading: string; intro: string; layout: "compact" | "photo-grid" | "visit-panel"; isPrimary: boolean };
+  section?: { heading: string; intro: string; layout: "compact" | "photo-grid" | "visit-panel"; isPrimary: boolean; condensed?: boolean };
 }
 
 const { locations, purpose, menuRoutes = [], section } = Astro.props;
 const visitPanel = section?.layout === "visit-panel";
+const condensedVisit = visitPanel && section?.condensed;
+const detailedVisit = visitPanel && !condensedVisit;
 const cards = locations.toSorted((left, right) => left.location.name.localeCompare(right.location.name))
   .flatMap((route) => {
     const menus = !purpose || purpose === "menu" ? menusForLocation(route, menuRoutes, locations) : [];
@@ -31,7 +33,7 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
 ---
 
 <section
-  class:list={["location-directory", purpose === "menu" && "location-directory--menu", section && `location-directory--${section.layout}`]}
+  class:list={["location-directory", purpose === "menu" && "location-directory--menu", section && `location-directory--${section.layout}`, condensedVisit && "location-directory--visit-summary"]}
   aria-labelledby={section ? undefined : "location-directory-title"}
   aria-label={section ? title : undefined}
 >
@@ -43,9 +45,9 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
   {cards.length > 0 ? (
     <div class="location-directory__grid">
       {cards.map(({ path, location, menus }) => {
-        const description = !purpose && section?.layout !== "compact" && location.description ? sanitizeRichText(location.description) : "";
-        const regularHours = !visitPanel && (!purpose || purpose === "menu") && location.hours.length === 1 ? location.hours[0] : null;
-        const map = visitPanel ? location.mapEmbedUrl : null;
+        const description = !condensedVisit && !purpose && section?.layout !== "compact" && location.description ? sanitizeRichText(location.description) : "";
+        const regularHours = !detailedVisit && (!purpose || purpose === "menu") && location.hours.length === 1 ? location.hours[0] : null;
+        const map = detailedVisit ? location.mapEmbedUrl : null;
         return (
           <article class="location-card">
             <div class="location-card__content">
@@ -53,7 +55,7 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
               {location.addressLines.length > 0 && <address>{location.addressLines.map((line) => <span>{line}</span>)}</address>}
               {regularHours && <p class="location-card__hours">{regularHours.day}: {regularHours.value}</p>}
               {description && <div class="location-card__description" set:html={description} />}
-              {visitPanel && (location.hours.length > 0 || Boolean(location.specialHours?.length)) && (
+              {detailedVisit && (location.hours.length > 0 || Boolean(location.specialHours?.length)) && (
                 <div class="location-card__schedule">
                   <LocationSchedule location={location} groupHeading={section?.isPrimary ? "h3" : "h4"} />
                 </div>
@@ -76,13 +78,13 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
                       {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{phoneLabel(location.phone)}</a>}
                     </div>
                   )}
-                  <LocationActions location={location} service={purpose} />
+                  {!condensedVisit && <LocationActions location={location} service={purpose} />}
                 </>
               )}
             </div>
             {map
               ? <iframe class="location-card__map" src={map} title={`Map to ${location.name}`} loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen />
-              : !purpose && section?.layout !== "compact" && location.imageUrl && <img class="location-card__image" src={location.imageUrl} alt={location.imageAlt} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 1000} loading="lazy" decoding="async" />}
+              : !condensedVisit && !purpose && section?.layout !== "compact" && location.imageUrl && <img class="location-card__image" src={location.imageUrl} alt={location.imageAlt} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 1000} loading="lazy" decoding="async" />}
           </article>
         );
       })}
@@ -309,6 +311,12 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
   .location-directory--visit-panel .location-card__heading { margin-bottom: 0.55rem; }
   .location-directory--visit-panel .location-card__description { max-width: 52ch; }
   .location-directory--visit-panel .location-card__schedule { margin-top: 1.25rem; max-width: 26rem; }
+
+  .location-directory--visit-summary { padding-block: 2.5rem; }
+  .location-directory--visit-summary .location-directory__title { font-size: 2rem; }
+  .location-directory--visit-summary .location-card__heading { font-size: 1.4rem; }
+  .location-directory--visit-summary .location-card__content { padding: 1rem 1.25rem; }
+  .location-directory--visit-summary .location-card__actions { gap: 0 0.9rem; margin-top: 0.75rem; }
 
   .location-directory--visit-panel :is(address, .location-card__description, .location-directory__description, .location-card__actions a),
   .location-directory--visit-panel :global(.location-actions a) {
