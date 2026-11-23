@@ -82,6 +82,7 @@ const publicLocations = [
   },
   {
     ...makeLocation("riverfront", "Riverfront", 12),
+    map_embed: "https://www.google.com/maps/embed?pb=fixture-riverfront",
     menus: [menuAt(allDay, "river-all-day", "River All Day"), menuAt(riverSupper)],
     ordering_links: [{ service: "chownow", url: "https://chownow.example.test/riverfront" }],
     waitlist_links: [{ service: "yelp", url: "https://yelp.example.test/riverfront" }],
@@ -177,6 +178,11 @@ pages.find(({ slug }) => slug === "about")?.blocks.push({
   id: "fixture-restaurant-about-locations",
   type: "locations",
   fields: { heading: "Come see us", layout: "compact" },
+});
+pages.find(({ slug }) => slug === "contact")?.blocks.push({
+  id: "fixture-restaurant-visit-panel",
+  type: "locations",
+  fields: { heading: "Location & Hours", layout: "visit-panel" },
 });
 
 export const multiLocationSiteContent: SiteContent = {

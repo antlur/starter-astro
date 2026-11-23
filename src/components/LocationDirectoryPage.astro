@@ -3,6 +3,7 @@ import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import { phoneLabel } from "../lib/phone-label";
 import type { SiteLocation } from "../lib/backstage/locations";
 import LocationActions from "./LocationActions.astro";
+import LocationSchedule from "./LocationSchedule.astro";
 import { locationServiceLinks, locationServices, type LocationChoice } from "../site/location-choices";
 import { menusForLocation, type SiteMenuRoute } from "../site/menu-routes";
 
@@ -10,10 +11,11 @@ interface Props {
   locations: Array<{ path: string; location: SiteLocation }>;
   purpose?: LocationChoice;
   menuRoutes?: SiteMenuRoute[];
-  section?: { heading: string; intro: string; layout: "compact" | "photo-grid"; isPrimary: boolean };
+  section?: { heading: string; intro: string; layout: "compact" | "photo-grid" | "visit-panel"; isPrimary: boolean };
 }
 
 const { locations, purpose, menuRoutes = [], section } = Astro.props;
+const visitPanel = section?.layout === "visit-panel";
 const cards = locations.toSorted((left, right) => left.location.name.localeCompare(right.location.name))
   .flatMap((route) => {
     const menus = !purpose || purpose === "menu" ? menusForLocation(route, menuRoutes, locations) : [];
@@ -42,7 +44,8 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
     <div class="location-directory__grid">
       {cards.map(({ path, location, menus }) => {
         const description = !purpose && section?.layout !== "compact" && location.description ? sanitizeRichText(location.description) : "";
-        const regularHours = (!purpose || purpose === "menu") && location.hours.length === 1 ? location.hours[0] : null;
+        const regularHours = !visitPanel && (!purpose || purpose === "menu") && location.hours.length === 1 ? location.hours[0] : null;
+        const map = visitPanel ? location.mapEmbedUrl : null;
         return (
           <article class="location-card">
             <div class="location-card__content">
@@ -50,6 +53,11 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
               {location.addressLines.length > 0 && <address>{location.addressLines.map((line) => <span>{line}</span>)}</address>}
               {regularHours && <p class="location-card__hours">{regularHours.day}: {regularHours.value}</p>}
               {description && <div class="location-card__description" set:html={description} />}
+              {visitPanel && (location.hours.length > 0 || Boolean(location.specialHours?.length)) && (
+                <div class="location-card__schedule">
+                  <LocationSchedule location={location} groupHeading={section?.isPrimary ? "h3" : "h4"} />
+                </div>
+              )}
               {purpose === "menu" ? (
                 <nav class="location-card__actions" aria-label={`Menus at ${location.name}`}>
                   {menus.map((menu) => <a class="location-card__visit" href={menu.path}>{menus.length === 1 ? <>View menu<span class="sr-only"> at {location.name}</span></> : menu.label}</a>)}
@@ -59,9 +67,12 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
                 <>
                   {!purpose && (
                     <div class="location-card__actions">
-                      <a class="location-card__visit" href={path}>Hours &amp; location<span class="sr-only"> for {location.name}</span></a>
+                      {visitPanel && location.mapUrl
+                        ? <a class="location-card__visit" href={location.mapUrl} target="_blank" rel="noopener noreferrer">Get directions<span class="sr-only"> to {location.name}</span></a>
+                        : <a class="location-card__visit" href={path}>Hours &amp; location<span class="sr-only"> for {location.name}</span></a>}
                       {menus.map((menu) => <a href={menu.path}>{menus.length === 1 ? "View menu" : menu.label}<span class="sr-only"> at {location.name}</span></a>)}
-                      {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {location.name}</span></a>}
+                      {location.mapUrl && (visitPanel ? <a href={path}>Location details<span class="sr-only"> for {location.name}</span></a>
+                        : <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {location.name}</span></a>)}
                       {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{phoneLabel(location.phone)}</a>}
                     </div>
                   )}
@@ -69,7 +80,9 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
                 </>
               )}
             </div>
-            {!purpose && section?.layout !== "compact" && location.imageUrl && <img class="location-card__image" src={location.imageUrl} alt={location.imageAlt} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 1000} loading="lazy" decoding="async" />}
+            {map
+              ? <iframe class="location-card__map" src={map} title={`Map to ${location.name}`} loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen />
+              : !purpose && section?.layout !== "compact" && location.imageUrl && <img class="location-card__image" src={location.imageUrl} alt={location.imageAlt} width={location.imageWidth ?? 1600} height={location.imageHeight ?? 1000} loading="lazy" decoding="async" />}
           </article>
         );
       })}
@@ -269,6 +282,72 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
     border-radius: var(--ui-radius-sm);
   }
 
+  .location-directory--visit-panel {
+    width: 100%;
+    padding-inline: var(--ui-container-inset);
+    background: var(--theme-color-footer-location);
+    color: var(--theme-color-footer-location-foreground);
+  }
+
+  .location-directory--visit-panel .location-directory__title { font-size: 2.75rem; }
+
+  .location-directory--visit-panel .location-directory__grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 25rem), 1fr));
+    align-items: start;
+    gap: 1.5rem;
+  }
+
+  .location-directory--visit-panel .location-card {
+    display: grid;
+    grid-template-rows: 1fr auto;
+    border: 0;
+    border-radius: 0;
+    background: color-mix(in srgb, currentColor 7%, transparent);
+  }
+
+  .location-directory--visit-panel .location-card__content { padding: 1.5rem; }
+  .location-directory--visit-panel .location-card__heading { margin-bottom: 0.55rem; }
+  .location-directory--visit-panel .location-card__description { max-width: 52ch; }
+  .location-directory--visit-panel .location-card__schedule { margin-top: 1.25rem; max-width: 26rem; }
+
+  .location-directory--visit-panel :is(address, .location-card__description, .location-directory__description, .location-card__actions a),
+  .location-directory--visit-panel :global(.location-actions a) {
+    color: inherit;
+  }
+
+  .location-directory--visit-panel .location-card__actions a { min-height: 2.75rem; display: inline-flex; align-items: center; }
+
+  .location-directory--visit-panel .location-card__actions .location-card__visit,
+  .location-directory--visit-panel :global(.location-actions a:hover) {
+    background: var(--theme-color-footer-location-foreground);
+    color: var(--theme-color-footer-location);
+  }
+
+  .location-directory--visit-panel a:focus-visible,
+  .location-directory--visit-panel :global(.location-actions a:focus-visible) { outline-color: currentColor; }
+
+  .location-directory--visit-panel .location-card__visit:focus-visible { outline-color: var(--theme-color-footer-location-foreground); }
+
+  .location-directory--visit-panel .location-card__image,
+  .location-card__map {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 10;
+    border: 0;
+  }
+
+  @media (min-width: 761px) {
+    .location-directory--visit-panel .location-card:only-child:has(.location-card__image, .location-card__map) {
+      grid-template: 1fr / minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .location-directory--visit-panel .location-card:only-child :is(.location-card__image, .location-card__map) {
+      height: 100%;
+      min-height: 22rem;
+      aspect-ratio: auto;
+    }
+  }
+
   @media (min-width: 761px) {
     .location-directory--photo-grid .location-card:only-child:has(.location-card__image) {
       display: grid;
@@ -288,7 +367,8 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
     .location-directory--menu .location-directory__intro { margin-bottom: 1.5rem; }
     .location-directory--menu .location-card__content { padding: 1.25rem; }
     .location-directory--compact .location-directory__title,
-    .location-directory--photo-grid .location-directory__title { font-size: 2.15rem; }
+    .location-directory--photo-grid .location-directory__title,
+    .location-directory--visit-panel .location-directory__title { font-size: 2.15rem; }
     .location-directory--compact .location-card__content { grid-template-columns: minmax(0, 1fr); }
   }
 </style>

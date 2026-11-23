@@ -55,6 +55,8 @@ Start restaurant homepages with a full-bleed Hero. Choose a wide photo with a cl
 
 The Locations block reads published locations, canonical menu paths, and available branch service links from the same source as generated routes. Edit addresses, hours, and provider links on the location record rather than copying them into Home. A block does not create routes, and it stays hidden when there are no public locations.
 
+Choose **Location & Hours** for a branded closing section with the full schedule, upcoming special hours, and a location map or venue photo. The layout uses the website's footer-location colors. Use a real, verified directions link or map embed for a live restaurant; if none is set, guests can still open the location page. On Home, this layout replaces the extra single-location hours section.
+
 Give the Home hero one primary action and at most one secondary action. For a menu-led site, lead with **View menu** and offer **Find a location**; for a visit-led site, lead with **Hours & location** and offer **View menu**. Put practical information ahead of evergreen promotions unless a campaign is the reason for the page. Standard menu pages link next to published visit details, and the locations directory links to each branch's own menu. Make Contact about reaching the restaurant; use the public phone, email, or approved form, not another set of generic navigation links.
 
 On an existing site, preview and sync the block definitions before selecting the new layouts in Backstage. Previously saved sections keep their original presentation.

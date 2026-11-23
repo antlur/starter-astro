@@ -300,6 +300,7 @@ const restaurantLayoutAdditions: Record<string, Record<string, string | null>> =
   "starter-astro:hero@1": { variant: "compact" },
   "starter-astro:card-grid@1": { layout: null },
   "starter-astro:media-with-text@1": { section_width: "edge-to-edge", tone: null },
+  "starter-astro:locations@1": { layout: "visit-panel" },
 };
 
 const blockFieldsForBuild = (

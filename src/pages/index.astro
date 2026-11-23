@@ -9,8 +9,9 @@ import { getSiteBuild } from "../site/build";
 const { content, routePlan } = await getSiteBuild();
 const page = getHomePage(content.pages);
 const publicLocations = content.locations.filter(isPublicLocation);
-const hasVisitSection = page.blocks.some(({ type }) => type === "locations")
-  && routePlan.locationRoutes.some(({ location }) => isPublicLocation(location));
+const visitBlocks = routePlan.locationRoutes.some(({ location }) => isPublicLocation(location))
+  ? page.blocks.filter(({ type }) => type === "locations") : [];
+const hasDetailedVisitSection = visitBlocks.some(({ fields }) => fields.layout === "visit-panel");
 const hasAdditionalVisitDetails = publicLocations.some((location) =>
   location.hours.length > 1 || (location.hourGroups?.length ?? 0) > 1 || location.specialHours?.length || location.mapEmbedUrl,
 );
@@ -18,7 +19,7 @@ const hasAdditionalVisitDetails = publicLocations.some((location) =>
 
 <SiteLayout page={page} site={content.site} pathname="/" navigation={routePlan.navigation} footerNavigation={routePlan.footerNavigation} routePaths={content.routePaths} alerts={content.alerts} locations={publicLocations} locationDirectoryPath={routePlan.locationIndexPaths[0]} showLocationHours={false}>
   <PageContent page={page} />
-  {publicLocations.length === 1 && (!hasVisitSection || hasAdditionalVisitDetails) && (
+  {publicLocations.length === 1 && !hasDetailedVisitSection && (visitBlocks.length === 0 || hasAdditionalVisitDetails) && (
     <LocationHoursSection locations={publicLocations} />
   )}
 </SiteLayout>
