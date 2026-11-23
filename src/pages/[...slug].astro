@@ -162,6 +162,7 @@ export const getStaticPaths = async () => {
     props: {
       locationIndexPath: path,
       locationRoutes,
+      menuRoutes: isRestaurantProfile() ? menuRoutes : [],
       site: content.site,
       locations,
       pathname: path,
@@ -219,13 +220,22 @@ export const getStaticPaths = async () => {
     ...locationChooserPages,
     ...pressPages,
   ].map(({ params, props }) => {
-    const menuLocationId = "menuRoute" in props ? props.menuRoute?.locationId : undefined;
+    const menu = "menuRoute" in props ? props.menuRoute : undefined;
+    const menuLocationId = menu?.locationId;
     const currentLocation = menuLocationId
       ? locationRoutes.find(({ location }) => location.id === menuLocationId)?.location
       : locationRouteForPath(props.pathname, locationRoutes)?.location;
+    const visitPath = menu && isRestaurantProfile()
+      ? menuLocationScopeForRoute(props.pathname, menu.menu.id, locations, locationRoutes, menuLocationId)?.path
+      : null;
+    const locationDirectoryPath = routePlan.locationIndexPaths[0];
+    const menuVisitLink = visitPath ? { href: visitPath, label: "Hours & location" }
+      : menu && isRestaurantProfile() && locationDirectoryPath
+        ? { href: locationDirectoryPath, label: "Choose a location" }
+        : undefined;
     return {
       params,
-      props: { ...props, currentLocation, menuDirectoryPath, menuSectionPaths: "menuRoute" in props || ("locationChooser" in props && props.locationChooser === "menu") ? menuSectionPaths : [], locationDirectoryPath: routePlan.locationIndexPaths[0] },
+      props: { ...props, currentLocation, menuDirectoryPath, menuVisitLink, menuSectionPaths: menu || ("locationChooser" in props && props.locationChooser === "menu") ? menuSectionPaths : [], locationDirectoryPath },
     };
   });
   assertStaticRoutesEmitted(routePlan, staticPages.map(({ props }) => props.pathname), import.meta.env.SITE_INDEXABLE === "true");
@@ -233,7 +243,7 @@ export const getStaticPaths = async () => {
   return staticPages;
 };
 
-const { page, route, routeSeo, menuRoute, menuRoutes, menuDirectoryPath, menuSectionPaths, eventRoute, eventIndexPath, events, locationRoute, locationIndexPath, locationChooser, locationRoutes, currentLocation, locationDirectoryPath, pressRoute, pressIndexPath, pressReleases, site, pathname, navigation, footerNavigation, routePaths, alerts, locations } = Astro.props;
+const { page, route, routeSeo, menuRoute, menuRoutes, menuDirectoryPath, menuVisitLink, menuSectionPaths, eventRoute, eventIndexPath, events, locationRoute, locationIndexPath, locationChooser, locationRoutes, currentLocation, locationDirectoryPath, pressRoute, pressIndexPath, pressReleases, site, pathname, navigation, footerNavigation, routePaths, alerts, locations } = Astro.props;
 const chooserTitle = locationChooser === "menu" ? "Menus by location" : locationChooser ? locationServices[locationChooser].label : null;
 const pageTitle = routeSeo?.title ?? chooserTitle ?? (pressRoute?.kind === "detail"
   ? pressRoute.release.title
@@ -273,7 +283,7 @@ const contentType = pressRoute?.kind === "detail" || eventRoute?.kind === "detai
     : route
       ? <BlueprintRouteContent route={route} />
       : menuRoute
-        ? <MenuPage menu={menuRoute.menu} menuRoutes={menuRoutes} menuDirectoryPath={menuDirectoryPath} />
+        ? <MenuPage menu={menuRoute.menu} menuRoutes={menuRoutes} menuDirectoryPath={menuDirectoryPath} visitLink={menuVisitLink} />
         : eventRoute
           ? <EventPage kind={eventRoute.kind} event={eventRoute.kind === "detail" ? eventRoute.event : undefined} events={events} locations={locations} indexPath={eventIndexPath} />
         : locationIndexPath || locationChooser

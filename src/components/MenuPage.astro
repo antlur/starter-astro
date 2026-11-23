@@ -8,10 +8,11 @@ interface Props {
   menu: SiteMenu;
   menuRoutes: Array<{ path: string; label: string; menu: SiteMenu }>;
   menuDirectoryPath?: string;
+  visitLink?: { href: string; label: string };
   isEmbedded?: boolean;
 }
 
-const { menu, menuRoutes, menuDirectoryPath, isEmbedded = false } = Astro.props;
+const { menu, menuRoutes, menuDirectoryPath, visitLink, isEmbedded = false } = Astro.props;
 const pdfUrl = safeLinkUrl(menu.pdfUrl);
 const categoryAnchors = menu.categories.map((category, index) => ({
   id: `menu-category-${menu.id}-${index}`,
@@ -139,9 +140,46 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
       </section>
     ))}
   </div>
+
+  {visitLink && (
+    <div class="menu-page__visit">
+      <h2>Plan your visit</h2>
+      <a href={visitLink.href}>{visitLink.label}</a>
+    </div>
+  )}
 </section>
 
 <style>
+  .menu-page__visit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.25rem;
+    border-top: 1px solid var(--theme-color-border);
+    margin-top: var(--ui-section-heading-gap);
+    padding-top: 1.25rem;
+  }
+
+  .menu-page__visit h2 {
+    margin: 0;
+    font: 700 1.5rem/1.2 var(--theme-font-heading);
+  }
+
+  .menu-page__visit a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--ui-radius-sm);
+    background: var(--theme-color-action);
+    color: var(--theme-color-primary-foreground);
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .menu-page__visit a:hover { text-decoration: underline; }
+
   .menu-page {
     width: min(100% - 3rem, 76rem);
     margin: 0 auto;

@@ -130,6 +130,11 @@ for (const branch of branches) {
   const menus = branch.menus ?? { "all-day": "Charred squash toast" };
   const menuPaths = Object.keys(menus).map((slug) => `${path}menu/${slug}/`);
   assert.ok(links(directory).includes(path), `The directory must link to ${path}.`);
+  if (process.env.BACKSTAGE_SITE_PROFILE === "restaurant") {
+    const locationCard = branchCard(directory, branch);
+    assert.ok(locationCard, `The locations directory must show ${branch.name}.`);
+    assertMenuLinks(locationCard, menuPaths, `/locations/ (${branch.name})`);
+  }
   const menuCard = branchCard(menuChooser, branch);
   assert.ok(menuCard, `The menu chooser must show ${branch.name}.`);
   assert.ok(links(menuCard).includes(path), `The menu chooser must link to ${path}.`);
@@ -171,6 +176,11 @@ for (const branch of branches) {
       if (otherItem !== item) assert.ok(!text(menu).includes(otherItem), `${menuPath} must not show ${otherItem}.`);
     }
     assertMenuLinks(menu, menuPaths.length > 1 ? menuPaths : [], menuPath);
+    if (process.env.BACKSTAGE_SITE_PROFILE === "restaurant") {
+      const visit = DomUtils.findOne((node) => hasClass(node, "menu-page__visit"), menu.children);
+      assert.ok(visit, `${menuPath} must offer a next step to plan a visit.`);
+      assert.deepEqual(links(visit), [path], `${menuPath} must link only to its own location from the visit action.`);
+    }
   }
 }
 
