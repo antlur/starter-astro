@@ -14,6 +14,7 @@
     "build": "npm run check && astro build",
     "preview": "astro preview",
     "setup": "tsx scripts/setup.ts",
+    "export:setup": "tsx scripts/export-setup.ts",
     "sync:blocks": "tsx scripts/sync-blocks.ts",
     "sync:layouts": "backstage sync layouts",
     "astro": "astro",
