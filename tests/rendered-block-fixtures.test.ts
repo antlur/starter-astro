@@ -284,6 +284,8 @@ const footerElements = (rootNode: HtmlNode, name: string): HtmlNode[] => DomUtil
 ) as HtmlNode[];
 const footerWithClass = (nodes: HtmlNode[], className: string): HtmlNode[] => nodes.filter((node) => footerClasses(node).includes(className));
 const footerText = (node: HtmlNode): string => DomUtils.textContent(node).replace(/\s+/g, " ").trim();
+const menuLinks = (node: HtmlNode): HtmlNode[] => footerElements(node, "a")
+  .filter((link) => /\/menu(?:\/|$)/.test(link.attribs?.href ?? ""));
 
 const buildLocationFooterFixture = async (fixture: string | undefined, profile = "") => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "starter-astro-location-footer-"));
@@ -322,7 +324,13 @@ test("renders the global Location & Hours policy without duplicating authored or
     const shownLocation = await shown.read("location/index.html");
     const shownHomePanels = footerWithClass(footerElements(shownHome, "section"), "location-directory--visit-panel");
     assert.equal(shownHomePanels.length, 1);
-    assert.equal(shownHomePanels[0]?.parent?.name, "footer");
+    const [shownHomePanel] = shownHomePanels;
+    assert.ok(shownHomePanel);
+    assert.equal(shownHomePanel.parent?.name, "footer");
+    assert.ok(footerElements(shownHomePanel, "address").length > 0);
+    assert.ok(footerElements(shownHomePanel, "dl").length > 0);
+    assert.ok(footerElements(shownHomePanel, "a").some((link) => link.attribs?.href === "/location/"));
+    assert.deepEqual(menuLinks(shownHomePanel), [], "The shared footer is for visit details, not menu navigation.");
     assert.equal(footerWithClass(footerElements(shownHome, "section"), "location-hours").length, 0);
     assert.equal(footerWithClass(footerElements(shownAbout, "section"), "location-directory--visit-panel").length, 1);
     assert.equal(footerWithClass(footerElements(shownLocation, "section"), "location-directory--visit-panel").length, 0);
@@ -360,16 +368,19 @@ test("renders the global Location & Hours policy without duplicating authored or
     assert.equal(footerElements(summary, "img").length, 0);
     assert.equal(footerElements(summary, "iframe").length, 0);
     assert.equal(footerElements(summary, "dl").length, 0);
+    assert.deepEqual(menuLinks(summary), []);
     assert.equal(footerWithClass(footerElements(multiContact, "section"), "contact-locations").length, 1);
     assert.equal(footerWithClass(footerElements(multiAbout, "section"), "contact-locations").length, 0);
     assert.equal(footerWithClass(footerElements(multiLocations, "section"), "location-directory--visit-panel").length, 0);
     assert.equal(footerWithClass(footerElements(multiMenuChooser, "section"), "location-directory--visit-panel").length, 0);
+    assert.ok(menuLinks(multiMenuChooser).length > 0, "The menu chooser retains location menu links.");
 
     const marketPanels = footerWithClass(footerElements(marketMenu, "section"), "location-directory--visit-panel");
     assert.equal(marketPanels.length, 1);
     const marketPanel = marketPanels[0];
     assert.ok(marketPanel);
     assert.ok(footerElements(marketPanel, "dl").length > 0, "The branch-scoped footer keeps its full hours.");
+    assert.deepEqual(menuLinks(marketPanel), []);
     assert.deepEqual(
       footerElements(marketPanel, "h3").map(footerText).filter((heading) => heading !== "Regular Hours" && heading !== "Brunch Hours"),
       ["Market Street"],

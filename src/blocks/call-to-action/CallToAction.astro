@@ -52,14 +52,13 @@ const HeadingTag = isPrimary ? "h1" : "h2";
 
 <style>
   .call-to-action {
-    padding: clamp(3rem, 6vw, 5rem) max(1.5rem, calc((100vw - 74rem) / 2));
+    padding: clamp(3rem, 6vw, 5rem) var(--ui-container-inset);
     background: var(--theme-color-foreground);
     color: var(--theme-color-background);
   }
 
   .call-to-action__inner {
     display: flex;
-    max-width: 74rem;
     align-items: center;
     justify-content: space-between;
     gap: 2rem;
@@ -136,10 +135,6 @@ const HeadingTag = isPrimary ? "h1" : "h2";
   }
 
   @media (max-width: 700px) {
-    .call-to-action {
-      padding-inline: 1.25rem;
-    }
-
     .call-to-action__inner {
       align-items: flex-start;
       flex-direction: column;
