@@ -1,0 +1,1279 @@
+{
+  "version": 1,
+  "template": "restaurant",
+  "blocks": [
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:call-to-action@1",
+      "name": "Call to Action",
+      "slug": "call-to-action",
+      "description": "A focused section that pairs short supporting copy with one or more actions.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "Body",
+            "slug": "body",
+            "type": "rich_text",
+            "order": 2
+          },
+          {
+            "name": "Button label",
+            "slug": "button_label",
+            "type": "text",
+            "description": "Optional single action. Use Actions when this section needs multiple links.",
+            "order": 3
+          },
+          {
+            "name": "Button URL",
+            "slug": "button_url",
+            "type": "url",
+            "order": 4
+          },
+          {
+            "name": "Actions",
+            "slug": "actions",
+            "type": "repeater",
+            "fields": [
+              {
+                "name": "Label",
+                "slug": "label",
+                "type": "text",
+                "required": true,
+                "order": 0
+              },
+              {
+                "name": "URL",
+                "slug": "href",
+                "type": "url",
+                "required": true,
+                "order": 1
+              }
+            ],
+            "order": 5
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:card-grid@1",
+      "name": "Card Grid",
+      "slug": "card-grid",
+      "description": "A responsive set of image and text cards for featured content, services, or destinations.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "Introduction",
+            "slug": "intro",
+            "type": "rich_text",
+            "order": 2
+          },
+          {
+            "name": "Cards",
+            "slug": "cards",
+            "type": "repeater",
+            "fields": [
+              {
+                "name": "Image",
+                "slug": "image",
+                "type": "image",
+                "order": 0
+              },
+              {
+                "name": "Image alt text",
+                "slug": "imageAlt",
+                "type": "text",
+                "order": 1
+              },
+              {
+                "name": "Title",
+                "slug": "title",
+                "type": "text",
+                "required": true,
+                "order": 2
+              },
+              {
+                "name": "Description",
+                "slug": "body",
+                "type": "rich_text",
+                "order": 3
+              },
+              {
+                "name": "Link label",
+                "slug": "link_label",
+                "type": "text",
+                "order": 4
+              },
+              {
+                "name": "Link URL",
+                "slug": "link_url",
+                "type": "url",
+                "order": 5
+              }
+            ],
+            "order": 3
+          },
+          {
+            "name": "Layout",
+            "slug": "layout",
+            "type": "select",
+            "description": "Lead feature gives the first card a larger image and headline.",
+            "options": [
+              {
+                "label": "Equal cards (default)",
+                "value": "grid"
+              },
+              {
+                "label": "Lead feature",
+                "value": "lead-feature"
+              }
+            ],
+            "order": 4
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:contact-form@1",
+      "name": "Contact Form",
+      "slug": "contact-form",
+      "description": "Render an existing Backstage form with its configured fields and submission settings.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "Body",
+            "slug": "body",
+            "type": "rich_text",
+            "order": 2
+          },
+          {
+            "name": "Form",
+            "slug": "form_id",
+            "type": "form_select",
+            "required": true,
+            "order": 3
+          },
+          {
+            "name": "Submit label",
+            "slug": "submit_label",
+            "type": "text",
+            "order": 4
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:featured-event@1",
+      "name": "Featured Event",
+      "slug": "featured-event",
+      "description": "Show the nearest featured event managed in Backstage.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "View all label",
+            "slug": "view_all_label",
+            "type": "text",
+            "placeholder": "View all events",
+            "order": 2
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:featured-press@1",
+      "name": "Featured Press",
+      "slug": "featured-press",
+      "description": "Show the latest featured published press item managed in Backstage.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "View all label",
+            "slug": "view_all_label",
+            "type": "text",
+            "placeholder": "View all press",
+            "order": 2
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:hero@1",
+      "derived_from": "backstage:hero@1",
+      "name": "Hero",
+      "slug": "hero",
+      "description": "A flexible page introduction with optional text, image, logo, and actions.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Variant",
+            "slug": "variant",
+            "type": "select",
+            "placeholder": "Default (automatic)",
+            "options": [
+              {
+                "label": "Default",
+                "value": "default"
+              },
+              {
+                "label": "Full bleed image",
+                "value": "full-bleed-image"
+              },
+              {
+                "label": "Compact",
+                "value": "compact"
+              }
+            ],
+            "order": 0
+          },
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 2
+          },
+          {
+            "name": "Body",
+            "slug": "body",
+            "type": "rich_text",
+            "order": 3
+          },
+          {
+            "name": "Background images",
+            "slug": "image",
+            "type": "image_list",
+            "description": "Select one image for a static hero or several for a manually browsable image sequence.",
+            "order": 4
+          },
+          {
+            "name": "Image alt text",
+            "slug": "imageAlt",
+            "type": "text",
+            "description": "Describe the image when it conveys information; leave blank when it is decorative.",
+            "order": 5
+          },
+          {
+            "name": "Logo",
+            "slug": "logo",
+            "type": "image",
+            "order": 6
+          },
+          {
+            "name": "Logo alt text",
+            "slug": "logoAlt",
+            "type": "text",
+            "description": "Describe the logo when it is the only way the brand name is presented.",
+            "order": 7
+          },
+          {
+            "name": "Actions",
+            "slug": "actions",
+            "type": "repeater",
+            "fields": [
+              {
+                "name": "Label",
+                "slug": "label",
+                "type": "text",
+                "required": true,
+                "order": 0
+              },
+              {
+                "name": "URL",
+                "slug": "href",
+                "type": "url",
+                "required": true,
+                "order": 1
+              }
+            ],
+            "order": 8
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:image@1",
+      "name": "Image",
+      "slug": "image",
+      "description": "A responsive editorial image with optional alt text and caption.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Image",
+            "slug": "image",
+            "type": "image",
+            "required": true,
+            "order": 0
+          },
+          {
+            "name": "Image alt text",
+            "slug": "imageAlt",
+            "type": "text",
+            "description": "Describe meaningful images; leave blank when the image is decorative.",
+            "order": 1
+          },
+          {
+            "name": "Caption",
+            "slug": "caption",
+            "type": "text",
+            "order": 2
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:image-gallery@1",
+      "name": "Image Gallery",
+      "slug": "image-gallery",
+      "description": "A responsive gallery for editorial images or uncropped promotional graphics.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "Columns",
+            "slug": "columns",
+            "type": "select",
+            "placeholder": "Three columns (default)",
+            "options": [
+              {
+                "label": "Two",
+                "value": "2"
+              },
+              {
+                "label": "Three",
+                "value": "3"
+              },
+              {
+                "label": "Four",
+                "value": "4"
+              }
+            ],
+            "order": 2
+          },
+          {
+            "name": "Image fit",
+            "slug": "image_fit",
+            "type": "select",
+            "placeholder": "Crop to fill (default)",
+            "options": [
+              {
+                "label": "Crop to fill",
+                "value": "cover"
+              },
+              {
+                "label": "Show full image",
+                "value": "contain"
+              }
+            ],
+            "order": 3
+          },
+          {
+            "name": "Images",
+            "slug": "images",
+            "type": "repeater",
+            "fields": [
+              {
+                "name": "Image",
+                "slug": "image",
+                "type": "image",
+                "required": true,
+                "order": 0
+              },
+              {
+                "name": "Image alt text",
+                "slug": "imageAlt",
+                "type": "text",
+                "order": 1
+              },
+              {
+                "name": "Caption",
+                "slug": "caption",
+                "type": "text",
+                "order": 2
+              }
+            ],
+            "order": 4
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:image-link-grid@1",
+      "name": "Image Link Grid",
+      "slug": "image-link-grid",
+      "description": "A responsive grid of linked images with accessible link labels.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Columns",
+            "slug": "columns",
+            "type": "select",
+            "placeholder": "Three columns (default)",
+            "options": [
+              {
+                "label": "Two",
+                "value": "2"
+              },
+              {
+                "label": "Three",
+                "value": "3"
+              },
+              {
+                "label": "Four",
+                "value": "4"
+              }
+            ],
+            "order": 1
+          },
+          {
+            "name": "Image fit",
+            "slug": "image_fit",
+            "type": "select",
+            "placeholder": "Show full image (default)",
+            "options": [
+              {
+                "label": "Show full image",
+                "value": "contain"
+              },
+              {
+                "label": "Crop to fill",
+                "value": "cover"
+              }
+            ],
+            "order": 2
+          },
+          {
+            "name": "Image links",
+            "slug": "items",
+            "type": "repeater",
+            "fields": [
+              {
+                "name": "Image",
+                "slug": "image",
+                "type": "image",
+                "required": true,
+                "order": 0
+              },
+              {
+                "name": "Destination URL",
+                "slug": "link_url",
+                "type": "url",
+                "required": true,
+                "order": 1
+              },
+              {
+                "name": "Accessible link label",
+                "slug": "link_label",
+                "type": "text",
+                "required": true,
+                "order": 2
+              }
+            ],
+            "order": 3
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:instagram-feed@1",
+      "name": "Instagram Feed",
+      "slug": "instagram-feed",
+      "description": "Show recent public Instagram posts for the connected business account.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "Number of posts",
+            "slug": "count",
+            "type": "number",
+            "placeholder": "6",
+            "order": 2
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:locations@1",
+      "name": "Locations",
+      "slug": "locations",
+      "description": "Display published locations and their available services without re-entering addresses or links.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "placeholder": "Our locations",
+            "order": 0
+          },
+          {
+            "name": "Introduction",
+            "slug": "intro",
+            "type": "rich_text",
+            "order": 1
+          },
+          {
+            "name": "Layout",
+            "slug": "layout",
+            "type": "select",
+            "options": [
+              {
+                "label": "Compact list (default)",
+                "value": "compact"
+              },
+              {
+                "label": "Photo grid",
+                "value": "photo-grid"
+              },
+              {
+                "label": "Location & Hours",
+                "value": "visit-panel"
+              }
+            ],
+            "order": 2
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:media-with-text@1",
+      "name": "Media With Text",
+      "slug": "media-with-text",
+      "description": "An editorial image and rich-text section with a reversible layout.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "Subheading",
+            "slug": "subheading",
+            "type": "text",
+            "order": 2
+          },
+          {
+            "name": "Body",
+            "slug": "body",
+            "type": "rich_text",
+            "order": 3
+          },
+          {
+            "name": "Image",
+            "slug": "image",
+            "type": "image",
+            "order": 4
+          },
+          {
+            "name": "Image alt text",
+            "slug": "imageAlt",
+            "type": "text",
+            "description": "Describe meaningful images; leave blank when the image is decorative.",
+            "order": 5
+          },
+          {
+            "name": "Image position",
+            "slug": "image_position",
+            "type": "select",
+            "placeholder": "Left (default)",
+            "options": [
+              {
+                "label": "Left",
+                "value": "left"
+              },
+              {
+                "label": "Right",
+                "value": "right"
+              }
+            ],
+            "order": 6
+          },
+          {
+            "name": "Section width",
+            "slug": "section_width",
+            "type": "select",
+            "placeholder": "Standard (default)",
+            "options": [
+              {
+                "label": "Standard",
+                "value": "standard"
+              },
+              {
+                "label": "Full width",
+                "value": "full-width"
+              },
+              {
+                "label": "Edge to edge",
+                "value": "edge-to-edge"
+              }
+            ],
+            "order": 7
+          },
+          {
+            "name": "Call to action label",
+            "slug": "cta_label",
+            "type": "text",
+            "order": 8
+          },
+          {
+            "name": "Call to action URL",
+            "slug": "cta_url",
+            "type": "url",
+            "order": 9
+          },
+          {
+            "name": "Section tone",
+            "slug": "tone",
+            "type": "select",
+            "options": [
+              {
+                "label": "Default",
+                "value": "default"
+              },
+              {
+                "label": "Inverse",
+                "value": "inverse"
+              }
+            ],
+            "order": 10
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:menu@1",
+      "name": "Menu",
+      "slug": "menu",
+      "description": "Display a selected Backstage menu with its categories, item details, and prices.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Menu",
+            "slug": "menu_id",
+            "type": "menu_select",
+            "required": true,
+            "order": 0
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:recent-press@1",
+      "name": "Recent Press",
+      "slug": "recent-press",
+      "description": "Show the newest published press items managed in Backstage.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "Number of press items",
+            "slug": "count",
+            "type": "number",
+            "placeholder": "3",
+            "order": 2
+          },
+          {
+            "name": "View all label",
+            "slug": "view_all_label",
+            "type": "text",
+            "placeholder": "View all press",
+            "order": 3
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:reviews@1",
+      "name": "Reviews",
+      "slug": "reviews",
+      "description": "Show selected guest quotes. Nothing is imported or published automatically.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "placeholder": "Reviews",
+            "order": 0
+          },
+          {
+            "name": "Layout",
+            "slug": "layout",
+            "type": "select",
+            "options": [
+              {
+                "label": "Highlights (default)",
+                "value": "highlights"
+              },
+              {
+                "label": "Directory",
+                "value": "directory"
+              }
+            ],
+            "order": 1
+          },
+          {
+            "name": "Quotes approved for publication",
+            "slug": "quotes",
+            "type": "repeater",
+            "fields": [
+              {
+                "name": "Quote",
+                "slug": "quote",
+                "type": "textarea",
+                "required": true,
+                "order": 0
+              },
+              {
+                "name": "Attribution",
+                "slug": "attribution",
+                "type": "text",
+                "order": 1
+              },
+              {
+                "name": "Location",
+                "slug": "location",
+                "type": "text",
+                "order": 2
+              }
+            ],
+            "order": 2
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:rich-text@1",
+      "name": "Rich Text",
+      "slug": "rich-text",
+      "description": "A full-width editorial section with an optional eyebrow and heading.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "Body",
+            "slug": "body",
+            "type": "rich_text",
+            "order": 2
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:upcoming-events@1",
+      "name": "Upcoming Events",
+      "slug": "upcoming-events",
+      "description": "Show a short list of upcoming events managed in Backstage.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Title",
+            "slug": "title",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "Description",
+            "slug": "description",
+            "type": "rich_text",
+            "order": 2
+          },
+          {
+            "name": "Number of events",
+            "slug": "count",
+            "type": "number",
+            "placeholder": "3",
+            "order": 3
+          },
+          {
+            "name": "View all label",
+            "slug": "view_all_label",
+            "type": "text",
+            "placeholder": "View all events",
+            "order": 4
+          }
+        ]
+      }
+    },
+    {
+      "manifest_version": 1,
+      "type": "block",
+      "registry_identity": "starter-astro:video-hero@1",
+      "name": "Video Hero",
+      "slug": "video-hero",
+      "description": "A cinematic page introduction with a muted background video and optional text and actions.",
+      "schema": {
+        "fields": [
+          {
+            "name": "Eyebrow",
+            "slug": "eyebrow",
+            "type": "text",
+            "order": 0
+          },
+          {
+            "name": "Heading",
+            "slug": "heading",
+            "type": "text",
+            "order": 1
+          },
+          {
+            "name": "Body",
+            "slug": "body",
+            "type": "rich_text",
+            "order": 2
+          },
+          {
+            "name": "Background video",
+            "slug": "video",
+            "type": "media",
+            "required": true,
+            "description": "Select an MP4, WebM, or Ogg video from the media library.",
+            "order": 3
+          },
+          {
+            "name": "Poster image",
+            "slug": "poster",
+            "type": "image",
+            "description": "Shown before playback and when reduced motion is enabled.",
+            "order": 4
+          },
+          {
+            "name": "Actions",
+            "slug": "actions",
+            "type": "repeater",
+            "fields": [
+              {
+                "name": "Label",
+                "slug": "label",
+                "type": "text",
+                "required": true,
+                "order": 0
+              },
+              {
+                "name": "URL",
+                "slug": "href",
+                "type": "url",
+                "required": true,
+                "order": 1
+              }
+            ],
+            "order": 5
+          }
+        ]
+      }
+    }
+  ],
+  "layouts": [
+    {
+      "manifest_version": 1,
+      "type": "layout",
+      "name": "Starter Astro Standard Page",
+      "slug": "starter-astro-standard-page",
+      "schema": {
+        "fields": [
+          {
+            "name": "Content width",
+            "slug": "content_width",
+            "type": "select",
+            "order": 0,
+            "options": [
+              {
+                "label": "Narrow",
+                "value": "narrow"
+              },
+              {
+                "label": "Standard",
+                "value": "standard"
+              },
+              {
+                "label": "Wide",
+                "value": "wide"
+              }
+            ]
+          },
+          {
+            "name": "Section spacing",
+            "slug": "section_spacing",
+            "type": "select",
+            "order": 1,
+            "options": [
+              {
+                "label": "Compact",
+                "value": "compact"
+              },
+              {
+                "label": "Comfortable",
+                "value": "comfortable"
+              },
+              {
+                "label": "Spacious",
+                "value": "spacious"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "theme_tokens": {
+    "background": {
+      "label": "Background",
+      "type": "color",
+      "cssVariable": "--theme-color-background",
+      "default": "#F5F7F3"
+    },
+    "surface": {
+      "label": "Surface",
+      "type": "color",
+      "cssVariable": "--theme-color-surface",
+      "default": "#FFFFFF"
+    },
+    "foreground": {
+      "label": "Foreground",
+      "type": "color",
+      "cssVariable": "--theme-color-foreground",
+      "default": "#17221D"
+    },
+    "muted": {
+      "label": "Muted",
+      "type": "color",
+      "cssVariable": "--theme-color-muted",
+      "default": "#536158"
+    },
+    "border": {
+      "label": "Border",
+      "type": "color",
+      "cssVariable": "--theme-color-border",
+      "default": "#D9DFD8"
+    },
+    "action": {
+      "label": "Action",
+      "type": "color",
+      "cssVariable": "--theme-color-action",
+      "default": "#294C3D"
+    },
+    "accent": {
+      "label": "Accent",
+      "type": "color",
+      "cssVariable": "--theme-color-accent",
+      "default": "#D9EF98"
+    },
+    "accent-foreground": {
+      "label": "Accent Foreground",
+      "type": "color",
+      "cssVariable": "--theme-color-accent-foreground",
+      "default": "#17221D"
+    },
+    "focus": {
+      "label": "Focus",
+      "type": "color",
+      "cssVariable": "--theme-color-focus",
+      "default": "#D15337"
+    },
+    "input-border": {
+      "label": "Input Border",
+      "type": "color",
+      "cssVariable": "--theme-color-input-border",
+      "default": "#AAB5AD"
+    },
+    "success": {
+      "label": "Success",
+      "type": "color",
+      "cssVariable": "--theme-color-success",
+      "default": "#17613B"
+    },
+    "error": {
+      "label": "Error",
+      "type": "color",
+      "cssVariable": "--theme-color-error",
+      "default": "#9B2617"
+    },
+    "primary-foreground": {
+      "label": "Primary Foreground",
+      "type": "color",
+      "cssVariable": "--theme-color-primary-foreground",
+      "default": "#FFFFFF"
+    },
+    "header": {
+      "label": "Header",
+      "type": "color",
+      "cssVariable": "--theme-color-header",
+      "default": "#294C3D"
+    },
+    "header-foreground": {
+      "label": "Header Foreground",
+      "type": "color",
+      "cssVariable": "--theme-color-header-foreground",
+      "default": "#FFFFFF"
+    },
+    "topbar": {
+      "label": "Topbar",
+      "type": "color",
+      "cssVariable": "--theme-color-topbar",
+      "default": "#F5F7F3"
+    },
+    "topbar-foreground": {
+      "label": "Topbar Foreground",
+      "type": "color",
+      "cssVariable": "--theme-color-topbar-foreground",
+      "default": "#17221D"
+    },
+    "footer-location": {
+      "label": "Footer Location",
+      "type": "color",
+      "cssVariable": "--theme-color-footer-location",
+      "default": "#294C3D"
+    },
+    "footer-location-foreground": {
+      "label": "Footer Location Foreground",
+      "type": "color",
+      "cssVariable": "--theme-color-footer-location-foreground",
+      "default": "#FFFFFF"
+    },
+    "footer": {
+      "label": "Footer",
+      "type": "color",
+      "cssVariable": "--theme-color-footer",
+      "default": "#17221D"
+    },
+    "footer-foreground": {
+      "label": "Footer Foreground",
+      "type": "color",
+      "cssVariable": "--theme-color-footer-foreground",
+      "default": "#F5F7F3"
+    }
+  },
+  "pages": [
+    {
+      "title": "Home",
+      "slug": "/",
+      "is_home": true,
+      "blocks": [
+        {
+          "type": "hero",
+          "data": {
+            "variant": "full-bleed-image",
+            "heading": "Welcome to the restaurant",
+            "body": "<p>Get to know the restaurant and find information for your visit.</p>",
+            "actions": [
+              {
+                "label": "About the restaurant",
+                "href": "/about/"
+              }
+            ]
+          }
+        },
+        {
+          "type": "media-with-text",
+          "data": {
+            "heading": "Behind the table",
+            "body": "<p>Food, hospitality, and the people behind the restaurant.</p>"
+          }
+        },
+        {
+          "type": "call-to-action",
+          "data": {
+            "heading": "Planning a visit?",
+            "body": "<p>Find contact information for questions about your visit.</p>",
+            "button_label": "Contact",
+            "button_url": "/contact/"
+          }
+        }
+      ]
+    },
+    {
+      "title": "About",
+      "slug": "about",
+      "is_home": false,
+      "blocks": [
+        {
+          "type": "hero",
+          "data": {
+            "heading": "About the restaurant"
+          }
+        },
+        {
+          "type": "rich-text",
+          "data": {
+            "heading": "Around the table",
+            "body": "<p>A meal is a chance to slow down and spend time together.</p>"
+          }
+        }
+      ]
+    },
+    {
+      "title": "Contact",
+      "slug": "contact",
+      "is_home": false,
+      "blocks": [
+        {
+          "type": "rich-text",
+          "data": {
+            "heading": "Get in touch",
+            "body": "<p>Contact details are not listed yet.</p>"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -18,6 +18,8 @@ For a rehearsal use an isolated account or local Backstage instance, a noindex b
 
 ## 2. Connect the Shared Template
 
+The repository exports Backstage's restaurant setup definition as `backstage.setup.json`. After changing a block, layout, theme declaration, or starter page, run `npm run export:setup` and commit the generated file with the change. The test suite checks for drift. The export contains definitions and placeholder page compositions only, never account IDs, credentials, live theme values, or form bindings. A consumer can read the file at a pinned commit without installing or running the Starter. Setup and deployment are separate operations.
+
 Set deployment environment values, not source files:
 
 ```dotenv
