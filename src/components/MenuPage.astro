@@ -143,13 +143,12 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
 
 <style>
   .menu-page {
-    width: min(100% - 3rem, 76rem);
+    width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
     margin: 0 auto;
     padding: clamp(2rem, 5vw, 3.5rem) 0 3rem;
   }
 
   .menu-page--embedded {
-    width: calc(100% - 3rem);
     padding: clamp(2rem, 4vw, 3rem) 0;
   }
 
@@ -211,8 +210,7 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     display: flex;
     flex-wrap: wrap;
     gap: 0.6rem;
-    padding: 1.5rem 0;
-    border-bottom: 1px solid var(--color-line);
+    padding: 0 0 1.25rem;
   }
 
   .menu-page__selector a {
@@ -234,6 +232,10 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     color: var(--theme-color-primary-foreground);
   }
 
+  .menu-page__selector a:not([aria-current="page"]):hover {
+    border-color: var(--theme-color-action);
+  }
+
   .menu-page__category-nav {
     display: flex;
     gap: clamp(1rem, 2.5vw, 2rem);
@@ -252,7 +254,6 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     font-size: 0.82rem;
     font-weight: 750;
     text-decoration: none;
-    text-transform: uppercase;
     white-space: nowrap;
   }
 
@@ -287,7 +288,6 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     font-size: clamp(1.6rem, 2.4vw, 2rem);
     font-weight: 560;
     line-height: 1.1;
-    text-transform: uppercase;
   }
 
   .menu-category h2::after {
@@ -390,7 +390,6 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     grid-template-columns: minmax(0, 1fr);
     min-width: 0;
     padding: 0.9rem 0;
-    border-bottom: 1px solid var(--color-line);
   }
 
   .menu-item__image {
@@ -421,6 +420,7 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
   .menu-item--category-pricing {
     grid-template-columns: minmax(15rem, 2fr) repeat(var(--category-price-count), minmax(5.5rem, 1fr));
     padding: 0;
+    border-bottom: 1px solid var(--color-line);
   }
 
   .menu-item--category-pricing .menu-item__details,
@@ -453,13 +453,12 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     font-size: 1rem;
     font-weight: 750;
     line-height: 1.4;
-    text-transform: uppercase;
   }
 
   .menu-item__leader {
     min-width: 1rem;
     flex: 1;
-    border-bottom: 1px dotted #9ba49c;
+    border-bottom: 1px dotted var(--color-muted);
     transform: translateY(-0.25rem);
   }
 
@@ -527,10 +526,6 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
   }
 
   @media (max-width: 760px) {
-    .menu-page {
-      width: calc(100% - 2.5rem);
-    }
-
     .menu-page__header {
       min-height: 2rem;
     }

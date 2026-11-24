@@ -95,7 +95,7 @@ const eventDescription = event?.description ? sanitizeRichText(event.description
 
 <style>
   .event-page {
-    width: min(100% - 3rem, 72rem);
+    width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
     margin-inline: auto;
     padding-block: clamp(3.5rem, 8vw, 6rem);
   }
@@ -251,7 +251,6 @@ const eventDescription = event?.description ? sanitizeRichText(event.description
   }
 
   @media (max-width: 680px) {
-    .event-page { width: calc(100% - 2rem); }
     .event-list__item { grid-template-columns: 5.5rem minmax(0, 1fr); align-items: start; }
     .event-list__item > img { grid-row: span 2; aspect-ratio: 1; }
     .event-list__date { padding-top: 0.15rem; }

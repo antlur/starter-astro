@@ -55,7 +55,7 @@ const content = release?.content ? sanitizeRichText(release.content) : "";
 
 <style>
   .press-page {
-    width: min(100% - 3rem, 74rem);
+    width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
     margin-inline: auto;
     padding-block: clamp(3.5rem, 8vw, 6rem);
   }
@@ -175,10 +175,6 @@ const content = release?.content ? sanitizeRichText(release.content) : "";
   }
 
   @media (max-width: 640px) {
-    .press-page {
-      width: min(100% - 2rem, 74rem);
-    }
-
     .press-item {
       grid-template-columns: 1fr;
     }

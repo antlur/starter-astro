@@ -41,7 +41,6 @@ const { page, pageTitle: routeTitle, pageDescription: routeDescription, pageImag
 const { structuredData, pages } = await getSiteContent();
 const { routePlan } = await getSiteBuild();
 const locationRoutes = routePlan.locationRoutes.filter(({ location }) => isPublicLocation(location));
-const locationMenuRoutes = routePlan.menuRoutes.filter(({ menu }) => menu.isPublished !== false);
 const siteTitle = site.meta?.title || site.name;
 const { title, description, openGraphTitle, openGraphDescription } = resolveSeoMetadata({ page, routeTitle, routeDescription, site });
 const homeImage = getHomePage(pages).blocks.filter(({ type }) => type === "hero")
@@ -172,7 +171,6 @@ const showLegacyLocationHours = site.locationHoursFooter !== "show"
       {showLocationHoursFooter && (
         <LocationDirectoryPage
           locations={footerLocations}
-          menuRoutes={locationMenuRoutes}
           section={{ heading: "Location & Hours", intro: "", layout: "visit-panel", isPrimary: false, condensed: footerLocations.length > 1 }}
         />
       )}

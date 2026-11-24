@@ -82,7 +82,7 @@ const photoAttrs = location.imageUrl && location.imageWidth && location.imageHei
 
 <style>
   .location-page {
-    width: min(100% - 3rem, 72rem);
+    width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
     margin-inline: auto;
     padding-block: clamp(3.5rem, 8vw, 6rem);
   }
@@ -176,7 +176,7 @@ const photoAttrs = location.imageUrl && location.imageWidth && location.imageHei
   }
 
   @media (max-width: 680px) {
-    .location-page { width: calc(100% - 2rem); padding-block: 2rem 3rem; }
+    .location-page { padding-block: 2rem 3rem; }
     .location-page__intro { margin-bottom: 1.5rem; }
     .location-page__details { grid-template-columns: 1fr; gap: 2rem; }
     .location-page__image { aspect-ratio: 4 / 3; }
