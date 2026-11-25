@@ -94,6 +94,8 @@ CSS custom properties are the canonical design-token source. `src/styles/global.
 
 Brand tokens describe identity, not component appearance. Change `theme.css` for site-specific semantic choices, `ui.css` for shared interface mechanics, and component styles for one-off presentation. Do not add a UI library or a runtime Backstage theme request for token access.
 
+Button-style actions share `--theme-radius-button` (default `6px`) through `--ui-radius-button`. Set it in `theme.css` to change the site's buttons together without changing the shape of cards, images, or form fields.
+
 ### Local or Backstage design
 
 Choose design ownership in `backstage.config.ts`, independently of `BACKSTAGE_SOURCE`

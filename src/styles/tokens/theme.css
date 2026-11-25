@@ -1,4 +1,5 @@
 :root {
+  --theme-radius-button: 6px;
   --theme-color-background: #f5f7f3;
   --theme-color-surface: #fff;
   --theme-color-foreground: #17221d;
