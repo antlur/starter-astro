@@ -39,7 +39,7 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
   )}
 
   {categoryAnchors.length > 1 && (
-    <nav class="menu-page__category-nav" aria-label="Menu categories">
+    <nav class="menu-page__category-nav" aria-label="Menu categories" data-menu-category-nav>
       {categoryAnchors.map((category) => <a href={`#${category.id}`}>{category.title}</a>)}
     </nav>
   )}
@@ -141,6 +141,64 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
   </div>
 </section>
 
+<script>
+  document.querySelectorAll<HTMLElement>("[data-menu-category-nav]").forEach((nav) => {
+    const menu = nav.closest<HTMLElement>(".menu-page");
+    if (!menu) return;
+
+    const links = [...nav.querySelectorAll<HTMLAnchorElement>("a")];
+    const categories = [...menu.querySelectorAll<HTMLElement>(".menu-category")];
+    let current: HTMLAnchorElement | undefined;
+    let frame = 0;
+    let offset = 0;
+    const gap = 12;
+
+    const update = () => {
+      frame = 0;
+      const bar = nav.getBoundingClientRect();
+      const readingLine = Math.max(bar.bottom, 0) + gap + 1;
+      let index = 0;
+      for (let i = 1; i < categories.length; i++) {
+        if (categories[i].getBoundingClientRect().top > readingLine) break;
+        index = i;
+      }
+
+      if (scrollY > 0 && document.documentElement.scrollHeight - innerHeight - scrollY <= 1) {
+        const last = categories.at(-1)?.getBoundingClientRect();
+        if (last && last.top < innerHeight && last.bottom > readingLine) index = categories.length - 1;
+      }
+
+      const active = links[index];
+      if (!active || active === current) return;
+      current?.removeAttribute("aria-current");
+      active.setAttribute("aria-current", "location");
+      current = active;
+
+      // Reveal the current label without scrolling the page itself.
+      const label = active.getBoundingClientRect();
+      if (label.left < bar.left) nav.scrollBy({ left: label.left - bar.left, behavior: "instant" });
+      else if (label.right > bar.right) nav.scrollBy({ left: label.right - bar.right, behavior: "instant" });
+    };
+
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+    const measure = () => {
+      const next = nav.offsetHeight + gap;
+      if (next !== offset) {
+        menu.style.setProperty("--menu-category-offset", `${next}px`);
+        offset = next;
+      }
+      schedule();
+    };
+
+    const resize = new ResizeObserver(measure);
+    resize.observe(nav);
+    resize.observe(menu);
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("hashchange", schedule);
+    measure();
+  });
+</script>
+
 <style>
   .menu-page {
     width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
@@ -237,11 +295,15 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
   }
 
   .menu-page__category-nav {
+    position: sticky;
+    z-index: 1;
+    top: 0;
     display: flex;
     gap: clamp(1rem, 2.5vw, 2rem);
     overflow-x: auto;
-    padding: 0.85rem 0;
+    padding: 0.85rem 4px;
     border-block: 1px solid var(--color-line);
+    background: var(--theme-color-background);
     overscroll-behavior-inline: contain;
     scrollbar-width: thin;
   }
@@ -257,6 +319,7 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
     white-space: nowrap;
   }
 
+  .menu-page__category-nav a[aria-current="location"],
   .menu-page__category-nav a:hover,
   .menu-page__category-nav a:focus-visible {
     border-color: var(--color-accent-strong);
@@ -280,6 +343,10 @@ const visibleMenuRoutes = uniqueMenuRoutes(menuRoutes, Astro.url.pathname);
 
   .menu-category {
     min-width: 0;
+  }
+
+  .menu-page__category-nav + .menu-page__categories .menu-category {
+    scroll-margin-top: var(--menu-category-offset, 4.5rem);
   }
 
   .menu-category__title {

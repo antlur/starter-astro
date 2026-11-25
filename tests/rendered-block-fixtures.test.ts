@@ -126,6 +126,12 @@ test("Astro renders editorial fixtures accessibly and shares sanitized rich-text
     assert.match(embeddedMenu, attributePattern("aria-labelledby", "menu-title-fixture-menu"));
     assert.match(html, /<h2\b[^>]*id="menu-title-fixture-menu"[^>]*>All Day<\/h2>/);
     assert.match(html, /<h3\b[^>]*id="menu-category-fixture-menu-0-title"[^>]*>Coffee<\/h3>/);
+    const categoryNav = html.match(/<nav\b(?=[^>]*data-menu-category-nav)(?=[^>]*aria-label="Menu categories")[^>]*>([\s\S]*?)<\/nav>/)?.[1];
+    assert.ok(categoryNav, "the embedded menu should render its category navigation");
+    assert.deepEqual([...categoryNav.matchAll(/href="#([^"]+)"/g)].map(([, id]) => id), [
+      "menu-category-fixture-menu-0", "menu-category-fixture-menu-1",
+    ]);
+    assert.match(html, /<section\b[^>]*id="menu-category-fixture-menu-1"/);
     assert.match(html, /<h4\b[^>]*>Slow drip coffee<\/h4>/);
     assert.match(html, /Bright, balanced, and brewed fresh throughout the morning\./);
     assert.match(html, /\$3\.50/);
