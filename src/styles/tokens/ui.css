@@ -2,6 +2,7 @@
   --ui-radius-sm: 0.4rem;
   --ui-radius-md: 0.5rem;
   --ui-radius-lg: 0.75rem;
+  --ui-radius-button: var(--theme-radius-button);
   --ui-spacing-unit: 0.25rem;
   --ui-container-width: 72rem;
   --ui-page-gutter: 1.5rem;
