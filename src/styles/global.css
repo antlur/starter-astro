@@ -321,7 +321,6 @@ button:focus-visible,
   justify-content: space-between;
   gap: 2rem;
   padding-block: 0.5rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-header-foreground) 16%, transparent);
 }
 
 .site-header[data-logo-size="prominent"] {
