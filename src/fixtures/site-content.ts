@@ -8,8 +8,11 @@ export const fixtureWebsiteDesign = {
   theme: { colors: { palette: [{ token: "primary", value: "#294c3d" }] } },
   font_families: [{ name: "display", value: 'Georgia, "Times New Roman", serif' }],
   theme_tokens: {
-    tokens: { action: { type: "color", cssVariable: "--theme-color-action", default: "#000" } },
-    values: { action: "palette:primary" },
+    tokens: {
+      action: { type: "color", cssVariable: "--theme-color-action", default: "#000" },
+      "button-radius": { type: "radius", cssVariable: "--theme-radius-button", default: "6px" },
+    },
+    values: { action: "palette:primary", "button-radius": "12px" },
   },
 };
 

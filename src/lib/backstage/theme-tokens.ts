@@ -1,4 +1,4 @@
-import { resolveDesignTokenSource, validateThemeTokenDeclarations, type ColorThemeToken, type ThemeTokenDeclarations } from "@antlur/backstage";
+import { normalizeThemeRadius, resolveDesignTokenSource, validateThemeTokenDeclarations, type ThemeTokenDeclarations } from "@antlur/backstage";
 import type { BackstageUserConfig } from "@antlur/backstage/config";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -46,7 +46,7 @@ export function themeDeclarationsFromCss(...stylesheets: string[]): ThemeTokenDe
     throw new Error(`Theme color ${name} must resolve to a hex color before syncing.`);
   };
 
-  const tokens: Record<string, ColorThemeToken> = {};
+  const tokens: Record<string, ThemeTokenDeclarations[string]> = {};
   for (const name of properties.keys()) {
     if (!name.startsWith("--theme-color-")) continue;
     const key = name.slice("--theme-color-".length);
@@ -58,6 +58,13 @@ export function themeDeclarationsFromCss(...stylesheets: string[]): ThemeTokenDe
     };
   }
   if (Object.keys(tokens).length === 0) throw new Error("No semantic theme colors were found in the token CSS.");
+  const radius = properties.get("--theme-radius-button");
+  if (radius !== undefined) {
+    const value = normalizeThemeRadius(radius === "9999px" ? "pill" : radius);
+    if (!value) throw new Error("Theme button radius must be 0–32px (whole pixels) or 9999px (pill) before syncing.");
+    if (Object.hasOwn(tokens, "button-radius")) throw new Error("Theme token button-radius is already declared as a color.");
+    tokens["button-radius"] = { label: "Button Radius", type: "radius", cssVariable: "--theme-radius-button", default: value };
+  }
   return validateThemeTokenDeclarations(tokens);
 }
 
@@ -71,14 +78,21 @@ export function resolveWebsiteThemeTokens(website: unknown, localDeclarations?: 
   const properties: Record<string, string> = {};
 
   for (const [key, token] of Object.entries(localDeclarations ?? tokens)) {
-    if (!/^[a-z][a-z0-9_-]{0,63}$/.test(key) || !isRecord(token) || token.type !== "color"
-      || typeof token.cssVariable !== "string" || !/^--theme-color-[a-z][a-z0-9-]*$/.test(token.cssVariable)) continue;
-    const fallback = hex(token.default);
-    if (!fallback) continue;
+    if (!/^[a-z][a-z0-9_-]{0,63}$/.test(key) || !isRecord(token) || typeof token.cssVariable !== "string") continue;
     // Local CSS owns the mapping. Ignore stale or remapped remote declarations.
     const remote = tokens[key];
-    if (localDeclarations && (!isRecord(remote) || remote.type !== "color" || remote.cssVariable !== token.cssVariable)) continue;
+    if (localDeclarations && (!isRecord(remote) || remote.type !== token.type || remote.cssVariable !== token.cssVariable)) continue;
     const value = values[key];
+    if (token.type === "radius" && /^--theme-radius-[a-z][a-z0-9-]*$/.test(token.cssVariable)) {
+      const fallback = normalizeThemeRadius(token.default);
+      if (!fallback) continue;
+      const radius = normalizeThemeRadius(value) ?? (localDeclarations ? null : fallback);
+      if (radius) properties[token.cssVariable] = radius === "pill" ? "9999px" : radius;
+      continue;
+    }
+    if (token.type !== "color" || !/^--theme-color-[a-z][a-z0-9-]*$/.test(token.cssVariable)) continue;
+    const fallback = hex(token.default);
+    if (!fallback) continue;
     let color = hex(value);
     if (typeof value === "string" && value.startsWith("palette:")) {
       const identifier = value.slice("palette:".length);

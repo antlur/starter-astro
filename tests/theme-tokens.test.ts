@@ -23,7 +23,9 @@ test("theme declarations derive defaults from the existing CSS and resolve brand
   assert.equal(tokens.action.default, "#294C3D");
   assert.equal(tokens["header-foreground"].default, "#FFFFFF");
   assert.equal(tokens["topbar-foreground"].default, tokens.foreground.default);
-  assert.ok(Object.values(tokens).every((declaration) => declaration.type === "color"));
+  assert.deepEqual(Object.entries(tokens).filter(([, declaration]) => declaration.type !== "color"), [
+    ["button-radius", { label: "Button Radius", type: "radius", cssVariable: "--theme-radius-button", default: "6px" }],
+  ]);
   assert.ok(!Object.keys(tokens).some((key) => key.includes("font")));
   assert.equal(brand, readFileSync(new URL("../src/styles/tokens/brand.css", import.meta.url), "utf8"));
 });
@@ -41,6 +43,31 @@ test("CSS-derived declarations use the published SDK contract and its size limit
   assert.deepEqual(validateThemeTokenDeclarations(themeTokenDeclarations), themeTokenDeclarations);
   const tooMany = Array.from({ length: 129 }, (_, index) => `--theme-color-color-${index}: #fff;`).join(" ");
   assert.throws(() => themeDeclarationsFromCss(`:root { ${tooMany} }`), /at most 128/);
+});
+
+test("button radius accepts only bounded pixels and the pill preset in Backstage design mode", () => {
+  const declaration = themeTokenDeclarations["button-radius"];
+  const payload = (value: unknown, remote: unknown = declaration) => ({
+    theme_tokens: {
+      tokens: { action: token, "button-radius": remote },
+      values: { action: "#123", "button-radius": value },
+    },
+  });
+  for (const value of ["0px", "6px", "21px", "32px", "pill"]) {
+    assert.deepEqual(resolveDesign(payload(value)), {
+      "--theme-color-action": "#112233",
+      "--theme-radius-button": value === "pill" ? "9999px" : value,
+    });
+    assert.deepEqual(normalizeWebsite(payload(value)).themeVariables, {});
+  }
+  for (const value of [undefined, "", null, 0, "33px", "1.5px", "6rem", "9999px", "0px;display:none", "palette:primary"]) {
+    assert.deepEqual(resolveDesign(payload(value)), { "--theme-color-action": "#112233" });
+  }
+  for (const remote of [null, { ...declaration, type: "color" }, { ...declaration, cssVariable: "--theme-radius-card" }]) {
+    assert.deepEqual(resolveDesign(payload("12px", remote)), { "--theme-color-action": "#112233" });
+  }
+  assert.equal(themeDeclarationsFromCss(":root { --theme-color-action: #fff; --theme-radius-button: 9999px; }")["button-radius"].default, "pill");
+  assert.throws(() => themeDeclarationsFromCss(":root { --theme-color-action: #fff; --theme-radius-button: 99px; }"), /button radius/);
 });
 
 test("build resolves saved hex colors and palette tokens, including legacy palette names", () => {

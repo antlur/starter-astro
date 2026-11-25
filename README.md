@@ -108,8 +108,8 @@ export default defineConfig({
 });
 ```
 
-- **Local:** committed CSS controls Brand, Theme, and UI. Website design values are ignored, and theme-token sync (including dry runs) makes no requests. Backstage may still supply content. Color declaration extraction is skipped, so local CSS is not constrained to Backstage's hex-only declaration API.
-- **Backstage:** the build reads Brand palette/font-family values and saved Theme color overrides from the website response already fetched for content. No additional request, account write, or CSS-file rewrite is performed. Invalid configuration fails clearly.
+- **Local:** committed CSS controls Brand, Theme, and UI. Website design values are ignored, and theme-token sync (including dry runs) makes no requests. Backstage may still supply content. Local CSS is not constrained by Backstage's token declaration rules.
+- **Backstage:** the build reads Brand palette/font-family values and saved Theme overrides from the website response already fetched for content. No additional request, account write, or CSS-file rewrite is performed. Invalid configuration fails clearly.
 - `BACKSTAGE_SOURCE=fixture` remains entirely offline in both modes. Backstage design mode uses sample website design values from the fixture rather than real account data.
 
 This switch controls design tokens, not content assets. Website logos/favicons and
@@ -149,18 +149,19 @@ To use a Contact Form block, create and configure its fields in Backstage, sync 
 Form submissions are disabled in `astro dev`, Netlify Deploy Previews, and Netlify branch deploys. Preview forms show a notice, have disabled fields, and contain no action or form-specific submission wiring. Netlify production builds enable submissions. For a non-Netlify production build, set `BACKSTAGE_FORM_SUBMISSIONS_ENABLED=true`; it is false by default. This is a build-time setting, so rebuild after changing it. Do not enable the flag for a preview build.
 
 
-### Backstage theme color overrides
+### Backstage theme overrides
 
 `backstage.theme-tokens.ts` derives the supported `--theme-color-*` declarations and
 hex defaults from the existing brand/theme CSS. CSS remains the source of truth;
 there is no second hand-maintained default palette. Only hex colors and `var(...)`
-aliases resolving to hex can be registered with the color-only Backstage API.
-This declaration API remains color-only. Brand font-family values use the separate
+aliases resolving to hex can be registered as colors. The Starter also declares
+Button Radius from `--theme-radius-button`. Its CSS default must be a whole-pixel
+length from `0px` to `32px`, or `9999px` for Pill. Brand font-family values use the
 existing website font mappings; font assets and `--ui-*` properties stay site-owned.
 
-This design-source workflow requires SDK **1.23.0** or later. Set
+Managed Button Radius requires radius support in Backstage and SDK **2.1.0** or later. Set
 `designTokens: { source: "backstage" }`, then register or preview supported Theme
-color roles explicitly (local mode skips this step):
+tokens explicitly (local mode skips this step):
 
 ```bash
 npm run sync:theme-tokens -- --dry-run
@@ -170,16 +171,20 @@ npm run sync:theme-tokens
 Run the explicit sync with a Backstage account token that has website write access.
 Builds can keep using a read-only token. Sync replaces declarations only and retains
 saved editor values, including overrides for temporarily removed declarations.
-It does not write `brand.css`, `theme.css`, or font assets.
+It does not write `brand.css`, `theme.css`, or font assets. Before registering
+Button Radius, upgrade every command runner that syncs this site's Theme Tokens.
+Older SDKs reject radius declarations. The version 1 restaurant setup manifest
+stays color-only; run the explicit sync after setup to register radius.
 
 When upgrading from SDK 1.22, add the explicit Backstage source to retain managed
 design and declaration sync. Existing account editor values are not deleted by
 choosing local mode; they are simply not used.
 
-Editors then choose palette references or custom hex colors under Backstage Settings
-→ Theme Tokens. The normal build reads `theme_tokens` from the website response it
+Under Backstage Settings → Theme Tokens, editors can pick palette references or
+custom hex colors, and choose Square, Soft, Pill, or a custom Button Radius.
+Clearing a value restores the CSS default. The build reads `theme_tokens` from the website response it
 already fetches, resolves palette tokens (or legacy palette names), and emits the
-saved color overrides on `<html>`. Missing, cleared, or invalid values and missing
+saved color and radius overrides on `<html>`. Missing, cleared, or invalid values and missing
 palette colors leave the current CSS defaults in control; synced defaults are not
 inlined. This preserves aliases such as topbar to background when only background
 is changed. The build uses the same local CSS-derived declarations as sync and

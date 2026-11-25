@@ -14,6 +14,7 @@ test("restaurant setup exports portable definitions and never installs a form or
   assert.ok(manifest.blocks.some(({ slug }) => slug === "locations"));
   assert.equal(manifest.layouts[0]?.slug, "starter-astro-standard-page");
   assert.ok(manifest.theme_tokens.action);
+  assert.equal("button-radius" in manifest.theme_tokens, false, "setup manifest v1 remains color-only");
   assert.deepEqual(manifest.pages.map(({ slug, is_home }) => [slug, is_home]), [
     ["/", true], ["about", false], ["contact", false],
   ]);

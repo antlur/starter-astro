@@ -21,7 +21,7 @@
     "sync:theme-tokens": "backstage sync theme-tokens"
   },
   "dependencies": {
-    "@antlur/backstage": "2.0.0",
+    "@antlur/backstage": "2.1.0",
     "entities": "^8.1.0",
     "sanitize-html": "^2.17.7"
   },
