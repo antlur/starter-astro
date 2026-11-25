@@ -184,6 +184,7 @@ test("Astro renders editorial fixtures accessibly and shares sanitized rich-text
     assert.match(footerNavigation, /href="\/happenings\/">Happenings<\/a>/);
     assert.match(footerNavigation, /href="\/events\/community-supper\/">Community Supper<\/a>/);
 
+    assert.match(html, /<div class="site-topbar__inner">\s*<nav class="site-topbar__social"[^>]*>[\s\S]*?<\/nav>\s*<div class="site-topbar__details">/);
     for (const placement of ["topbar", "footer"]) {
       const socialNavigation = firstTag(html, new RegExp(`<nav class="site-${placement}__social" aria-label="Social media">[\\s\\S]*?<\\/nav>`), `${placement} social navigation`);
       const socialLink = firstTag(socialNavigation, /<a\b[^>]*>/, `${placement} Instagram link`);

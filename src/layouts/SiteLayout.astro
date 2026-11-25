@@ -123,6 +123,7 @@ const showLegacyLocationHours = site.locationHoursFooter !== "show"
       {showTopbar && (
         <div class="site-topbar">
           <div class="site-topbar__inner">
+            <SocialLinks links={socialLinks} placement="topbar" />
             <div class="site-topbar__details">
               {contactLocation?.addressLines.length && contactLocation.mapUrl
                 ? <a class="site-topbar__address" href={contactLocation.mapUrl} target="_blank" rel="noopener noreferrer">{contactLocation.addressLines.map((line) => <span>{line}</span>)}</a>
@@ -131,7 +132,6 @@ const showLegacyLocationHours = site.locationHoursFooter !== "show"
               {!contactLocation?.addressLines.length && contactLocation?.mapUrl && <a href={contactLocation.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {contactLocation.name}</span></a>}
               {directoryLink && <a href={directoryLink}>{currentLocation ? "All locations" : "Find a location"}</a>}
             </div>
-            <SocialLinks links={socialLinks} placement="topbar" />
             {topbarCta && <a class="site-topbar__cta" href={topbarCta.url} target="_blank" rel="noopener noreferrer">{topbarCta.text}</a>}
           </div>
         </div>
