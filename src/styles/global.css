@@ -271,6 +271,36 @@ button:focus-visible,
   text-underline-offset: 0.2em;
 }
 
+.site-topbar__social {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.125rem;
+  margin-inline-start: auto;
+}
+
+.site-topbar__inner:has(.site-topbar__social) .site-topbar__details {
+  margin-left: 0;
+}
+
+.site-topbar__social a {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border-radius: var(--ui-radius-sm);
+}
+
+.site-topbar__social a:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.site-topbar__social a:focus-visible {
+  outline-color: currentColor;
+  outline-offset: 0;
+}
+
 .site-topbar__cta {
   display: inline-flex;
   min-height: 2rem;
@@ -658,6 +688,10 @@ button:focus-visible,
 
   .site-topbar__details {
     margin-left: 0;
+  }
+
+  .site-topbar__social {
+    display: none;
   }
 
   .site-header nav {
