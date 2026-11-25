@@ -3,7 +3,7 @@ import "../styles/global.css";
 import LocationDirectoryPage from "../components/LocationDirectoryPage.astro";
 import LocationHoursSection from "../components/LocationHoursSection.astro";
 import SiteAlerts from "../components/SiteAlerts.astro";
-import SocialIcon from "../components/SocialIcon.astro";
+import SocialLinks from "../components/SocialLinks.astro";
 import NavigationTree from "../components/NavigationTree.astro";
 import { alertsForPath } from "../lib/backstage/alerts";
 import { getHomePage, getSiteContent, jsonLdForPage, serializeJsonLd } from "../lib/backstage/content";
@@ -131,6 +131,7 @@ const showLegacyLocationHours = site.locationHoursFooter !== "show"
               {!contactLocation?.addressLines.length && contactLocation?.mapUrl && <a href={contactLocation.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {contactLocation.name}</span></a>}
               {directoryLink && <a href={directoryLink}>{currentLocation ? "All locations" : "Find a location"}</a>}
             </div>
+            <SocialLinks links={socialLinks} placement="topbar" />
             {topbarCta && <a class="site-topbar__cta" href={topbarCta.url} target="_blank" rel="noopener noreferrer">{topbarCta.text}</a>}
           </div>
         </div>
@@ -184,15 +185,7 @@ const showLegacyLocationHours = site.locationHoursFooter !== "show"
               <NavigationTree items={footerNavigation} variant="footer" pathname={pathname} />
             </nav>
           )}
-          {socialLinks.length > 0 && (
-            <nav class="site-footer__social" aria-label="Social media">
-              {socialLinks.map((link) => (
-                <a href={link.url} target="_blank" rel="noopener noreferrer" aria-label={`${link.name} (opens in a new tab)`}>
-                  <SocialIcon name={link.name} />
-                </a>
-              ))}
-            </nav>
-          )}
+          <SocialLinks links={socialLinks} placement="footer" />
           <small>© {new Date().getFullYear()} {site.name}</small>
         </div>
       </div>

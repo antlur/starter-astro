@@ -183,6 +183,15 @@ test("Astro renders editorial fixtures accessibly and shares sanitized rich-text
     const footerNavigation = firstTag(html, /<nav\b[^>]*aria-label="Footer navigation"[^>]*>[\s\S]*?<\/nav>/, "footer navigation");
     assert.match(footerNavigation, /href="\/happenings\/">Happenings<\/a>/);
     assert.match(footerNavigation, /href="\/events\/community-supper\/">Community Supper<\/a>/);
+
+    for (const placement of ["topbar", "footer"]) {
+      const socialNavigation = firstTag(html, new RegExp(`<nav class="site-${placement}__social" aria-label="Social media">[\\s\\S]*?<\\/nav>`), `${placement} social navigation`);
+      const socialLink = firstTag(socialNavigation, /<a\b[^>]*>/, `${placement} Instagram link`);
+      assert.match(socialLink, attributePattern("href", "https://social.example.test/instagram"));
+      assert.match(socialLink, attributePattern("aria-label", "Instagram (opens in a new tab)"));
+      assert.match(socialLink, attributePattern("target", "_blank"));
+      assert.match(socialLink, attributePattern("rel", "noopener noreferrer"));
+    }
   } finally {
     for (const key of envKeys) restoreEnv(key, previousEnv.get(key));
     await rm(outputDirectory, { recursive: true, force: true });

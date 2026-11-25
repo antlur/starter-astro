@@ -1,0 +1,21 @@
+---
+import SocialIcon from "./SocialIcon.astro";
+import type { SiteContent } from "../lib/backstage/content";
+
+interface Props {
+  links: SiteContent["site"]["socialLinks"];
+  placement: "topbar" | "footer";
+}
+
+const { links, placement } = Astro.props;
+---
+
+{links.length > 0 && (
+  <nav class={`site-${placement}__social`} aria-label="Social media">
+    {links.map((link) => (
+      <a href={link.url} target="_blank" rel="noopener noreferrer" aria-label={`${link.name} (opens in a new tab)`}>
+        <SocialIcon name={link.name} />
+      </a>
+    ))}
+  </nav>
+)}
