@@ -275,13 +275,7 @@ button:focus-visible,
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
   gap: 0.125rem;
-  margin-inline-start: auto;
-}
-
-.site-topbar__inner:has(.site-topbar__social) .site-topbar__details {
-  margin-left: 0;
 }
 
 .site-topbar__social a {
