@@ -238,14 +238,19 @@ button:focus-visible,
   font-size: 0.8rem;
 }
 
+.site-topbar__inner,
+.site-header,
+.site-footer__base-inner {
+  width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
+  margin-inline: auto;
+}
+
 .site-topbar__inner {
   display: flex;
-  width: min(100% - 3rem, 78rem);
   min-height: 2.5rem;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-inline: auto;
 }
 
 .site-topbar__details {
@@ -311,12 +316,10 @@ button:focus-visible,
   --header-logo-height: 3.75rem;
   --header-height: 5.5rem;
   display: flex;
-  width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
   min-height: var(--header-height);
   align-items: center;
   justify-content: space-between;
   gap: 2rem;
-  margin-inline: auto;
   padding-block: 0.5rem;
   border-bottom: 1px solid color-mix(in srgb, var(--color-header-foreground) 16%, transparent);
 }
@@ -509,12 +512,10 @@ button:focus-visible,
 
 .site-footer__base-inner {
   display: flex;
-  width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
   min-height: 4rem;
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  margin-inline: auto;
 }
 
 .site-footer__brand {
@@ -674,7 +675,6 @@ button:focus-visible,
   }
 
   .site-topbar__inner {
-    width: calc(100% - 2.5rem);
     align-items: flex-start;
     flex-direction: column;
     padding-block: 0.55rem;
@@ -697,7 +697,6 @@ button:focus-visible,
   }
 
   .site-footer__base-inner {
-    width: min(calc(100% - var(--ui-page-gutter) - var(--ui-page-gutter)), var(--ui-container-width));
     align-items: start;
     flex-direction: column;
     gap: 0.5rem;
