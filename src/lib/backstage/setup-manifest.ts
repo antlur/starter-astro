@@ -22,7 +22,8 @@ export function restaurantSetupManifest() {
     template: "restaurant",
     blocks,
     layouts: pageLayoutDefinitions,
-    theme_tokens: readThemeTokenDeclarations(),
+    // Manifest v1 importers are color-only; managed radius registers through the explicit SDK sync.
+    theme_tokens: Object.fromEntries(Object.entries(readThemeTokenDeclarations()).filter(([, token]) => token.type === "color")),
     pages,
   };
 }
