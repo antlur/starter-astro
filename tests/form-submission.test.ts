@@ -19,8 +19,9 @@ test("submits the form payload to Backstage using the public form request contra
     return new Response(null, { status: 201 });
   };
 
-  await submitBackstageForm("https://backstage.example.test/api/wa/forms/form-1", createFormData(), fetcher);
+  const responseStatus = await submitBackstageForm("https://backstage.example.test/api/wa/forms/form-1", createFormData(), fetcher);
 
+  assert.equal(responseStatus, 201);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, "https://backstage.example.test/api/wa/forms/form-1");
   assert.equal(requests[0].init?.method, "POST");
@@ -34,26 +35,26 @@ test("submits the form payload to Backstage using the public form request contra
   assert.equal((requests[0].init?.body as FormData).get("message"), "A table for four, please.");
 });
 
-test("accepts empty 201 and 204 success responses from Backstage", async () => {
-  await assert.doesNotReject(() => submitBackstageForm(
+test("returns the verified status for empty 201 and 204 success responses", async () => {
+  assert.equal(await submitBackstageForm(
     "https://backstage.example.test/api/wa/forms/form-1",
     createFormData(),
     async () => new Response(null, { status: 201 }),
-  ));
+  ), 201);
 
-  await assert.doesNotReject(() => submitBackstageForm(
+  assert.equal(await submitBackstageForm(
     "https://backstage.example.test/api/wa/forms/form-1",
     createFormData(),
     async () => new Response(null, { status: 204 }),
-  ));
+  ), 204);
 });
 
 test("accepts a JSON success response", async () => {
-  await assert.doesNotReject(() => submitBackstageForm(
+  assert.equal(await submitBackstageForm(
     "https://backstage.example.test/api/wa/forms/form-1",
     createFormData(),
     async () => Response.json({ message: "Form submitted." }),
-  ));
+  ), 200);
 });
 
 test("surfaces the first Backstage validation error", async () => {

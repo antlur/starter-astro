@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { GAEvents, GALocations } from "@antlur/backstage/constants/google-events";
-import { analyticsLink, googleAnalyticsId } from "../src/lib/analytics";
+import { analyticsLink, googleAnalyticsId, providerEventsByUrl, serviceAnalytics } from "../src/lib/analytics";
 import { normalizeWebsite } from "../src/lib/backstage/content";
 
 test("uses a GA4 web Measurement ID rather than a property or Tag Manager ID", () => {
@@ -28,4 +28,24 @@ test("preserves the legacy action names and reporting dimensions", () => {
     "data-ga-params": '{"event_category":"alerts","event_label":"Holiday hours"}',
   });
   assert.deepEqual(analyticsLink("invalid event name"), {});
+});
+
+test("configured direct provider URLs retain action, location, and fulfillment without guessing", () => {
+  const reserve = { service: "Resy", url: "https://reserve.example/market-street" };
+  const pickup = { service: "Order", url: "https://order.example/market-street" };
+  const delivery = { service: "Delivery", url: "https://delivery.example/market-street" };
+  const shared = { service: "Order", url: "https://order.example/all" };
+  const ambiguous = { service: "Both", url: "https://action.example/" };
+  const events = providerEventsByUrl([
+    { slug: "market-street", providerLinks: { reservation: [reserve, ambiguous], ordering: [pickup, shared], delivery: [delivery] } },
+    { slug: "riverfront", providerLinks: { delivery: [shared], ordering: [ambiguous] } },
+  ]);
+
+  assert.deepEqual(events[reserve.url], { ...serviceAnalytics.reservation, store: "market-street", order_type: undefined });
+  assert.equal(events[reserve.url].name, "click_to_reserve");
+  assert.equal(events[pickup.url].order_type, "pickup");
+  assert.equal(events[delivery.url].order_type, "delivery");
+  assert.deepEqual(events[shared.url], { name: "click_to_order", store: undefined, order_type: undefined });
+  assert.equal(events[ambiguous.url], undefined);
+  assert.equal(events["/reservations/"], undefined);
 });
