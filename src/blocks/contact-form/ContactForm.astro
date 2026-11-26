@@ -56,6 +56,7 @@ const inputType = (type: BackstageFormField["type"]): "text" | "email" | "tel" |
     method={submissionsDisabled ? undefined : "post"}
     enctype={!submissionsDisabled && hasFileField ? "multipart/form-data" : undefined}
     data-backstage-form={!submissionsDisabled ? true : undefined}
+    data-ga-form-id={!submissionsDisabled ? form.id : undefined}
     data-recaptcha-site-key={!submissionsDisabled ? form.recaptchaSiteKey || undefined : undefined}
     data-success-message={!submissionsDisabled ? "Thanks. Your message has been sent." : undefined}
   >
@@ -144,6 +145,7 @@ const inputType = (type: BackstageFormField["type"]): "text" | "email" | "tel" |
 </section>
 
 <script>
+import { emitAnalyticsEvent } from "../../lib/analytics";
 import { submitBackstageForm } from "../../lib/backstage/form-submission";
 
 interface RecaptchaV3 {
@@ -158,6 +160,7 @@ declare global {
 }
 
 let recaptchaLoad: Promise<void> | null = null;
+const inFlightSubmissions = new WeakSet<HTMLFormElement>();
 
 const loadRecaptcha = (siteKey: string): Promise<void> => {
   if (window.grecaptcha) {
@@ -206,6 +209,8 @@ document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach(
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
+    if (inFlightSubmissions.has(form)) return;
+
     const status = form.querySelector<HTMLElement>("[data-form-status]");
     const error = form.querySelector<HTMLElement>("[data-form-error]");
     const submit = form.querySelector<HTMLButtonElement>("button[type='submit']");
@@ -225,6 +230,7 @@ document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach(
       }
     }
 
+    inFlightSubmissions.add(form);
     if (submit) submit.disabled = true;
 
     try {
@@ -235,13 +241,17 @@ document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach(
         tokenField.value = await recaptchaToken(siteKey);
       }
 
-      await submitBackstageForm(form.action, new FormData(form));
+      const responseStatus = await submitBackstageForm(form.action, new FormData(form));
 
       form.reset();
 
       if (status) {
         status.textContent = form.dataset.successMessage || "Your message has been sent.";
         status.hidden = false;
+      }
+
+      if (responseStatus === 201) {
+        emitAnalyticsEvent("generate_lead", { form_id: form.dataset.gaFormId });
       }
     } catch (submissionError) {
       if (error) {
@@ -251,6 +261,7 @@ document.querySelectorAll<HTMLFormElement>("form[data-backstage-form]").forEach(
         error.hidden = false;
       }
     } finally {
+      inFlightSubmissions.delete(form);
       if (submit) submit.disabled = false;
     }
   });

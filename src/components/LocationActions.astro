@@ -1,7 +1,6 @@
 ---
-import { GAEvents } from "@antlur/backstage/constants/google-events";
 import type { LocationService, SiteLocation } from "../lib/backstage/locations";
-import { analyticsLink } from "../lib/analytics";
+import { analyticsLink, serviceAnalytics } from "../lib/analytics";
 import { locationServiceLinks, locationServices } from "../site/location-choices";
 
 interface Props {
@@ -14,12 +13,9 @@ const { location, service, placement = "location_page" } = Astro.props;
 const services = service ? [service] : Object.keys(locationServices) as LocationService[];
 const actions = services.flatMap((kind) => {
   const links = locationServiceLinks(location, kind);
-  const eventName = kind === "ordering" || kind === "delivery"
-    ? GAEvents.CLICK_TO_ORDER
-    : kind === "waitlist" ? GAEvents.CLICK_TO_WAITLIST : null;
   return links.map((link) => ({
     ...link,
-    eventName,
+    analytics: serviceAnalytics[kind],
     label: links.length > 1 ? `${locationServices[kind].label} via ${link.service}` : locationServices[kind].label,
   }));
 });
@@ -27,8 +23,8 @@ const actions = services.flatMap((kind) => {
 
 {actions.length > 0 && (
   <ul class="location-actions" aria-label={`Services at ${location.name}`}>
-    {actions.map(({ url, label, eventName }) => (
-      <li><a href={url} {...(eventName ? analyticsLink(eventName, { location: placement, store: location.slug }) : {})}>{label}<span class="sr-only"> at {location.name}</span></a></li>
+    {actions.map(({ url, label, analytics: { name, ...params } }) => (
+      <li><a href={url} {...analyticsLink(name, { ...params, location: placement, store: location.slug })}>{label}<span class="sr-only"> at {location.name}</span></a></li>
     ))}
   </ul>
 )}

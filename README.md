@@ -214,7 +214,11 @@ For a production build, set SITE_URL to the final HTTPS origin and SITE_INDEXABL
 
 For a Backstage-managed site, set **Settings → Integrations → Google Analytics → Measurement ID** to the existing GA4 web stream ID (`G-...`), then rebuild. A site can override it with the build variable `GOOGLE_ANALYTICS_ID`. Leave the ID unset to keep tracking off; local dev, noindex builds, and 404 pages never load the Starter's Google tag.
 
-The Starter preserves `click_to_call`, `click_to_map` (directions), `click_to_order` (ordering and delivery provider clicks), `click_to_waitlist`, `find_location`, and `click_to_social`. Location links send `location` (placement) and `store` (location slug) when available. Alert CTAs retain their configured event name, category, and label. These are link interactions, not completed calls or orders.
+The Starter preserves `click_to_call`, `click_to_map` (directions), `click_to_order` (ordering and delivery provider clicks), `click_to_waitlist`, `find_location`, and `click_to_social`. It also sends `click_to_reserve` for configured booking provider links. Direct provider links are tracked in navigation, the mobile bar, and CMS content when the destination matches a configured location link. An internal page like `/reservations/` or `/order-online/` does not count. These are link interactions, not completed calls, reservations, or orders.
+
+Location links send `location` (placement), `store` (location slug), and `order_type` (`pickup` or `delivery`) when known. A shared provider URL with no unambiguous location or order type omits that dimension. To break down reports, register these parameters as event-scoped custom dimensions in GA4. Alert CTAs retain their configured event name, category, and label.
+
+The Contact Form block sends `generate_lead` once after Backstage confirms acceptance (`201 Created`). It sends only the Backstage form ID as `form_id`, not any submitted field values. Keep the GA4 enhanced-measurement `form_submit` event separate from confirmed leads.
 
 Use the same GA4 property to preserve existing reports and key events. For Backstage dashboard reporting, also set the numeric GA4 **Property ID** and grant the Backstage service account listed there read access. This is separate from the web Measurement ID.
 

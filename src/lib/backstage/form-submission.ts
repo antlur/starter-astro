@@ -39,7 +39,7 @@ export const submitBackstageForm = async (
   action: string,
   data: FormData,
   fetcher: typeof fetch = fetch,
-): Promise<void> => {
+): Promise<number> => {
   let response: Response;
 
   try {
@@ -77,17 +77,19 @@ export const submitBackstageForm = async (
 
   if (response.status === 204) {
     if (empty) {
-      return;
+      return response.status;
     }
 
     throw new Error(fallbackMessage);
   }
 
   if (response.status === 201 && empty) {
-    return;
+    return response.status;
   }
 
   if (empty || !isJsonContentType(response.headers.get("content-type")) || !parseJson(content).valid) {
     throw new Error(fallbackMessage);
   }
+
+  return response.status;
 };

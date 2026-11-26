@@ -1,12 +1,16 @@
 ---
+import { providerEventsByUrl } from "../lib/analytics";
+import type { SiteLocation } from "../lib/backstage/locations";
+
 interface Props {
   measurementId: string;
+  locations: SiteLocation[];
 }
 
-const { measurementId } = Astro.props;
+const { measurementId, locations } = Astro.props;
 ---
 
-<script is:inline define:vars={{ measurementId }} data-google-analytics>
+<script is:inline define:vars={{ measurementId }} data-google-analytics data-ga-providers={JSON.stringify(providerEventsByUrl(locations))}>
   window.dataLayer = window.dataLayer || [];
   window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
   window.gtag("js", new Date());
@@ -19,16 +23,25 @@ const { measurementId } = Astro.props;
 
 <script>
   import { GAEvents } from "@antlur/backstage/constants/google-events";
+  import { emitAnalyticsEvent, type providerEventsByUrl } from "../lib/analytics";
 
-  const { gtag } = window as Window & { gtag?: (command: "event", name: string, params: object) => void };
-  if (gtag && document.querySelector("[data-google-analytics]")) {
+  const tag = document.querySelector<HTMLElement>("[data-google-analytics]");
+  if (tag) {
+    const providers: ReturnType<typeof providerEventsByUrl> = JSON.parse(tag.dataset.gaProviders ?? "{}");
     const track = (event: MouseEvent) => {
       if (event.defaultPrevented || !(event.target instanceof Element)) return;
       const link = event.target.closest<HTMLAnchorElement>("a[href]");
       if (!link) return;
 
-      const name = link.dataset.gaEvent ?? (link.protocol === "tel:" ? GAEvents.CLICK_TO_CALL : null);
-      if (name) gtag("event", name, JSON.parse(link.dataset.gaParams ?? "{}"));
+      if (link.dataset.gaEvent) {
+        emitAnalyticsEvent(link.dataset.gaEvent, JSON.parse(link.dataset.gaParams ?? "{}"));
+      } else if (providers[link.href]) {
+        const { name, ...params } = providers[link.href];
+        const location = link.closest<HTMLElement>("[data-ga-location]")?.dataset.gaLocation ?? "content";
+        emitAnalyticsEvent(name, { ...params, location });
+      } else if (link.protocol === "tel:") {
+        emitAnalyticsEvent(GAEvents.CLICK_TO_CALL);
+      }
     };
 
     document.addEventListener("click", track);
