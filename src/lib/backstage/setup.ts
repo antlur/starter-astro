@@ -71,6 +71,16 @@ export interface StarterReadinessReport {
   manualGates: string[];
 }
 
+export interface StarterReadinessJsonReport {
+  schemaVersion: 1;
+  status: "ready" | "blocked";
+  websiteName: string | null;
+  details: string[];
+  blockers: string[];
+  warnings: string[];
+  manualGates: string[];
+}
+
 export function formatStarterReadinessReport(report: StarterReadinessReport): string {
   const section = (title: string, items: string[]) => [title, ...(items.length > 0 ? items.map((item) => `- ${item}`) : ["- None"])];
 
@@ -82,6 +92,20 @@ export function formatStarterReadinessReport(report: StarterReadinessReport): st
     ...section("Manual launch gates (not verified by this command):", report.manualGates),
     "A READY result covers only the automated account checks above; it is not production launch approval.",
   ].join("\n");
+}
+
+export function serializeStarterReadinessReport(report: StarterReadinessReport): string {
+  const serialized: StarterReadinessJsonReport = {
+    schemaVersion: 1,
+    status: report.blockers.length === 0 ? "ready" : "blocked",
+    websiteName: report.websiteName,
+    details: report.details ?? [],
+    blockers: report.blockers,
+    warnings: report.warnings,
+    manualGates: report.manualGates,
+  };
+
+  return JSON.stringify(serialized);
 }
 
 export function starterReadinessExitCode(report: Pick<StarterReadinessReport, "blockers">): 0 | 1 {
