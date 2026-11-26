@@ -12,6 +12,7 @@ if (mode !== "preview" && mode !== "indexable") {
 
 const dist = resolve("dist");
 const siteUrl = process.env.SITE_URL ? new URL(process.env.SITE_URL) : null;
+const measurementId = process.env.GOOGLE_ANALYTICS_ID?.trim();
 const baseUrl = siteUrl || new URL("https://starter.example");
 const files = listFiles(dist);
 const htmlFiles = files.filter((file) => file.endsWith(".html"));
@@ -34,6 +35,13 @@ for (const file of htmlFiles) {
   assert.match(html, /<a\b[^>]*\bhref=["']#main-content["'][^>]*>[\s\S]*?Skip to content/i, `${file} must render the skip link.`);
   assert.match(html, /<main\b[^>]*\bid=["']main-content["']/i, `${file} must render the main landmark.`);
   assert.ok(robots, `${file} must render a robots directive.`);
+
+  const googleTags = [...html.matchAll(/<script\b[^>]*\bsrc=["']https:\/\/www\.googletagmanager\.com\/gtag\/js\?id=([^"']+)["']/gi)];
+  if (mode === "preview" || file === "404.html") {
+    assert.equal(googleTags.length, 0, `${file} must not load the Google tag.`);
+  } else if (measurementId && /^G-[A-Z0-9]+$/.test(measurementId)) {
+    assert.deepEqual(googleTags.map((match) => match[1]), [measurementId], `${file} must load one configured Google tag.`);
+  }
 
   if (file === "404.html") {
     assert.match(robots, /noindex\s*,\s*nofollow/i, "The 404 recovery page must not be indexed.");

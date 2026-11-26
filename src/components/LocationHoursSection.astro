@@ -1,6 +1,8 @@
 ---
+import { GAEvents } from "@antlur/backstage/constants/google-events";
 import { phoneLabel } from "../lib/phone-label";
 import type { SiteLocation } from "../lib/backstage/locations";
+import { analyticsLink } from "../lib/analytics";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import LocationSchedule from "./LocationSchedule.astro";
 
@@ -32,8 +34,8 @@ const { locations } = Astro.props;
                 </address>
               )}
               <div class="location-hours__contact">
-                {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{phoneLabel(location.phone)}</a>}
-                {location.mapUrl && <a class="location-hours__directions" href={location.mapUrl} target="_blank" rel="noopener noreferrer">Get directions<span class="sr-only"> to {location.name}</span></a>}
+                {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`} {...analyticsLink(GAEvents.CLICK_TO_CALL, { location: "location_hours", store: location.slug })}>{phoneLabel(location.phone)}</a>}
+                {location.mapUrl && <a class="location-hours__directions" href={location.mapUrl} target="_blank" rel="noopener noreferrer" {...analyticsLink(GAEvents.CLICK_TO_MAP, { location: "location_hours", store: location.slug })}>Get directions<span class="sr-only"> to {location.name}</span></a>}
               </div>
             </div>
             {(location.hours.length > 0 || Boolean(location.specialHours?.length)) && (
