@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { assertPageBlockVariants, normalizePage } from "../src/lib/backstage/content";
 import { validateBlockManifests, type BlockManifest } from "../src/lib/backstage/sync-blocks";
 import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
 import type { StarterSetupClient } from "../src/lib/backstage/setup";
 import {
   formatStarterReadinessReport,
+  serializeStarterReadinessReport,
   inspectStarterReadiness,
   inspectStarterSetup,
   inspectStarterSiteSetup,
@@ -381,6 +384,78 @@ test("readiness report formats blockers, warnings, and manual gates in order", (
     "- Confirm the deployed domain and canonical URLs.",
     "A READY result covers only the automated account checks above; it is not production launch approval.",
   ].join("\n"));
+});
+
+test("readiness JSON serializer emits the versioned ready shape and defaults details", () => {
+  const report = {
+    websiteName: "Demo",
+    blockers: [],
+    warnings: ["Review the deployed domain."],
+    manualGates: ["Confirm Headless rendering."],
+  };
+
+  const payload = JSON.parse(serializeStarterReadinessReport(report));
+
+  assert.deepEqual(payload, {
+    schemaVersion: 1,
+    status: "ready",
+    websiteName: "Demo",
+    details: [],
+    blockers: [],
+    warnings: ["Review the deployed domain."],
+    manualGates: ["Confirm Headless rendering."],
+  });
+  assert.equal(starterReadinessExitCode(report), 0);
+});
+
+test("readiness JSON serializer emits a blocked shape without extra fields", () => {
+  const report = {
+    websiteName: null,
+    details: ["Menu details are incomplete."],
+    blockers: ["Create a Home page in Backstage."],
+    warnings: [],
+    manualGates: [],
+  };
+
+  const payload = JSON.parse(serializeStarterReadinessReport(report));
+
+  assert.deepEqual(payload, {
+    schemaVersion: 1,
+    status: "blocked",
+    websiteName: null,
+    details: ["Menu details are incomplete."],
+    blockers: ["Create a Home page in Backstage."],
+    warnings: [],
+    manualGates: [],
+  });
+  assert.deepEqual(Object.keys(payload), ["schemaVersion", "status", "websiteName", "details", "blockers", "warnings", "manualGates"]);
+  assert.equal(starterReadinessExitCode(report), 1);
+});
+
+test("setup CLI rejects --json without --readiness before credential validation", () => {
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const result = spawnSync(
+    process.execPath,
+    [
+      fileURLToPath(new URL("../node_modules/tsx/dist/cli.mjs", import.meta.url)),
+      fileURLToPath(new URL("../scripts/setup.ts", import.meta.url)),
+      "--json",
+    ],
+    {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        BACKSTAGE_API_KEY: undefined,
+        BACKSTAGE_ACCOUNT_ID: undefined,
+      },
+    },
+  );
+
+  assert.equal(result.status, 1, result.stderr || result.stdout);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /--json requires --readiness/);
+  assert.doesNotMatch(result.stderr, /Set BACKSTAGE_API_KEY/);
 });
 
 test("explicit readiness blocks missing required account setup and sync drift", async () => {

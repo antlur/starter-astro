@@ -4,6 +4,7 @@ import { BackstageClient } from "@antlur/backstage";
 import { loadBlockManifests } from "../src/lib/backstage/block-manifests";
 import {
   formatStarterReadinessReport,
+  serializeStarterReadinessReport,
   inspectStarterReadiness,
   inspectStarterSetup,
   inspectStarterSiteSetup,
@@ -19,7 +20,7 @@ async function main() {
   const flags = new Set<string>();
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
-    if (["--apply", "--site", "--readiness", "--confirm-contact-form-recipient"].includes(argument)) {
+    if (["--apply", "--site", "--readiness", "--json", "--confirm-contact-form-recipient"].includes(argument)) {
       flags.add(argument);
       continue;
     }
@@ -35,6 +36,9 @@ async function main() {
       continue;
     }
     throw new Error(`Unknown setup argument: ${argument}. Use --readiness for a read-only launch check, --site to plan starter pages, and --apply to write.`);
+  }
+  if (flags.has("--json") && !flags.has("--readiness")) {
+    throw new Error("--json requires --readiness.");
   }
   if (flags.has("--confirm-contact-form-recipient") && !contactFormId) {
     throw new Error("--confirm-contact-form-recipient requires --contact-form-id.");
@@ -65,7 +69,7 @@ async function main() {
       restaurant,
     });
 
-    process.stdout.write(`${formatStarterReadinessReport(report)}\n`);
+    process.stdout.write(`${flags.has("--json") ? serializeStarterReadinessReport(report) : formatStarterReadinessReport(report)}\n`);
 
     process.exitCode = starterReadinessExitCode(report);
     return;
