@@ -21,6 +21,7 @@ jobs:
           BACKSTAGE_SOURCE: fixture
           BACKSTAGE_FORM_SUBMISSIONS_ENABLED: "false"
           SITE_INDEXABLE: "false"
+          GOOGLE_ANALYTICS_ID: G-TEST123456
       - name: Verify preview output
         run: node scripts/assert-built-site.mjs preview
         env:
@@ -38,11 +39,13 @@ jobs:
           BACKSTAGE_FORM_SUBMISSIONS_ENABLED: "true"
           SITE_URL: https://starter.example
           SITE_INDEXABLE: "true"
+          GOOGLE_ANALYTICS_ID: G-TEST123456
       - name: Verify production output
         run: node scripts/assert-built-site.mjs indexable
         env:
           SITE_URL: https://starter.example
           SITE_INDEXABLE: "true"
+          GOOGLE_ANALYTICS_ID: G-TEST123456
       - name: Verify production forms are enabled
         run: node scripts/assert-form-output.mjs enabled
       - name: Build and verify multi-location restaurant

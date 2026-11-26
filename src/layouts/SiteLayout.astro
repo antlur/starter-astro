@@ -1,5 +1,7 @@
 ---
 import "../styles/global.css";
+import { GAEvents, GALocations } from "@antlur/backstage/constants/google-events";
+import GoogleAnalytics from "../components/GoogleAnalytics.astro";
 import LocationDirectoryPage from "../components/LocationDirectoryPage.astro";
 import LocationHoursSection from "../components/LocationHoursSection.astro";
 import SiteAlerts from "../components/SiteAlerts.astro";
@@ -11,6 +13,7 @@ import { isPublicLocation } from "../lib/backstage/locations";
 import { resolveSeoMetadata } from "../lib/seo-metadata";
 import { phoneLabel } from "../lib/phone-label";
 import { safeImageUrl } from "../lib/safe-url";
+import { analyticsLink, googleAnalyticsId } from "../lib/analytics";
 import type { HeadlessPage, HeadlessWebsite, SiteNavigationItem } from "../lib/backstage/content";
 import type { SiteLocation } from "../lib/backstage/locations";
 import { getSiteBuild } from "../site/build";
@@ -49,6 +52,9 @@ const shareImage = !notFound && (pageImage || site.openGraph?.image || homeImage
 const openGraphImage = shareImage && (Astro.site ? new URL(shareImage, Astro.site).href : shareImage);
 const canonicalUrl = !notFound && Astro.site ? new URL(pathname, Astro.site).href : undefined;
 const indexable = !notFound && import.meta.env.SITE_INDEXABLE === "true" && Boolean(Astro.site);
+const measurementId = import.meta.env.PROD && indexable
+  ? googleAnalyticsId(import.meta.env.GOOGLE_ANALYTICS_ID || site.googleAnalyticsId)
+  : null;
 const themeColor = site.themeVariables?.["--theme-color-header"];
 const organization = {
   "@context": "https://schema.org",
@@ -59,6 +65,7 @@ const organization = {
 };
 const jsonLd = serializeJsonLd(jsonLdForPage(structuredData, organization));
 const contactLocation = currentLocation ?? (locations.length === 1 ? locations[0] : undefined);
+const topbarContactAnalytics = { location: GALocations.TOPBAR, store: contactLocation?.slug };
 const directoryLink = locations.length > 1 ? locationDirectoryPath : undefined;
 const primaryAction = navigation.find((item) => item.style === "button");
 const topbarCta = site.homeCta && navigation.some((item) => item.style === "button" && item.url === site.homeCta?.url)
@@ -115,6 +122,7 @@ const showLegacyLocationHours = site.locationHoursFooter !== "show"
     <meta name="twitter:card" content={openGraphImage ? "summary_large_image" : "summary"} />
     <title>{title}</title>
     {!notFound && <script type="application/ld+json" set:html={jsonLd} />}
+    {measurementId && <GoogleAnalytics measurementId={measurementId} />}
   </head>
   <body class:list={["bg-background", "text-foreground", "font-body", mobileAction && "has-mobile-action"]}>
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -126,11 +134,11 @@ const showLegacyLocationHours = site.locationHoursFooter !== "show"
             <SocialLinks links={socialLinks} placement="topbar" />
             <div class="site-topbar__details">
               {contactLocation?.addressLines.length && contactLocation.mapUrl
-                ? <a class="site-topbar__address" href={contactLocation.mapUrl} target="_blank" rel="noopener noreferrer">{contactLocation.addressLines.map((line) => <span>{line}</span>)}</a>
+                ? <a class="site-topbar__address" href={contactLocation.mapUrl} target="_blank" rel="noopener noreferrer" {...analyticsLink(GAEvents.CLICK_TO_MAP, topbarContactAnalytics)}>{contactLocation.addressLines.map((line) => <span>{line}</span>)}</a>
                 : contactLocation?.addressLines.length ? <span>{contactLocation.addressLines.join(", ")}</span> : null}
-              {contactLocation?.phone && <a href={`tel:${contactLocation.phone.replace(/[^\d+]/g, "")}`}>{phoneLabel(contactLocation.phone)}</a>}
-              {!contactLocation?.addressLines.length && contactLocation?.mapUrl && <a href={contactLocation.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {contactLocation.name}</span></a>}
-              {directoryLink && <a href={directoryLink}>{currentLocation ? "All locations" : "Find a location"}</a>}
+              {contactLocation?.phone && <a href={`tel:${contactLocation.phone.replace(/[^\d+]/g, "")}`} {...analyticsLink(GAEvents.CLICK_TO_CALL, topbarContactAnalytics)}>{phoneLabel(contactLocation.phone)}</a>}
+              {!contactLocation?.addressLines.length && contactLocation?.mapUrl && <a href={contactLocation.mapUrl} target="_blank" rel="noopener noreferrer" {...analyticsLink(GAEvents.CLICK_TO_MAP, topbarContactAnalytics)}>Directions<span class="sr-only"> to {contactLocation.name}</span></a>}
+              {directoryLink && <a href={directoryLink} {...analyticsLink(GAEvents.FIND_LOCATION, { location: GALocations.TOPBAR })}>{currentLocation ? "All locations" : "Find a location"}</a>}
             </div>
             {topbarCta && <a class="site-topbar__cta" href={topbarCta.url} target="_blank" rel="noopener noreferrer">{topbarCta.text}</a>}
           </div>

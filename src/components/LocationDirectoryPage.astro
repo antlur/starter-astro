@@ -1,6 +1,8 @@
 ---
+import { GAEvents, GALocations } from "@antlur/backstage/constants/google-events";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import { phoneLabel } from "../lib/phone-label";
+import { analyticsLink } from "../lib/analytics";
 import type { SiteLocation } from "../lib/backstage/locations";
 import LocationActions from "./LocationActions.astro";
 import LocationSchedule from "./LocationSchedule.astro";
@@ -71,15 +73,15 @@ const LocationHeading = section && !section.isPrimary ? "h3" : "h2";
                   {!purpose && (
                     <div class="location-card__actions">
                       {visitPanel && location.mapUrl
-                        ? <a class="location-card__visit" href={location.mapUrl} target="_blank" rel="noopener noreferrer">Get directions<span class="sr-only"> to {location.name}</span></a>
+                        ? <a class="location-card__visit" href={location.mapUrl} target="_blank" rel="noopener noreferrer" {...analyticsLink(GAEvents.CLICK_TO_MAP, { location: GALocations.LOCATION_CARD, store: location.slug })}>Get directions<span class="sr-only"> to {location.name}</span></a>
                         : <a class="location-card__visit" href={path}>Hours &amp; location<span class="sr-only"> for {location.name}</span></a>}
                       {menus.map((menu) => <a href={menu.path}>{menus.length === 1 ? "View menu" : menu.label}<span class="sr-only"> at {location.name}</span></a>)}
                       {location.mapUrl && (visitPanel ? <a href={path}>Location details<span class="sr-only"> for {location.name}</span></a>
-                        : <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Directions<span class="sr-only"> to {location.name}</span></a>)}
-                      {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{phoneLabel(location.phone)}</a>}
+                        : <a href={location.mapUrl} target="_blank" rel="noopener noreferrer" {...analyticsLink(GAEvents.CLICK_TO_MAP, { location: GALocations.LOCATION_CARD, store: location.slug })}>Directions<span class="sr-only"> to {location.name}</span></a>)}
+                      {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`} {...analyticsLink(GAEvents.CLICK_TO_CALL, { location: GALocations.LOCATION_CARD, store: location.slug })}>{phoneLabel(location.phone)}</a>}
                     </div>
                   )}
-                  {!condensedVisit && <LocationActions location={location} service={purpose} />}
+                  {!condensedVisit && <LocationActions location={location} service={purpose} placement="location_card" />}
                 </>
               )}
             </div>

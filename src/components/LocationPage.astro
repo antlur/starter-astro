@@ -1,6 +1,8 @@
 ---
+import { GAEvents } from "@antlur/backstage/constants/google-events";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 import { phoneLabel } from "../lib/phone-label";
+import { analyticsLink } from "../lib/analytics";
 import { responsivePhoto } from "../lib/responsive-photo";
 import { getSiteContent, serializeJsonLd, structuredDataNodeForLocation } from "../lib/backstage/content";
 import type { SiteLocation } from "../lib/backstage/locations";
@@ -43,12 +45,12 @@ const photoAttrs = location.imageUrl && location.imageWidth && location.imageHei
         </address>
       )}
       <div class="location-page__links">
-        {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>{phoneLabel(location.phone)}</a>}
+        {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`} {...analyticsLink(GAEvents.CLICK_TO_CALL, { location: "location_page", store: location.slug })}>{phoneLabel(location.phone)}</a>}
         {location.email && <a href={`mailto:${location.email}`}>{location.email}</a>}
-        {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noopener noreferrer">Get directions</a>}
+        {location.mapUrl && <a href={location.mapUrl} target="_blank" rel="noopener noreferrer" {...analyticsLink(GAEvents.CLICK_TO_MAP, { location: "location_page", store: location.slug })}>Get directions</a>}
         {location.loyaltyUrl && <a href={location.loyaltyUrl} target="_blank" rel="noopener noreferrer">Join rewards</a>}
       </div>
-      <LocationActions location={location} />
+      <LocationActions location={location} placement="location_page" />
       {visibleMenuRoutes.length > 0 && (
         <nav class="location-page__menus" aria-label={`${location.name} menus`}>
           <h3>Explore the menu</h3>

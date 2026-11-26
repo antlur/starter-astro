@@ -1,5 +1,7 @@
 ---
+import { GAEvents } from "@antlur/backstage/constants/google-events";
 import SocialIcon from "./SocialIcon.astro";
+import { analyticsLink } from "../lib/analytics";
 import type { SiteContent } from "../lib/backstage/content";
 
 interface Props {
@@ -13,7 +15,7 @@ const { links, placement } = Astro.props;
 {links.length > 0 && (
   <nav class={`site-${placement}__social`} aria-label="Social media">
     {links.map((link) => (
-      <a href={link.url} target="_blank" rel="noopener noreferrer" aria-label={`${link.name} (opens in a new tab)`}>
+      <a href={link.url} target="_blank" rel="noopener noreferrer" aria-label={`${link.name} (opens in a new tab)`} {...analyticsLink(GAEvents.CLICK_TO_SOCIAL, { location: placement, category: "click_to_social", label: `Click to Social - ${link.name}`, social_network: link.name })}>
         <SocialIcon name={link.name} />
       </a>
     ))}

@@ -210,6 +210,16 @@ Netlify Deploy Previews and branch deploys use fixture content and stay noindex.
 
 For a production build, set SITE_URL to the final HTTPS origin and SITE_INDEXABLE=true. This enables canonical and Open Graph URLs, an XML sitemap, and crawlable robots.txt. The build fails if indexing is enabled without an HTTPS URL. Do not enable indexing for preview deployments.
 
+### Google Analytics
+
+For a Backstage-managed site, set **Settings → Integrations → Google Analytics → Measurement ID** to the existing GA4 web stream ID (`G-...`), then rebuild. A site can override it with the build variable `GOOGLE_ANALYTICS_ID`. Leave the ID unset to keep tracking off; local dev, noindex builds, and 404 pages never load the Starter's Google tag.
+
+The Starter preserves `click_to_call`, `click_to_map` (directions), `click_to_order` (ordering and delivery provider clicks), `click_to_waitlist`, `find_location`, and `click_to_social`. Location links send `location` (placement) and `store` (location slug) when available. Alert CTAs retain their configured event name, category, and label. These are link interactions, not completed calls or orders.
+
+Use the same GA4 property to preserve existing reports and key events. For Backstage dashboard reporting, also set the numeric GA4 **Property ID** and grant the Backstage service account listed there read access. This is separate from the web Measurement ID.
+
+Verify one `page_view` and one event per intentional click with [Tag Assistant or DebugView](https://developers.google.com/analytics/devguides/collection/ga4/troubleshoot). Don't load a second Google tag for the same stream. Keep analytics off until any consent requirements for the site are addressed; this tag does not implement a consent banner.
+
 The shared layout includes page and site metadata, favicon and logo support, Open Graph and Twitter metadata, and generic Organization JSON-LD. Add a more specific schema type only when the site's actual business data supports it.
 
 ## Cloudflare Workers Static Assets

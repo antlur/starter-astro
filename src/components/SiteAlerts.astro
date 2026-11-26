@@ -1,6 +1,7 @@
 ---
 import type { Alert } from "@antlur/backstage";
 import { safeAltText, safeImageUrl, safeSiteLinkUrl } from "../lib/safe-url";
+import { analyticsLink } from "../lib/analytics";
 import { sanitizeRichText } from "../lib/sanitize-rich-text";
 
 interface Props {
@@ -12,6 +13,13 @@ interface Props {
 const { alerts, siteDomain, routePaths } = Astro.props;
 const banners = alerts.filter((alert) => alert.type !== "popup");
 const popups = alerts.filter((alert) => alert.type === "popup");
+const alertAnalytics = (alert: Alert) => {
+  if (!alert.analytics_name || !alert.analytics_category || !alert.analytics_label) return {};
+  return analyticsLink(alert.analytics_name, {
+    event_category: alert.analytics_category,
+    event_label: alert.analytics_label,
+  });
+};
 ---
 
 {banners.length > 0 && (
@@ -31,7 +39,7 @@ const popups = alerts.filter((alert) => alert.type === "popup");
               {content && <div class="site-alert__body" set:html={content} />}
             </div>
           </div>
-          {alert.cta_label && ctaUrl && <a class="site-alert__action" href={ctaUrl}>{alert.cta_label}</a>}
+          {alert.cta_label && ctaUrl && <a class="site-alert__action" href={ctaUrl} {...alertAnalytics(alert)}>{alert.cta_label}</a>}
         </article>
       );
     })}
@@ -54,7 +62,7 @@ const popups = alerts.filter((alert) => alert.type === "popup");
           {content && <div class="site-alert__body" set:html={content} />}
         </div>
       </div>
-      {alert.cta_label && ctaUrl && <a class="site-alert__action" href={ctaUrl}>{alert.cta_label}</a>}
+      {alert.cta_label && ctaUrl && <a class="site-alert__action" href={ctaUrl} {...alertAnalytics(alert)}>{alert.cta_label}</a>}
     </dialog>
   );
 })}

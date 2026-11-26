@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly BACKSTAGE_NAVIGATION_ID?: string;
   readonly SITE_URL?: string;
   readonly SITE_INDEXABLE?: string;
+  readonly GOOGLE_ANALYTICS_ID?: string;
   readonly SITE_DEMO_REVIEWS?: string;
   readonly SITE_HEADER_LOGO_SIZE?: string;
   readonly SITE_LOCATION_CARD_DESCRIPTIONS?: string;

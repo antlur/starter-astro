@@ -1,5 +1,7 @@
 ---
+import { GAEvents } from "@antlur/backstage/constants/google-events";
 import type { SiteLocation } from "../lib/backstage/locations";
+import { analyticsLink } from "../lib/analytics";
 import { phoneLabel } from "../lib/phone-label";
 
 interface Props {
@@ -18,9 +20,9 @@ const { routes } = Astro.props;
           <h3>{location.name}</h3>
           {location.addressLines.length > 0 && <address>{location.addressLines.join(", ")}</address>}
           <div class="contact-locations__actions">
-            {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`}>Call {phoneLabel(location.phone)}</a>}
+            {location.phone && <a href={`tel:${location.phone.replace(/[^\d+]/g, "")}`} {...analyticsLink(GAEvents.CLICK_TO_CALL, { location: "contact", store: location.slug })}>Call {phoneLabel(location.phone)}</a>}
             {location.email && <a href={`mailto:${location.email}`}>Email<span class="sr-only"> {location.name}</span></a>}
-            {location.mapUrl && <a href={location.mapUrl}>Directions<span class="sr-only"> to {location.name}</span></a>}
+            {location.mapUrl && <a href={location.mapUrl} {...analyticsLink(GAEvents.CLICK_TO_MAP, { location: "contact", store: location.slug })}>Directions<span class="sr-only"> to {location.name}</span></a>}
             <a href={path}>Hours and details<span class="sr-only"> for {location.name}</span></a>
           </div>
         </li>

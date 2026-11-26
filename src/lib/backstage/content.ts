@@ -17,6 +17,7 @@ import { assertLegacyPreviewConfiguration, collectLegacyPageMediaIds, normalizeL
 import { validateBlockManifests, type BlockManifest } from "./sync-blocks";
 import { previewRouteUrl, safeImageUrl, safeLinkUrl, safeSiteLinkUrl } from "../safe-url";
 import { sanitizeRichText } from "../sanitize-rich-text";
+import { googleAnalyticsId } from "../analytics";
 
 export interface HeadlessBlock {
   id: string;
@@ -84,6 +85,7 @@ export interface SiteNavigationItem {
 }
 
 export interface HeadlessWebsite {
+  googleAnalyticsId?: string | null;
   locationHoursFooter?: "show" | "hide";
   themeVariables?: Record<string, string>;
   name: string;
@@ -899,6 +901,7 @@ export const normalizeWebsite = (value: unknown, designConfig: Pick<BackstageUse
 
   return {
     locationHoursFooter,
+    googleAnalyticsId: googleAnalyticsId(value.google_analytics_id),
     themeVariables: resolveWebsiteDesignTokens(value, designConfig, brandTokenNames, readThemeTokenDeclarations),
     name: optionalString(account?.name) ?? optionalString(value.app_name) ?? "Website",
     domain: optionalString(value.domain),
