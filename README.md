@@ -210,6 +210,14 @@ Netlify Deploy Previews and branch deploys use fixture content and stay noindex.
 
 For a production build, set SITE_URL to the final HTTPS origin and SITE_INDEXABLE=true. This enables canonical and Open Graph URLs, an XML sitemap, and crawlable robots.txt. The build fails if indexing is enabled without an HTTPS URL. Do not enable indexing for preview deployments.
 
+### Redirects
+
+For an existing site migration, keep public URLs unchanged where possible. Add rules under **Redirects** in Backstage for URLs that need to move. On the target site's API-backed build, set `BACKSTAGE_REDIRECTS_ENABLED=true` and set `SITE_URL` to the site's origin. The build uses the existing read-only account key and appends the rules to `dist/_redirects` for [Netlify](https://docs.netlify.com/manage/routing/redirects/overview/) or [Cloudflare Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/redirects/). It does not write to Backstage.
+
+Use exact old paths such as `/old-menu` and root-relative paths or absolute HTTP(S) URLs as destinations. Use 301 for a permanent move or 302 for a temporary one. Point directly to the final destination: duplicate sources, chains, loops and collisions with built routes or assets fail the build. Wildcards, forced rules, host or query conditions, and rewrites are outside this feature. Existing site-owned `public/_redirects` rules stay first. Check for overlap with any provider rules before launch.
+
+Fixture builds ignore the setting and never fetch rules. Verify the actual status and destination on a hosted preview or approved release; `astro preview` does not apply the host's redirect rules. Rebuild after editing a rule. To stop publishing managed rules, unset the flag and rebuild.
+
 ### Google Analytics
 
 For a Backstage-managed site, set **Settings → Integrations → Google Analytics → Measurement ID** to the existing GA4 web stream ID (`G-...`), then rebuild. A site can override it with the build variable `GOOGLE_ANALYTICS_ID`. Leave the ID unset to keep tracking off; local dev, noindex builds, and 404 pages never load the Starter's Google tag.
