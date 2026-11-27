@@ -29,13 +29,12 @@ export const publishBackstageRedirects = (env: Record<string, string | undefined
   name: "backstage-redirects",
   hooks: {
     "astro:build:done": async ({ dir, logger }) => {
-      if (env.BACKSTAGE_SOURCE !== "api" || env.BACKSTAGE_REDIRECTS_ENABLED !== "true") return;
+      if (env.BACKSTAGE_SOURCE !== "api") return;
 
       const token = env.BACKSTAGE_API_KEY;
       const accountId = env.BACKSTAGE_ACCOUNT_ID;
-      const siteUrl = env.SITE_URL?.trim();
-      if (!token || !accountId || !siteUrl) {
-        throw new Error("Backstage redirects require SITE_URL and the site's read-only Backstage build credentials.");
+      if (!token || !accountId) {
+        throw new Error("Backstage redirects require the site's read-only Backstage build credentials.");
       }
 
       const client = new BackstageClient({
@@ -43,6 +42,11 @@ export const publishBackstageRedirects = (env: Record<string, string | undefined
       });
       const redirects = await client.redirects.getRedirects({ signal: AbortSignal.timeout(15_000) });
       if (Array.isArray(redirects) && redirects.length === 0) return;
+
+      const siteUrl = env.SITE_URL?.trim();
+      if (!siteUrl) {
+        throw new Error("Set SITE_URL to the site's origin to publish saved Backstage redirects.");
+      }
 
       const rules = renderBackstageRedirects(redirects, { accountId, siteUrl, existingPaths: await builtPaths(dir) });
       const output = new URL("_redirects", dir);

@@ -8,7 +8,6 @@ import { publishBackstageRedirects } from "../src/site/publish-redirects";
 
 const env = {
   BACKSTAGE_SOURCE: "api",
-  BACKSTAGE_REDIRECTS_ENABLED: "true",
   BACKSTAGE_API_KEY: "local-test-token",
   BACKSTAGE_ACCOUNT_ID: "test-account",
   BACKSTAGE_API_URL: "https://api.example.test/api",
@@ -57,17 +56,38 @@ test("publishes only this account's rules after existing site-owned rules", asyn
   assert.equal(await readFile(file, "utf8"), "/manual / 302\n/old-menu /menus/ 301\n");
 });
 
-test("keeps fixture and non-opted-in API builds offline for redirects", async (t) => {
+test("keeps fixture builds offline for redirects", async (t) => {
   const directory = await output(t);
   const file = join(directory, "_redirects");
   await writeFile(file, "/manual / 302\n");
   const request = t.mock.method(globalThis, "fetch", async () => assert.fail("redirects must not be fetched"));
 
   await run(directory, { ...env, BACKSTAGE_SOURCE: "fixture" });
-  await run(directory, { ...env, BACKSTAGE_REDIRECTS_ENABLED: "false" });
 
   assert.equal(request.mock.callCount(), 0);
   assert.equal(await readFile(file, "utf8"), "/manual / 302\n");
+});
+
+test("leaves site-owned redirects alone when Backstage has no rules, even without SITE_URL", async (t) => {
+  const directory = await output(t);
+  const file = join(directory, "_redirects");
+  const request = t.mock.method(globalThis, "fetch", async () => Response.json({ data: [] }));
+
+  await run(directory, { ...env, SITE_URL: "" });
+  await assert.rejects(readFile(file), { code: "ENOENT" });
+  await writeFile(file, "/manual / 302");
+  await run(directory, { ...env, SITE_URL: "" });
+
+  assert.equal(request.mock.callCount(), 2);
+  assert.equal(await readFile(file, "utf8"), "/manual / 302");
+});
+
+test("requires SITE_URL when Backstage has saved rules", async (t) => {
+  const directory = await output(t);
+  t.mock.method(globalThis, "fetch", async () => Response.json({ data: [record] }));
+
+  await assert.rejects(run(directory, { ...env, SITE_URL: "" }), /Set SITE_URL/);
+  await assert.rejects(readFile(join(directory, "_redirects")), { code: "ENOENT" });
 });
 
 test("does not emit redirects that would mask a built page or static asset", async (t) => {
