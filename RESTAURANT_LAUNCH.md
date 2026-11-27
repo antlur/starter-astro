@@ -74,6 +74,6 @@ The fictional restaurant demos can showcase Reviews using Starter fixtures. Set 
 3. On an approved test target confirm real email delivery to the agreed recipient, and verify save → queue → one rebuild plus rollback to the last good deploy. Do not enable submissions or indexing on an unapproved preview.
 4. After approval, use the final HTTPS origin for `SITE_URL`, enable production indexing and form submission as appropriate, and verify the actual domain. Record the released template revision, approval, timing, and remaining gaps. Existing customer settings and deployments are outside the rehearsal.
 
-For a replacement site, map each existing menu, location, campaign and other important URL before cutover. Save redirects for changed paths in Backstage, then follow the [Starter redirect rollout](README.md#redirects) using an approved API-backed preview. Test the old URLs on the host against the intended status and final destination; a successful static build alone is not approval to cut over.
+For a replacement site, map each existing menu, location, campaign and other important URL before cutover. Save redirects for changed paths in Backstage and verify that an approved API-backed preview [publishes them](README.md#redirects). Test the old URLs on the host against the intended status and final destination; a successful static build alone is not approval to cut over.
 
 Custom sites can clone the same release, leave the profile unset or keep its managed design, then replace a renderer or add a site-specific block without changing these contracts.

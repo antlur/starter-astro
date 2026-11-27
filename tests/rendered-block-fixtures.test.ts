@@ -199,7 +199,7 @@ test("Astro renders editorial fixtures accessibly and shares sanitized rich-text
   }
 });
 
-test("published SDK navigation trees render nested links in the generated site", async () => {
+test("API builds render nested navigation and publish saved redirects", async () => {
   const outputDirectory = await mkdtemp(path.join(os.tmpdir(), "starter-astro-sdk-navigation-"));
   const envKeys = [
     "NODE_ENV",
@@ -207,6 +207,7 @@ test("published SDK navigation trees render nested links in the generated site",
     "BACKSTAGE_API_KEY",
     "BACKSTAGE_ACCOUNT_ID",
     "BACKSTAGE_API_URL",
+    "SITE_URL",
     "SITE_INDEXABLE",
   ] as const;
   const previousEnv = new Map(envKeys.map((key) => [key, process.env[key]]));
@@ -246,6 +247,13 @@ test("published SDK navigation trees render nested links in the generated site",
     },
     "/locations": { data: [] },
     "/alerts": { data: [] },
+    "/redirects": { data: [{
+      id: "redirect-1",
+      account_id: "test-account-id",
+      source_url: "/old-home",
+      target_url: "/",
+      status_code: 301,
+    }] },
     "/structured-data": {
       "@context": "https://schema.org",
       "@graph": [{ "@type": "Restaurant", identifier: "sdk-location", name: "SDK <Cafe>" }],
@@ -257,6 +265,7 @@ test("published SDK navigation trees render nested links in the generated site",
   process.env.BACKSTAGE_API_KEY = "test-api-key";
   process.env.BACKSTAGE_ACCOUNT_ID = "test-account-id";
   process.env.BACKSTAGE_API_URL = "https://backstage-api.test/api";
+  process.env.SITE_URL = "https://restaurant.example.test";
   process.env.SITE_INDEXABLE = "false";
   globalThis.fetch = (async (input: RequestInfo | URL) => {
     const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
@@ -275,6 +284,7 @@ test("published SDK navigation trees render nested links in the generated site",
     assert.match(html, /href="\/#section">Section<\/a>/);
     assert.match(html, /class="site-nav-children site-nav-children--nested"/);
     assert.match(html, /href="\/#nested">Nested page<\/a>/);
+    assert.equal(await readFile(path.join(outputDirectory, "_redirects"), "utf8"), "/old-home / 301\n");
     const jsonLd = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
     assert.ok(jsonLd, "the page should publish the Backstage JSON-LD document");
     assert.equal(jsonLd.includes("<"), false);
