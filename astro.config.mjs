@@ -2,6 +2,7 @@ import { defineConfig } from "astro/config";
 import sitemap from "@astrojs/sitemap";
 import tailwindcss from "@tailwindcss/vite";
 import { loadEnv } from "vite";
+import { publishBackstageRedirects } from "./src/site/publish-redirects.ts";
 
 const env = loadEnv(process.env.NODE_ENV ?? "development", process.cwd(), "");
 const siteUrl = env.SITE_URL?.trim() || undefined;
@@ -19,7 +20,10 @@ export default defineConfig({
   site: siteUrl,
   output: "static",
   trailingSlash: "always",
-  integrations: indexable ? [sitemap({ filter: (url) => !["/404/", "/404.html"].includes(new URL(url).pathname) })] : [],
+  integrations: [
+    ...(indexable ? [sitemap({ filter: (url) => !["/404/", "/404.html"].includes(new URL(url).pathname) })] : []),
+    publishBackstageRedirects(env),
+  ],
   image: { remotePatterns: [{ protocol: "https", hostname: "cdn.bckstg.app", pathname: "/media/**" }] },
   vite: {
     define: {
